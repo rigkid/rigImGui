@@ -4,7 +4,7 @@
 ![preview](examples/host_shell/img/preview.png)
 
 
-**`rigImGui`** is the default RigKit UI pack. Hero: [examples/host_shell](examples/host_shell/).
+**`rigImGui`** is the default RigKit UI pack.
 
 ```bash
 cmake -S examples/host_shell -B examples/host_shell/build
