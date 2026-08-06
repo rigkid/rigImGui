@@ -1,0 +1,10 @@
+Roboto-Regular.ttf
+  Copyright Google Inc.
+  Licensed under the Apache License, Version 2.0
+  https://github.com/googlefonts/roboto-2
+
+fa-solid-900.ttf (Font Awesome Free 5.15.4)
+  Copyright Fonticons, Inc.
+  Fonts: SIL OFL 1.1
+  Icons: CC BY 4.0
+  https://fontawesome.com / https://github.com/FortAwesome/Font-Awesome

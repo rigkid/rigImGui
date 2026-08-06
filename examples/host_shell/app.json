@@ -1,0 +1,29 @@
+{
+  "name": "host_shell",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "rigImGui hero - Dark author shell with 3D bed + grid",
+  "window": { "width": 1100, "height": 700, "title": "rigImGui - host_shell" },
+  "dependencies": [
+    {
+      "name": "rigComponent",
+      "url": "https://github.com/rigkid/rigComponent.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigSystems",
+      "url": "https://github.com/rigkid/rigSystems.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigRender3D",
+      "url": "https://github.com/rigkid/rigRender3D.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigImGui",
+      "url": "https://github.com/rigkid/rigImGui.git",
+      "ref": "main"
+    }
+  ]
+}

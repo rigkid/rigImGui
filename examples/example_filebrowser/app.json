@@ -1,0 +1,14 @@
+{
+  "name": "example_filebrowser",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "rigImGui — Mui openFileDialog (imgui-filebrowser)",
+  "window": { "width": 900, "height": 580, "title": "rigImGui — example_filebrowser" },
+  "dependencies": [
+    {
+      "name": "rigImGui",
+      "url": "https://github.com/rigkid/rigImGui.git",
+      "ref": "main"
+    }
+  ]
+}

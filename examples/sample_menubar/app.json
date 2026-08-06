@@ -1,0 +1,14 @@
+{
+  "name": "sample_menubar",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "rigImGui — host menu bar + Log",
+  "window": { "width": 880, "height": 560, "title": "rigImGui — sample_menubar" },
+  "dependencies": [
+    {
+      "name": "rigImGui",
+      "url": "https://github.com/rigkid/rigImGui.git",
+      "ref": "main"
+    }
+  ]
+}
