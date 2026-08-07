@@ -16,6 +16,7 @@
 #include "SceneWindow.h"
 #include "ShortcutsPanel.h"
 #include "ThemePanel.h"
+#include "UiDpi.h"
 #include "ViewportWindow.h"
 #include "WindowManagerPanel.h"
 #include "core/RigKitEngine.h"
@@ -130,7 +131,6 @@ void Mui::initImGui() {
 	if (m_dpiScale < 0.5f) {
 		m_dpiScale = 1.f;
 	}
-	m_fileDialogs.setDpiScale(m_dpiScale);
 #if GLFW_VERSION_MAJOR >= 3 && GLFW_VERSION_MINOR >= 3
 	io.ConfigDpiScaleFonts = true;
 	io.ConfigDpiScaleViewports = true;
@@ -247,8 +247,7 @@ void Mui::renderNotifications() {
 	}
 
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	const float dpi = (m_dpiScale > 0.01f) ? m_dpiScale : 1.f;
-	const float pad = 28.f * dpi;
+	const float pad = uiPx(28.f);
 	float prefW = m_uiPrefs.notificationWidth;
 	if (prefW < 160.f) {
 		prefW = 160.f;
@@ -257,7 +256,7 @@ void Mui::renderNotifications() {
 		prefW = 600.f;
 	}
 	const float maxW =
-		std::min(prefW * dpi, std::max(1.f, viewport->WorkSize.x - 2.f * pad));
+		std::min(uiPx(prefW), std::max(1.f, viewport->WorkSize.x - 2.f * pad));
 	const float maxH = std::max(1.f, viewport->WorkSize.y - 2.f * pad);
 
 	const ImVec2 anchor(viewport->WorkPos.x + viewport->WorkSize.x - pad,
@@ -968,7 +967,11 @@ void Mui::saveFileDialog(const std::string &title, std::vector<std::string> filt
 
 void Mui::registerFileAction(const std::string &label, std::function<void()> action,
 							 const std::string &shortcut) {
-	m_fileActions.push_back(FileMenuAction{label, shortcut, std::move(action)});
+	m_fileActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
+}
+
+void Mui::registerFileSubmenu(const std::string &label, std::function<void()> drawContents) {
+	m_fileActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
 }
 
 void Mui::loadRecentFilesFromSettings() {

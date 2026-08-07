@@ -90,21 +90,21 @@ struct UiPrefs {
 		static_assert(sizeof(kThemeNames) / sizeof(kThemeNames[0]) == kImGuiThemeCount);
 		static_assert(sizeof(kRulerUnitNames) / sizeof(kRulerUnitNames[0]) == kRulerUnitCount);
 		return {
-			{0, "Theme", EPT_INT, &theme, kThemeNames, kImGuiThemeCount},
+			{0, "Theme", EPT_ENUM, &theme, kThemeNames, kImGuiThemeCount},
 			{1, "Theme File", EPT_STRING, &themeFile},
 			{2, "Font File", EPT_STRING, &fontFile},
 			{3, "Font Size", EPT_FLOAT, &fontSize},
 			{4, "Confirm Quit", EPT_BOOL, &confirmQuit},
 			{5, "Notification Seconds", EPT_FLOAT, &notificationSeconds},
 			{14, "Notification Width", EPT_FLOAT, &notificationWidth},
-			{6, "Ruler Unit", EPT_INT, &rulerUnit, kRulerUnitNames, kRulerUnitCount},
+			{6, "Ruler Unit", EPT_ENUM, &rulerUnit, kRulerUnitNames, kRulerUnitCount},
 			{7, "Ruler Thickness", EPT_FLOAT, &rulerThickness},
 			{8, "Ruler Minor Ticks", EPT_BOOL, &rulerMinorTicks},
 			{9, "Ruler Major Spacing (px)", EPT_FLOAT, &rulerMajorPx},
 			{10, "Progress In Status Bar", EPT_BOOL, &progressUseStatusBar},
 			{11, "Progress Auto-Hide Seconds", EPT_FLOAT, &progressAutoHideSeconds},
 			{12, "Show Status Bar", EPT_BOOL, &showStatusBar},
-			{13, "FPS Display", EPT_INT, &fpsDisplay, kFpsDisplayNames, 3},
+			{13, "FPS Display", EPT_ENUM, &fpsDisplay, kFpsDisplayNames, 3},
 		};
 	}
 };
@@ -240,6 +240,8 @@ class Mui : public IMui {
 
 	void registerFileAction(const std::string &label, std::function<void()> action,
 							const std::string &shortcut = {}) override;
+	void registerFileSubmenu(const std::string &label,
+							 std::function<void()> drawContents) override;
 	void noteRecentFile(const std::string &path) override;
 	void clearRecentFiles() override;
 	void setRecentFileOpenHandler(
@@ -312,6 +314,7 @@ class Mui : public IMui {
 		std::string label;
 		std::string shortcut;
 		std::function<void()> action;
+		bool submenu = false; ///< When true, @c action draws nested menu contents.
 	};
 
 	struct ToolMenuAction {

@@ -13,13 +13,14 @@
 
 namespace rigkit {
 
-/** ImGui/Display size of the open/save browser (same units as GLFW window size). */
-inline constexpr int kFileDialogDesignW = 640;
-inline constexpr int kFileDialogDesignH = 400;
-/** Quick-access sidebar width in the same units. */
-inline constexpr float kFileDialogQuickAccessDesignW = 140.f;
+/** Design (1x) size of the open/save browser — pass through uiPx at open.
+ * Room for the quick-access sidebar plus a usable file list. */
+inline constexpr int kFileDialogDesignW = 900;
+inline constexpr int kFileDialogDesignH = 520;
+/** Quick-access sidebar width in 1x design units. */
+inline constexpr float kFileDialogQuickAccessDesignW = 148.f;
 
-/** @brief App data / Home / Desktop / Documents / Downloads shortcuts (left sidebar).
+/** @brief App data / User data / Home / Desktop / Documents / Downloads shortcuts (left sidebar).
  * @details Width is not touched here — the sidebar splitter owns it, and this
  * runs on every open()/save() so resetting would undo the user's drag. */
 inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
@@ -36,6 +37,10 @@ inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
 	const std::string data = AppPaths::getDataDir();
 	if (!data.empty()) {
 		addIfDir("App data", fs::path(data));
+	}
+	const std::string userData = AppPaths::getUserDataDir();
+	if (!userData.empty()) {
+		addIfDir("User data", fs::path(userData));
 	}
 
 	const char* homeEnv =
@@ -78,20 +83,14 @@ inline void setFileBrowserFilters(ImGui::FileBrowser& browser,
 
 /**
  * @brief Open/save browsers for Mui — keeps ImGui::FileBrowser out of IMui.
- * @details Window size uses design constants × content scale (same story as
- * notification width), so HiDPI does not leave a tiny browser.
+ * @details Opening size uses uiPx (design × FontScaleDpi), clamped to the
+ * work area. Undersized imgui.ini crumbs are bumped up on open.
  */
 class FileDialogs {
   public:
 	using Callback = std::function<void(const std::string& path)>;
 
 	FileDialogs();
-
-	/**
-	 * @brief Apply GLFW/ImGui content scale to dialog layout.
-	 * @param scale Window content scale; values below 0.5 are treated as 1.
-	 */
-	void setDpiScale(float scale);
 
 	void open(const std::string& title, std::vector<std::string> filters, Callback onSelected);
 	void save(const std::string& title, std::vector<std::string> filters, Callback onSelected);
@@ -108,7 +107,6 @@ class FileDialogs {
 	ImGui::FileBrowser m_save;
 	Mode m_mode = Mode::None;
 	Callback m_callback;
-	float m_dpiScale = 1.f;
 };
 
 } // namespace rigkit

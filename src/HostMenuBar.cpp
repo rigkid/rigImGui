@@ -101,6 +101,15 @@ void HostMenuBar::renderFileMenu() {
 	if (m_ui) {
 		const auto &rows = m_ui->fileActions();
 		for (const auto &row : rows) {
+			if (row.submenu) {
+				if (ImGui::BeginMenu(row.label.c_str())) {
+					if (row.action) {
+						row.action();
+					}
+					ImGui::EndMenu();
+				}
+				continue;
+			}
 			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
 			if (ImGui::MenuItem(row.label.c_str(), chord)) {
 				if (row.action) {

@@ -7,6 +7,7 @@
 #include "FontPicker.h"
 #include "Mui.h"
 #include "PropEditors.h"
+#include "UiDpi.h"
 #include "core/RigKitEngine.h"
 #include "core/util/MSettings.h"
 
@@ -72,11 +73,12 @@ void PreferencesPanel::renderContents() {
 
 	// First open: room for sidebar + fields (no AlwaysAutoResize).
 	// Prefer a usable settings size (upgrades leftover AlwaysAutoResize crumbs).
-	ImGui::SetWindowSize(ImVec2(800, 560), ImGuiCond_FirstUseEver);
+	const ImVec2 want = uiSize(800.f, 560.f);
+	ImGui::SetWindowSize(want, ImGuiCond_FirstUseEver);
 	{
 		const ImVec2 cur = ImGui::GetWindowSize();
-		if (cur.x < 640.f || cur.y < 420.f) {
-			ImGui::SetWindowSize(ImVec2(800, 560));
+		if (cur.x < uiPx(640.f) || cur.y < uiPx(420.f)) {
+			ImGui::SetWindowSize(want);
 		}
 	}
 

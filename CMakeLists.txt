@@ -63,6 +63,7 @@ set(PACK_SOURCES
     src/ViewportWindow.h
     src/FileDialogs.cpp
     src/FileDialogs.h
+    src/UiDpi.h
     src/FontPicker.cpp
     src/FontPicker.h
     src/ExportPng.cpp

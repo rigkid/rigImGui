@@ -1,6 +1,6 @@
 #include "FileDialogs.h"
 
-#include <algorithm>
+#include "UiDpi.h"
 
 namespace rigkit {
 
@@ -8,24 +8,23 @@ FileDialogs::FileDialogs()
 	: m_open(ImGuiFileBrowserFlags_CloseOnEsc),
 	  m_save(ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir |
 			 ImGuiFileBrowserFlags_CloseOnEsc) {
-	applyLayout();
-	installFileBrowserQuickAccess(m_open);
-	installFileBrowserQuickAccess(m_save);
-}
-
-void FileDialogs::setDpiScale(float scale) {
-	m_dpiScale = (scale < 0.5f) ? 1.f : scale;
-	applyLayout();
-}
-
-void FileDialogs::applyLayout() {
-	// Sizes are ImGui units (GLFW DisplaySize), not design*dpi — Style/FontScaleDpi
-	// already handle density. Multiplying again made the dialog fill the window on HiDPI.
-	(void)m_dpiScale;
+	// 1x until open()/save() (ImGui context + FontScaleDpi ready).
 	m_open.SetWindowSize(kFileDialogDesignW, kFileDialogDesignH);
 	m_save.SetWindowSize(kFileDialogDesignW, kFileDialogDesignH);
 	m_open.SetQuickAccessWidth(kFileDialogQuickAccessDesignW);
 	m_save.SetQuickAccessWidth(kFileDialogQuickAccessDesignW);
+	installFileBrowserQuickAccess(m_open);
+	installFileBrowserQuickAccess(m_save);
+}
+
+void FileDialogs::applyLayout() {
+	int w = 0;
+	int h = 0;
+	uiWindowSize(kFileDialogDesignW, kFileDialogDesignH, w, h);
+	m_open.SetWindowSize(w, h);
+	m_save.SetWindowSize(w, h);
+	m_open.SetQuickAccessWidth(uiPx(kFileDialogQuickAccessDesignW));
+	m_save.SetQuickAccessWidth(uiPx(kFileDialogQuickAccessDesignW));
 }
 
 void FileDialogs::open(const std::string& title, std::vector<std::string> filters,

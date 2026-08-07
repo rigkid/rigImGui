@@ -260,8 +260,9 @@ Workspaces capture the dock layout of windows ImGui has seen; window visibility 
 
 Host chrome (dock layout, notifications, prefs-driven spacing) stays inside the main viewport work rect and scales with DPI.
 
-- Scale spacing by `m_dpiScale`; no raw pixel constants for layout — an auto-resized window is wider than its literal size at a 2.25 scale.
-- Keep chrome inside `GetMainViewport()->WorkPos` / `WorkSize`: `SetNextWindowPos` with a pivot plus `SetNextWindowSizeConstraints`, never a corrective `SetWindowPos` after `Begin`.
+- Prefer relative layout (`WorkSize` fractions, `GetContentRegionAvail`, `AlwaysAutoResize`) so you never multiply by scale.
+- When a design (1x) size is required, convert with `uiPx` / `uiSize` from `UiDpi.h` (reads `style.FontScaleDpi` after `Mui::applyDpiStyle`). Do not store a private `m_dpiScale` or push `setDpiScale` into child widgets.
+- Keep chrome inside `GetMainViewport()->WorkPos` / `WorkSize`: `SetNextWindowPos` with a pivot plus `SetNextWindowSizeConstraints`, never a corrective `SetWindowPos` after `Begin`. Absolute sizes that must stay on-screen can use `uiClampToWork` / `uiWindowSize`.
 - First-run layout comes from `setFirstRunHostDockLayout()`; `imgui.ini` owns it afterwards.
 - Chrome preferences live on `UiPrefs` (section `rigImGui.ui`) and must be read where they apply.
 - No emoji in UI text; IconFont glyphs are fine.
