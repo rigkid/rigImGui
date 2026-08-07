@@ -19,7 +19,7 @@ if(_stb_write_dir STREQUAL "")
 	message(FATAL_ERROR "rigImGui Export PNG needs third_party/glfw/deps/stb_image_write.h")
 endif()
 
-# rigImGui host shell — themes/fonts via ImGuiStyleKit (ofxImGuiStyle folded in)
+# rigImGui host shell — themes/fonts via ImGuiStyleKit
 set(PACK_SOURCES
     src/rigImGui.cpp
     src/rigImGui.h

@@ -8,7 +8,7 @@ struct ImGuiStyle;
 
 namespace rigkit {
 
-/// Built-in rigImGui themes (ofxImGuiStyle folded into this pack).
+/// Built-in rigImGui themes.
 enum class ImGuiTheme { Dark = 0, Light, Classic, Corporate, Dracula };
 
 inline constexpr int kImGuiThemeCount = 5;

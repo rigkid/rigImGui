@@ -52,7 +52,7 @@ The main UI system that orchestrates everything:
 - Window manager coordination
 
 ### `ImGuiStyleKit` - Themes and fonts
-- ofxImGuiStyle folded here (not a separate pack): metrics, borders, rounding, and full palettes
+- Metrics, borders, rounding, and full palettes
 - Built-in themes: Dark (default charcoal/teal), Light, Classic, Corporate, Dracula
 - **Custom theme JSON** — Theme panel Save/Load under `<exeDir>/data/user/themes/` (colors + metrics)
 - **Theme panel** — quick built-in switch + a few live colors/metrics (not a full style tree)
