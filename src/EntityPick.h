@@ -6,7 +6,7 @@
 namespace rigkit {
 
 /**
- * @brief Pick nearest selectable CTransform+CShape under a content-space point.
+ * @brief Pick nearest selectable geometry entity under a content-space point.
  * @details Honors `CSelectable::enabled` when present; absence = legacy selectable.
  * @return entity or entt::null.
  */

@@ -1,17 +1,17 @@
 #include "Handle2D.h"
 
 #include "CSelection.h"
-#include "CShape.h"
 #include "CTransform.h"
+#include "PrimitiveBounds.h"
 #include <imgui.h>
 
 namespace rigkit {
 namespace {
 
 entt::entity firstSelected(MEcs& ecs) {
-	for (auto e : ecs.view<ecs::CSelection, ecs::CTransform, ecs::CShape>()) {
+	for (auto e : ecs.view<ecs::CSelection, ecs::CTransform>()) {
 		const auto& sel = ecs.getComponent<ecs::CSelection>(e);
-		if (sel.isSelected || sel.isMultiSelected) {
+		if ((sel.isSelected || sel.isMultiSelected) && ecs::hasShape2D(ecs, e)) {
 			return e;
 		}
 	}
@@ -30,11 +30,11 @@ bool drawSelectedHandle2D(MEcs& ecs, float originX, float originY, float scale) 
 	}
 
 	auto& xf = ecs.getComponent<ecs::CTransform>(e);
-	auto& shape = ecs.getComponent<ecs::CShape>(e);
-	const float x = originX + (xf.position.x + shape.x1) * scale;
-	const float y = originY + (xf.position.y + shape.y1) * scale;
-	const float w = shape.getWidth() * scale;
-	const float h = shape.getHeight() * scale;
+	const ecs::Bounds2D local = ecs::shapeBounds2D(ecs, e);
+	const float x = originX + (xf.position.x + local.min.x) * scale;
+	const float y = originY + (xf.position.y + local.min.y) * scale;
+	const float w = local.width() * scale;
+	const float h = local.height() * scale;
 
 	ImDrawList* dl = ImGui::GetForegroundDrawList();
 	dl->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(80, 180, 255, 220), 0.f, 0, 1.5f);

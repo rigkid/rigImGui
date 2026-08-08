@@ -2,8 +2,8 @@
 
 #include "CSelectable.h"
 #include "CSelection.h"
-#include "CShape.h"
 #include "CTransform.h"
+#include "PrimitiveBounds.h"
 #include <algorithm>
 #include <cmath>
 
@@ -23,16 +23,19 @@ entt::entity pickEntityAt(MEcs& ecs, float contentX, float contentY, float maxDi
 	entt::entity best = entt::null;
 	float bestDist = maxDist;
 
-	for (auto e : ecs.view<ecs::CTransform, ecs::CShape>()) {
+	for (auto e : ecs.view<ecs::CTransform>()) {
 		if (!isSelectable(ecs, e)) {
 			continue;
 		}
+		const ecs::Bounds2D local = ecs::shapeBounds2D(ecs, e);
+		if (!local.valid) {
+			continue;
+		}
 		const auto& xf = ecs.getComponent<ecs::CTransform>(e);
-		const auto& shape = ecs.getComponent<ecs::CShape>(e);
-		const float x1 = xf.position.x + shape.x1;
-		const float y1 = xf.position.y + shape.y1;
-		const float x2 = xf.position.x + shape.x2;
-		const float y2 = xf.position.y + shape.y2;
+		const float x1 = xf.position.x + local.min.x;
+		const float y1 = xf.position.y + local.min.y;
+		const float x2 = xf.position.x + local.max.x;
+		const float y2 = xf.position.y + local.max.y;
 		const float cx = (std::max)(x1, (std::min)(contentX, x2));
 		const float cy = (std::max)(y1, (std::min)(contentY, y2));
 		const float dx = contentX - cx;
