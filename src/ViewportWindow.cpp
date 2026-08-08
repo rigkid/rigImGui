@@ -2,6 +2,7 @@
 
 #include "Mui.h"
 #include "Rulers.h"
+#include "UiDpi.h"
 #include "core/RigKitEngine.h"
 #include "core/util/MSettings.h"
 #include <imgui.h>
@@ -36,7 +37,7 @@ void ViewportWindow::renderContents() {
 
 	const ImVec2 avail = ImGui::GetContentRegionAvail();
 	const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
-	ImGui::InvisibleButton("##viewport_canvas", avail);
+	ImGui::InvisibleButton("##viewport_canvas", uiHitSize(avail));
 	const bool hovered = ImGui::IsItemHovered();
 	m_view.hovered = hovered;
 	m_view.canvasOrigin = {canvasPos.x, canvasPos.y};

@@ -1137,10 +1137,10 @@ void Mui::renderMainViewOverlays() {
 		}
 		ImGui::Begin("##RulerHitHost", nullptr, hitFlags);
 		ImGui::SetCursorScreenPos(origin);
-		ImGui::InvisibleButton("##ruler_top", ImVec2(size.x, thick));
+		ImGui::InvisibleButton("##ruler_top", uiHitSize(ImVec2(size.x, thick)));
 		const bool topClick = ImGui::IsItemClicked(ImGuiMouseButton_Right);
 		ImGui::SetCursorScreenPos(origin);
-		ImGui::InvisibleButton("##ruler_left", ImVec2(thick, size.y));
+		ImGui::InvisibleButton("##ruler_left", uiHitSize(ImVec2(thick, size.y)));
 		const bool leftClick = ImGui::IsItemClicked(ImGuiMouseButton_Right);
 		if (topClick || leftClick) {
 			ImGui::OpenPopup("##RulerUnits");

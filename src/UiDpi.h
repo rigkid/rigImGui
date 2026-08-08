@@ -52,6 +52,19 @@ inline ImVec2 uiClampToWork(ImVec2 size, float padDesign = 40.f) {
 	return size;
 }
 
+/**
+ * @brief Size for an InvisibleButton hit box, never zero on either axis.
+ * @details A docked panel measures zero while a layout settles — restoring a
+ * layout saved on a wider screen is enough to do it — and InvisibleButton
+ * asserts on a zero dimension. One pixel keeps the hit box alive until the
+ * panel has room again.
+ */
+inline ImVec2 uiHitSize(ImVec2 size) {
+	size.x = std::max(1.f, size.x);
+	size.y = std::max(1.f, size.y);
+	return size;
+}
+
 /** @brief Design size → int window size, clamped to the work area. */
 inline void uiWindowSize(int designW, int designH, int& outW, int& outH,
 						 float padDesign = 40.f) {

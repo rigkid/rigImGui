@@ -6,6 +6,7 @@
 #include "CTransform.h"
 #include "PropEditors.h"
 #include "SceneDragPayload.h"
+#include "UiDpi.h"
 #include "core/IMui.h"
 #include "core/RigKitEngine.h"
 #include "core/util/MSettings.h"
@@ -196,7 +197,7 @@ void PropertiesWindow::renderEntityList() {
 
 void PropertiesWindow::renderEntityListGrip() {
 	ImGui::InvisibleButton("EntityListGrip",
-						   ImVec2(ImGui::GetContentRegionAvail().x, kEntityListGrip));
+						   uiHitSize(ImVec2(ImGui::GetContentRegionAvail().x, kEntityListGrip)));
 	const bool active = ImGui::IsItemActive();
 	const bool hovered = ImGui::IsItemHovered();
 	if (active) {
@@ -281,7 +282,7 @@ void PropertiesWindow::saveCodeEditHeight() {
 
 void PropertiesWindow::renderCodeEditHeightGrip() {
 	ImGui::InvisibleButton("CodeEditHeightGrip",
-						   ImVec2(ImGui::GetContentRegionAvail().x, kCodeEditGrip));
+						   uiHitSize(ImVec2(ImGui::GetContentRegionAvail().x, kCodeEditGrip)));
 	const bool active = ImGui::IsItemActive();
 	const bool hovered = ImGui::IsItemHovered();
 	if (active) {
