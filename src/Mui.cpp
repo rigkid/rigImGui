@@ -540,10 +540,10 @@ bool Mui::saveCurrentTheme(const std::string& path, bool notify) {
 			}
 		}
 		if (notify) {
-			showNotification("Theme saved: " + m_uiPrefs.themeFile, NotificationType::Success);
+			showNotification("Style saved: " + m_uiPrefs.themeFile, NotificationType::Success);
 		}
 	} else if (notify) {
-		showNotification("Failed to save theme", NotificationType::Error);
+		showNotification("Failed to save style", NotificationType::Error);
 	}
 	return ok;
 }
@@ -552,7 +552,7 @@ bool Mui::loadTheme(const std::string& path, bool notify) {
 	const std::string resolved = resolveThemePath(path.empty() ? m_uiPrefs.themeFile : path);
 	if (resolved.empty()) {
 		if (notify) {
-			showNotification("No theme file specified", NotificationType::Warning);
+			showNotification("No style file specified", NotificationType::Warning);
 		}
 		return false;
 	}
@@ -560,7 +560,7 @@ bool Mui::loadTheme(const std::string& path, bool notify) {
 	ImGuiStyle& style = ImGui::GetStyle();
 	if (!ImGuiStyleKit::loadStyleFromFile(resolved, style, &baseTheme)) {
 		if (notify) {
-			showNotification("Failed to load theme", NotificationType::Error);
+			showNotification("Failed to load style", NotificationType::Error);
 		}
 		return false;
 	}
@@ -584,7 +584,7 @@ bool Mui::loadTheme(const std::string& path, bool notify) {
 		}
 	}
 	if (notify) {
-		showNotification("Theme loaded: " + m_uiPrefs.themeFile, NotificationType::Success);
+		showNotification("Style loaded: " + m_uiPrefs.themeFile, NotificationType::Success);
 	}
 	return true;
 }
@@ -1232,12 +1232,8 @@ std::string Mui::fpsStatusText() const {
 }
 
 void Mui::syncFpsChromeFromPrefs() {
-	const bool fpsOnStatusBar = statusBarVisible() && fpsDisplayMode() == 0;
-	if (fpsOnStatusBar) {
-		m_statusBar.setSlot({"fps", [this]() -> std::string { return fpsStatusText(); }, 80.f});
-	} else {
-		m_statusBar.removeSlot("fps");
-	}
+	// Status-bar FPS is drawn left-aligned in renderStatusBar (menu indent).
+	m_statusBar.removeSlot("fps");
 }
 
 void Mui::drawProgressInStatusBar(bool sameLine) {
@@ -1326,12 +1322,32 @@ void Mui::renderStatusBar() {
 		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |
 		ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing;
 
+	// Match main-menu File label indent (MenuBarOffset ~ ItemSpacing + FramePadding).
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const float padX = style.ItemSpacing.x + style.FramePadding.x;
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.f, 2.f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(padX, 2.f));
 	if (ImGui::Begin("##rigImGuiStatusBar", nullptr, flags)) {
+		// Same stroke as BeginMainMenuBar bottom edge (ImGuiCol_Border / FrameBorderSize).
+		{
+			const ImVec2 p = ImGui::GetWindowPos();
+			const float borderSz =
+				(style.FrameBorderSize > 0.f) ? style.FrameBorderSize : 1.f;
+			ImGui::GetWindowDrawList()->AddLine(
+				ImVec2(p.x, p.y), ImVec2(p.x + ImGui::GetWindowWidth(), p.y),
+				ImGui::GetColorU32(ImGuiCol_Border), borderSz);
+		}
+
 		bool leftDrawn = false;
+		if (fpsDisplayMode() == 0) {
+			ImGui::TextUnformatted(fpsStatusText().c_str());
+			leftDrawn = true;
+		}
 		if (m_editMode) {
+			if (leftDrawn) {
+				ImGui::SameLine(0, 12.f);
+			}
 			ImGui::TextUnformatted(kEditModeStatus);
 			leftDrawn = true;
 		}
@@ -1350,7 +1366,7 @@ void Mui::renderStatusBar() {
 		}
 		if (right > 0.f) {
 			ImGui::SameLine();
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - right - 8.f);
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - right - padX);
 		}
 		for (size_t i = 0; i < m_statusBar.slots().size(); ++i) {
 			const auto &slot = m_statusBar.slots()[i];

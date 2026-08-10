@@ -27,12 +27,13 @@ namespace ImGuiStyleKit {
 void applyTheme(ImGuiTheme theme);
 void applyStyleExtras(ImGuiTheme theme);
 
-/// Serialize current ImGui style (colors + metrics) to JSON.
+/// Serialize current ImGui style (full ShowStyleEditor surface) to JSON.
+/// Portable stand-in for ofxImGuiStyle SaveStyle (.bin) — same save/load workflow.
 json styleToJson(const ImGuiStyle& style, int baseTheme = 0);
 /// Apply JSON onto a style object (missing keys leave values unchanged).
 bool jsonToStyle(const json& j, ImGuiStyle& style, int* outBaseTheme = nullptr);
 
-/// Write / read theme JSON files (creates parent dirs on save).
+/// Write / read style JSON files (creates parent dirs on save).
 bool saveStyleToFile(const std::string& path, const ImGuiStyle& style, int baseTheme = 0);
 bool loadStyleFromFile(const std::string& path, ImGuiStyle& style, int* outBaseTheme = nullptr);
 

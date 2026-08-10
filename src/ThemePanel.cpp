@@ -31,7 +31,7 @@ void ThemePanel::renderContents() {
 	ImGui::Separator();
 	renderFontControls();
 	ImGui::Separator();
-	renderColorPresets();
+	renderStyleEditor();
 	ImGui::Separator();
 	renderRandomThemeButton();
 }
@@ -94,8 +94,9 @@ void ThemePanel::renderThemeFileControls() {
 		return;
 	}
 
-	ImGui::TextUnformatted("Custom theme file");
-	ImGui::TextWrapped("Saved under %s (relative names preferred).",
+	ImGui::TextUnformatted("Style snapshot");
+	ImGui::TextWrapped("Saved under %s (relative names preferred). "
+					   "Same idea as ofxImGuiStyle SaveStyle / LoadStyle — portable JSON.",
 					   AppPaths::getThemesDir().c_str());
 
 	char nameBuf[256];
@@ -105,15 +106,15 @@ void ThemePanel::renderThemeFileControls() {
 	} else {
 		std::snprintf(nameBuf, sizeof(nameBuf), "%s", themeFile.c_str());
 	}
-	if (ImGui::InputText("Theme file", nameBuf, sizeof(nameBuf))) {
+	if (ImGui::InputText("Style file", nameBuf, sizeof(nameBuf))) {
 		themeFile = nameBuf;
 	}
 
-	if (ImGui::Button(TP_ICON(ICON_FA_SAVE) " Save Theme")) {
+	if (ImGui::Button(TP_ICON(ICON_FA_SAVE) " Save Style")) {
 		ui->saveCurrentTheme(themeFile.empty() ? "custom.json" : themeFile);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button(TP_ICON(ICON_FA_FOLDER_OPEN) " Load Theme")) {
+	if (ImGui::Button(TP_ICON(ICON_FA_FOLDER_OPEN) " Load Style")) {
 		ui->loadTheme(themeFile.empty() ? "custom.json" : themeFile);
 	}
 	ImGui::SameLine();
@@ -149,42 +150,9 @@ void ThemePanel::renderFontControls() {
 	}
 }
 
-void ThemePanel::renderColorPresets() {
-	ImGui::TextUnformatted("Live style (edits current session — Save Theme to keep)");
-	ImGuiStyle& style = ImGui::GetStyle();
-	ImVec4* colors = style.Colors;
-
-	if (ImGui::CollapsingHeader("Text Colors")) {
-		ImGui::ColorEdit4("Text", (float*)&colors[ImGuiCol_Text]);
-		ImGui::ColorEdit4("Text Disabled", (float*)&colors[ImGuiCol_TextDisabled]);
-	}
-
-	if (ImGui::CollapsingHeader("Background Colors")) {
-		ImGui::ColorEdit4("Window Background", (float*)&colors[ImGuiCol_WindowBg]);
-		ImGui::ColorEdit4("Child Background", (float*)&colors[ImGuiCol_ChildBg]);
-		ImGui::ColorEdit4("Popup Background", (float*)&colors[ImGuiCol_PopupBg]);
-	}
-
-	if (ImGui::CollapsingHeader("Button Colors")) {
-		ImGui::ColorEdit4("Button", (float*)&colors[ImGuiCol_Button]);
-		ImGui::ColorEdit4("Button Hovered", (float*)&colors[ImGuiCol_ButtonHovered]);
-		ImGui::ColorEdit4("Button Active", (float*)&colors[ImGuiCol_ButtonActive]);
-	}
-
-	if (ImGui::CollapsingHeader("Frame Colors")) {
-		ImGui::ColorEdit4("Frame Background", (float*)&colors[ImGuiCol_FrameBg]);
-		ImGui::ColorEdit4("Frame Hovered", (float*)&colors[ImGuiCol_FrameBgHovered]);
-		ImGui::ColorEdit4("Frame Active", (float*)&colors[ImGuiCol_FrameBgActive]);
-	}
-
-	if (ImGui::CollapsingHeader("Metrics")) {
-		ImGui::SliderFloat("Window Rounding", &style.WindowRounding, 0.0f, 12.0f);
-		ImGui::SliderFloat("Frame Rounding", &style.FrameRounding, 0.0f, 12.0f);
-		ImGui::SliderFloat("Grab Rounding", &style.GrabRounding, 0.0f, 12.0f);
-		ImGui::SliderFloat2("Window Padding", (float*)&style.WindowPadding, 0.0f, 24.0f);
-		ImGui::SliderFloat2("Frame Padding", (float*)&style.FramePadding, 0.0f, 20.0f);
-		ImGui::SliderFloat2("Item Spacing", (float*)&style.ItemSpacing, 0.0f, 20.0f);
-	}
+void ThemePanel::renderStyleEditor() {
+	ImGui::TextUnformatted("Live style (Save Style to keep)");
+	ImGui::ShowStyleEditor();
 }
 
 void ThemePanel::renderRandomThemeButton() {

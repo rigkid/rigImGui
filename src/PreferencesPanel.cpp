@@ -1,6 +1,8 @@
 #include "PreferencesPanel.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <string>
 #include <vector>
 
 #include <imgui.h>
@@ -9,6 +11,7 @@
 #include "PropEditors.h"
 #include "UiDpi.h"
 #include "core/RigKitEngine.h"
+#include "core/util/AppPaths.h"
 #include "core/util/MSettings.h"
 
 namespace rigkit {
@@ -140,6 +143,36 @@ void PreferencesPanel::renderContents() {
 						changed = true;
 					}
 					if (ImGui::CollapsingHeader("ImGui Style")) {
+						// ofxImGuiStyle parity: tweak live style, then snapshot to themes dir.
+						ImGui::TextWrapped(
+							"Edit the live Dear ImGui style, then Save Style to keep it "
+							"(JSON under %s).",
+							AppPaths::getThemesDir().c_str());
+						std::string& themeFile = mui->uiPrefs().themeFile;
+						char nameBuf[256];
+						if (themeFile.empty()) {
+							std::snprintf(nameBuf, sizeof(nameBuf), "custom.json");
+						} else {
+							std::snprintf(nameBuf, sizeof(nameBuf), "%s", themeFile.c_str());
+						}
+						if (ImGui::InputText("Style file", nameBuf, sizeof(nameBuf))) {
+							themeFile = nameBuf;
+							settings->markDirty();
+						}
+						if (ImGui::Button("Save Style")) {
+							mui->saveCurrentTheme(themeFile.empty() ? "custom.json" : themeFile);
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Load Style")) {
+							mui->loadTheme(themeFile.empty() ? "custom.json" : themeFile);
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Clear File")) {
+							themeFile.clear();
+							mui->setImGuiTheme(mui->getImGuiTheme());
+							settings->markDirty();
+						}
+						ImGui::Separator();
 						ImGui::ShowStyleEditor();
 					}
 					if (changed) {
