@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector> // UiPrefs::GetProperties
 #include "FileDialogs.h"
 #include "HostMenuBar.h"
@@ -20,6 +21,9 @@
 
 struct GLFWwindow;
 struct ImFontAtlas;
+struct ImGuiContext;
+struct ImGuiSettingsHandler;
+struct ImGuiTextBuffer;
 
 namespace rigkit {
 class RigKitEngine;
@@ -150,25 +154,31 @@ class Mui : public IMui {
 	bool reloadFonts();
 
 	/**
-	 * @brief Save the current dock layout as a named workspace.
-	 * @details Workspaces are layout snapshots stored as `<name>.ini` under
-	 * AppPaths::getWorkspacesDir(). The live session keeps autosaving to
-	 * `imgui.ini`; switching workspaces replaces the session layout. The active
-	 * name persists in user settings across runs.
+	 * @brief Save the current dock layout and window visibility as a named workspace.
+	 * @details Workspaces are snapshots stored as `<name>.ini` under
+	 * AppPaths::getWorkspacesDir() (ImGui dock tree plus `[RigVisibility]`).
+	 * The live session keeps autosaving to `imgui.ini`. Active name persists in
+	 * user settings; startup reloads that named workspace (or `Standard`).
+	 * @param notify When true, show a success/error notification.
 	 * @return False when the name is invalid or the file could not be written.
 	 */
-	bool saveWorkspace(const std::string& name);
+	bool saveWorkspace(const std::string& name, bool notify = true);
 	/**
 	 * @brief Apply a saved workspace at the next frame boundary.
+	 * @details Restores dock layout and, when the file has `[RigVisibility]`,
+	 * hides every registered window then shows only those marked visible.
+	 * @param notify When true, warn if the workspace file is missing.
 	 * @return False when the name is invalid or no such workspace exists.
 	 */
-	bool loadWorkspace(const std::string& name);
-	/// Remove a saved workspace. Clears the active name when it matches.
+	bool loadWorkspace(const std::string& name, bool notify = true);
+	/// Remove a saved workspace. `Standard` and session `imgui` cannot be deleted.
 	bool deleteWorkspace(const std::string& name);
 	/// Active workspace name; empty when the session layout is unnamed.
 	const std::string& currentWorkspace() const { return m_currentWorkspace; }
 	/// Saved workspace names, sorted (session `imgui.ini` excluded).
 	std::vector<std::string> workspaceNames() const;
+	/// Built-in default workspace name (seeded once from the first settled layout).
+	static constexpr const char* kStandardWorkspace = "Standard";
 
 	/**
 	 * @brief Create (if needed) and show one built-in host panel.
@@ -179,8 +189,10 @@ class Mui : public IMui {
 	/** @brief Create and show several host panels. */
 	void addHostPanels(std::initializer_list<HostPanel> panels);
 	/**
-	 * @brief Create every host panel at sketch defaults and install first-run
-	 * dock layout when no builder is set.
+	 * @brief Create every host panel at sketch defaults.
+	 * @details Installs first-run dock layout only when no builder is set and
+	 * `Standard.ini` is missing (seed path). Prefer loading `Standard` / last
+	 * used workspace on startup once that file exists.
 	 */
 	void addAllHostPanels();
 
@@ -218,7 +230,8 @@ class Mui : public IMui {
 	}
 
 	/**
-	 * @brief First-run host dock layout; no-ops when imgui.ini already restored a split.
+	 * @brief One-shot host dock layout used to seed `Standard.ini` when missing.
+	 * @details No-ops when a dock split already exists (restored ini / prior seed).
 	 * @param extraRightWindows Optional titles docked with Properties on the right
 	 * (e.g. app "Show Control"). Call after those windows exist.
 	 */
@@ -242,6 +255,10 @@ class Mui : public IMui {
 							const std::string &shortcut = {}) override;
 	void registerFileSubmenu(const std::string &label,
 							 std::function<void()> drawContents) override;
+	void registerAppAction(const std::string &label, std::function<void()> action,
+						   const std::string &shortcut = {}) override;
+	void registerAppSubmenu(const std::string &label,
+							std::function<void()> drawContents) override;
 	void noteRecentFile(const std::string &path) override;
 	void clearRecentFiles() override;
 	void setRecentFileOpenHandler(
@@ -261,7 +278,7 @@ class Mui : public IMui {
 	/**
 	 * @brief Extra Preferences sections (ImGui draw; not MSettings persistence).
 	 * @details Use for project-scoped UI (e.g. plot Document/Canvas) that should
-	 * appear under File → Preferences without writing rigkit_settings.json.
+	 * appear under App → Preferences without writing rigkit_settings.json.
 	 */
 	void registerPreferencesDrawer(const std::string &id, const std::string &label,
 								   std::function<void()> draw);
@@ -326,6 +343,7 @@ class Mui : public IMui {
 	};
 
 	const std::vector<FileMenuAction> &fileActions() const { return m_fileActions; }
+	const std::vector<FileMenuAction> &appActions() const { return m_appActions; }
 	const std::vector<ToolMenuAction> &toolActions() const { return m_toolActions; }
 	const std::vector<std::string> &recentFiles() const { return m_recentFiles; }
 	const std::function<void(const std::string &)> &recentFileOpenHandler() const {
@@ -361,6 +379,22 @@ class Mui : public IMui {
 	void loadRecentFilesFromSettings();
 	void persistRecentFiles();
 	void persistCurrentWorkspace();
+	void registerVisibilitySettingsHandler();
+	void queueStartupWorkspace();
+	void applyPendingWindowVisibility();
+	void maybeSeedStandardWorkspace();
+	static bool workspaceFileExists(const std::string& name);
+
+	static void RigVisibility_ClearAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler);
+	static void RigVisibility_ReadInit(ImGuiContext* ctx, ImGuiSettingsHandler* handler);
+	static void* RigVisibility_ReadOpen(ImGuiContext* ctx, ImGuiSettingsHandler* handler,
+										const char* name);
+	static void RigVisibility_ReadLine(ImGuiContext* ctx, ImGuiSettingsHandler* handler,
+									   void* entry, const char* line);
+	static void RigVisibility_ApplyAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler);
+	static void RigVisibility_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler,
+									   ImGuiTextBuffer* out_buf);
+
 	static const char* hostPanelTitle(HostPanel panel);
 	std::shared_ptr<IWindow> ensureHostPanel(HostPanel panel);
 	bool statusBarVisible() const { return m_uiPrefs.showStatusBar; }
@@ -377,6 +411,12 @@ class Mui : public IMui {
 	std::string m_currentWorkspace;	   ///< Active workspace name; empty = unnamed
 	std::string m_pendingWorkspaceLoad; ///< Ini path applied before next NewFrame
 	std::string m_iniPath; ///< Stable storage for io.IniFilename pointer
+	std::unordered_map<std::string, bool> m_pendingVisibility; ///< From [RigVisibility]
+	bool m_rigVisibilitySectionSeen = false; ///< Set while parsing a RigVisibility block
+	bool m_applyPendingVisibility = false;	 ///< Apply hide-all / show-listed after LoadIni
+	bool m_startupWorkspaceQueued = false;	 ///< First-frame named workspace load
+	bool m_standardSeedAttempted = false;	 ///< One-shot Standard.ini creation
+
 	std::deque<Notification> m_notifications;
 	std::deque<Modal> m_modals;
 	bool m_aboutOpen = false;
@@ -396,6 +436,7 @@ class Mui : public IMui {
 	GizmoOp m_gizmoOp = GizmoOp::Select;
 	std::function<void(float, float, float, float, GizmoOp)> m_gizmoDrawer;
 	std::vector<FileMenuAction> m_fileActions;
+	std::vector<FileMenuAction> m_appActions;
 	std::vector<ToolMenuAction> m_toolActions;
 	std::vector<std::pair<std::string, std::function<void()>>> m_exportActions;
 	std::vector<PreferencesDrawer> m_preferencesDrawers;

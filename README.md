@@ -238,23 +238,25 @@ uiManager->loadTheme("themes/my_theme.json");
 
 ## Workspaces
 
-Named dock layouts, Photoshop-style: snapshot the current layout under a name, switch between snapshots from **View → Workspace**. Each workspace is a `<name>.ini` under `AppPaths::getWorkspacesDir()` (`data/user/workspaces/`); the live session keeps autosaving to `imgui.ini` there, so switching never loses your current arrangement.
+Named dock layouts, Photoshop-style: snapshot the current layout **and window visibility** under a name, switch between snapshots from **App → Workspace**. Each workspace is a `<name>.ini` under `AppPaths::getWorkspacesDir()` (`data/user/workspaces/`) — ImGui dock data plus a `[RigVisibility][Windows]` section. The live session keeps autosaving to `imgui.ini` there.
+
+On startup, rigImGui loads the last used named workspace (settings key `workspace`) when that file exists; otherwise it loads **`Standard`**. If `Standard.ini` is missing, a one-shot dock builder (host `setFirstRunHostDockLayout` and/or the app’s `setDockLayoutBuilder`) seeds it from the first settled split, then that file becomes the durable default — not a hardcoded layout forever.
 
 ```cpp
-// Snapshot the current dock layout
+// Snapshot the current dock layout + which IWindows are visible
 uiManager->saveWorkspace("plotting");
 
 // Apply a saved layout (deferred to the next frame boundary)
 uiManager->loadWorkspace("editing");
 
-// Enumerate / remove
+// Enumerate / remove (Standard cannot be deleted via the API/menu)
 auto names = uiManager->workspaceNames();
 uiManager->deleteWorkspace("old_layout");
 ```
 
-Menu: **View → Workspace** lists saved workspaces (checkmark on the active one), **Save Workspace As...** prompts for a name, **Delete Workspace** confirms before removing. The active name persists in user settings (top-level `workspace` key) across runs.
+Menu: **App → Workspace** lists saved workspaces (checkmark on the active one), **Save Workspace As...** prompts for a name, **Delete Workspace** confirms before removing (Standard is omitted). Loading a workspace that includes `[RigVisibility]` hides every registered window, then shows only those marked visible — panels not in the snapshot stay hidden.
 
-Workspaces capture the dock layout of windows ImGui has seen; window visibility flags stay with the window manager.
+Legacy `.ini` files without `[RigVisibility]` still restore docks; visibility is left unchanged until the next save writes the section.
 
 ## Chrome rules
 
@@ -263,7 +265,7 @@ Host chrome (dock layout, notifications, prefs-driven spacing) stays inside the 
 - Prefer relative layout (`WorkSize` fractions, `GetContentRegionAvail`, `AlwaysAutoResize`) so you never multiply by scale.
 - When a design (1x) size is required, convert with `uiPx` / `uiSize` from `UiDpi.h` (reads `style.FontScaleDpi` after `Mui::applyDpiStyle`). Do not store a private `m_dpiScale` or push `setDpiScale` into child widgets.
 - Keep chrome inside `GetMainViewport()->WorkPos` / `WorkSize`: `SetNextWindowPos` with a pivot plus `SetNextWindowSizeConstraints`, never a corrective `SetWindowPos` after `Begin`. Absolute sizes that must stay on-screen can use `uiClampToWork` / `uiWindowSize`.
-- First-run layout comes from `setFirstRunHostDockLayout()`; `imgui.ini` owns it afterwards.
+- Default layout is the `Standard` workspace (`Standard.ini`), seeded once from a dock builder when missing; startup loads last used or `Standard`.
 - Chrome preferences live on `UiPrefs` (section `rigImGui.ui`) and must be read where they apply.
 - No emoji in UI text; IconFont glyphs are fine.
 

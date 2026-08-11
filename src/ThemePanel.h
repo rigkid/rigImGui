@@ -17,7 +17,7 @@ class ThemePanel : public IWindow {
 	void renderThemeControls();
 	void renderThemeFileControls();
 	void renderFontControls();
-	void renderColorPresets();
+	void renderStyleEditor();
 	void renderRandomThemeButton();
 };
 

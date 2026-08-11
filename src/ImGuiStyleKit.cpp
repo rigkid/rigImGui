@@ -381,29 +381,66 @@ json styleToJson(const ImGuiStyle& style, int baseTheme) {
 	}
 	j["colors"] = std::move(colors);
 
+	// Full ShowStyleEditor surface (portable JSON; not ofx raw .bin).
 	json s;
 	s["Alpha"] = style.Alpha;
 	s["DisabledAlpha"] = style.DisabledAlpha;
-	s["WindowRounding"] = style.WindowRounding;
-	s["ChildRounding"] = style.ChildRounding;
-	s["FrameRounding"] = style.FrameRounding;
-	s["PopupRounding"] = style.PopupRounding;
-	s["ScrollbarRounding"] = style.ScrollbarRounding;
-	s["GrabRounding"] = style.GrabRounding;
-	s["TabRounding"] = style.TabRounding;
-	s["WindowBorderSize"] = style.WindowBorderSize;
-	s["ChildBorderSize"] = style.ChildBorderSize;
-	s["PopupBorderSize"] = style.PopupBorderSize;
-	s["FrameBorderSize"] = style.FrameBorderSize;
-	s["TabBorderSize"] = style.TabBorderSize;
 	s["WindowPadding"] = {style.WindowPadding.x, style.WindowPadding.y};
+	s["WindowRounding"] = style.WindowRounding;
+	s["WindowBorderSize"] = style.WindowBorderSize;
+	s["WindowBorderHoverPadding"] = style.WindowBorderHoverPadding;
+	s["WindowMinSize"] = {style.WindowMinSize.x, style.WindowMinSize.y};
+	s["WindowTitleAlign"] = {style.WindowTitleAlign.x, style.WindowTitleAlign.y};
+	s["WindowMenuButtonPosition"] = static_cast<int>(style.WindowMenuButtonPosition);
+	s["ChildRounding"] = style.ChildRounding;
+	s["ChildBorderSize"] = style.ChildBorderSize;
+	s["PopupRounding"] = style.PopupRounding;
+	s["PopupBorderSize"] = style.PopupBorderSize;
 	s["FramePadding"] = {style.FramePadding.x, style.FramePadding.y};
-	s["CellPadding"] = {style.CellPadding.x, style.CellPadding.y};
+	s["FrameRounding"] = style.FrameRounding;
+	s["FrameBorderSize"] = style.FrameBorderSize;
 	s["ItemSpacing"] = {style.ItemSpacing.x, style.ItemSpacing.y};
 	s["ItemInnerSpacing"] = {style.ItemInnerSpacing.x, style.ItemInnerSpacing.y};
+	s["CellPadding"] = {style.CellPadding.x, style.CellPadding.y};
+	s["TouchExtraPadding"] = {style.TouchExtraPadding.x, style.TouchExtraPadding.y};
 	s["IndentSpacing"] = style.IndentSpacing;
+	s["ColumnsMinSpacing"] = style.ColumnsMinSpacing;
 	s["ScrollbarSize"] = style.ScrollbarSize;
+	s["ScrollbarRounding"] = style.ScrollbarRounding;
 	s["GrabMinSize"] = style.GrabMinSize;
+	s["GrabRounding"] = style.GrabRounding;
+	s["LogSliderDeadzone"] = style.LogSliderDeadzone;
+	s["ImageBorderSize"] = style.ImageBorderSize;
+	s["TabRounding"] = style.TabRounding;
+	s["TabBorderSize"] = style.TabBorderSize;
+	s["TabCloseButtonMinWidthSelected"] = style.TabCloseButtonMinWidthSelected;
+	s["TabCloseButtonMinWidthUnselected"] = style.TabCloseButtonMinWidthUnselected;
+	s["TabBarBorderSize"] = style.TabBarBorderSize;
+	s["TabBarOverlineSize"] = style.TabBarOverlineSize;
+	s["TableAngledHeadersAngle"] = style.TableAngledHeadersAngle;
+	s["TableAngledHeadersTextAlign"] = {style.TableAngledHeadersTextAlign.x,
+										style.TableAngledHeadersTextAlign.y};
+	s["TreeLinesFlags"] = static_cast<int>(style.TreeLinesFlags);
+	s["TreeLinesSize"] = style.TreeLinesSize;
+	s["TreeLinesRounding"] = style.TreeLinesRounding;
+	s["ColorButtonPosition"] = static_cast<int>(style.ColorButtonPosition);
+	s["ButtonTextAlign"] = {style.ButtonTextAlign.x, style.ButtonTextAlign.y};
+	s["SelectableTextAlign"] = {style.SelectableTextAlign.x, style.SelectableTextAlign.y};
+	s["SeparatorTextBorderSize"] = style.SeparatorTextBorderSize;
+	s["SeparatorTextAlign"] = {style.SeparatorTextAlign.x, style.SeparatorTextAlign.y};
+	s["SeparatorTextPadding"] = {style.SeparatorTextPadding.x, style.SeparatorTextPadding.y};
+	s["DisplayWindowPadding"] = {style.DisplayWindowPadding.x, style.DisplayWindowPadding.y};
+	s["DisplaySafeAreaPadding"] = {style.DisplaySafeAreaPadding.x, style.DisplaySafeAreaPadding.y};
+	s["DockingSeparatorSize"] = style.DockingSeparatorSize;
+	s["MouseCursorScale"] = style.MouseCursorScale;
+	s["AntiAliasedLines"] = style.AntiAliasedLines;
+	s["AntiAliasedLinesUseTex"] = style.AntiAliasedLinesUseTex;
+	s["AntiAliasedFill"] = style.AntiAliasedFill;
+	s["CurveTessellationTol"] = style.CurveTessellationTol;
+	s["CircleTessellationMaxError"] = style.CircleTessellationMaxError;
+	s["HoverStationaryDelay"] = style.HoverStationaryDelay;
+	s["HoverDelayShort"] = style.HoverDelayShort;
+	s["HoverDelayNormal"] = style.HoverDelayNormal;
 	j["style"] = std::move(s);
 	return j;
 }
@@ -445,28 +482,85 @@ bool jsonToStyle(const json& j, ImGuiStyle& style, int* outBaseTheme) {
 				dst = ImVec2(s[key][0].get<float>(), s[key][1].get<float>());
 			}
 		};
+		auto setI = [&](const char* key, int& dst) {
+			if (s.contains(key)) {
+				dst = s[key].get<int>();
+			}
+		};
+		auto setB = [&](const char* key, bool& dst) {
+			if (s.contains(key)) {
+				dst = s[key].get<bool>();
+			}
+		};
 		setF("Alpha", style.Alpha);
 		setF("DisabledAlpha", style.DisabledAlpha);
-		setF("WindowRounding", style.WindowRounding);
-		setF("ChildRounding", style.ChildRounding);
-		setF("FrameRounding", style.FrameRounding);
-		setF("PopupRounding", style.PopupRounding);
-		setF("ScrollbarRounding", style.ScrollbarRounding);
-		setF("GrabRounding", style.GrabRounding);
-		setF("TabRounding", style.TabRounding);
-		setF("WindowBorderSize", style.WindowBorderSize);
-		setF("ChildBorderSize", style.ChildBorderSize);
-		setF("PopupBorderSize", style.PopupBorderSize);
-		setF("FrameBorderSize", style.FrameBorderSize);
-		setF("TabBorderSize", style.TabBorderSize);
-		setF("IndentSpacing", style.IndentSpacing);
-		setF("ScrollbarSize", style.ScrollbarSize);
-		setF("GrabMinSize", style.GrabMinSize);
 		setV2("WindowPadding", style.WindowPadding);
+		setF("WindowRounding", style.WindowRounding);
+		setF("WindowBorderSize", style.WindowBorderSize);
+		setF("WindowBorderHoverPadding", style.WindowBorderHoverPadding);
+		setV2("WindowMinSize", style.WindowMinSize);
+		setV2("WindowTitleAlign", style.WindowTitleAlign);
+		{
+			int v = static_cast<int>(style.WindowMenuButtonPosition);
+			setI("WindowMenuButtonPosition", v);
+			style.WindowMenuButtonPosition = static_cast<ImGuiDir>(v);
+		}
+		setF("ChildRounding", style.ChildRounding);
+		setF("ChildBorderSize", style.ChildBorderSize);
+		setF("PopupRounding", style.PopupRounding);
+		setF("PopupBorderSize", style.PopupBorderSize);
 		setV2("FramePadding", style.FramePadding);
-		setV2("CellPadding", style.CellPadding);
+		setF("FrameRounding", style.FrameRounding);
+		setF("FrameBorderSize", style.FrameBorderSize);
 		setV2("ItemSpacing", style.ItemSpacing);
 		setV2("ItemInnerSpacing", style.ItemInnerSpacing);
+		setV2("CellPadding", style.CellPadding);
+		setV2("TouchExtraPadding", style.TouchExtraPadding);
+		setF("IndentSpacing", style.IndentSpacing);
+		setF("ColumnsMinSpacing", style.ColumnsMinSpacing);
+		setF("ScrollbarSize", style.ScrollbarSize);
+		setF("ScrollbarRounding", style.ScrollbarRounding);
+		setF("GrabMinSize", style.GrabMinSize);
+		setF("GrabRounding", style.GrabRounding);
+		setF("LogSliderDeadzone", style.LogSliderDeadzone);
+		setF("ImageBorderSize", style.ImageBorderSize);
+		setF("TabRounding", style.TabRounding);
+		setF("TabBorderSize", style.TabBorderSize);
+		setF("TabCloseButtonMinWidthSelected", style.TabCloseButtonMinWidthSelected);
+		setF("TabCloseButtonMinWidthUnselected", style.TabCloseButtonMinWidthUnselected);
+		setF("TabBarBorderSize", style.TabBarBorderSize);
+		setF("TabBarOverlineSize", style.TabBarOverlineSize);
+		setF("TableAngledHeadersAngle", style.TableAngledHeadersAngle);
+		setV2("TableAngledHeadersTextAlign", style.TableAngledHeadersTextAlign);
+		{
+			int v = static_cast<int>(style.TreeLinesFlags);
+			setI("TreeLinesFlags", v);
+			style.TreeLinesFlags = static_cast<ImGuiTreeNodeFlags>(v);
+		}
+		setF("TreeLinesSize", style.TreeLinesSize);
+		setF("TreeLinesRounding", style.TreeLinesRounding);
+		{
+			int v = static_cast<int>(style.ColorButtonPosition);
+			setI("ColorButtonPosition", v);
+			style.ColorButtonPosition = static_cast<ImGuiDir>(v);
+		}
+		setV2("ButtonTextAlign", style.ButtonTextAlign);
+		setV2("SelectableTextAlign", style.SelectableTextAlign);
+		setF("SeparatorTextBorderSize", style.SeparatorTextBorderSize);
+		setV2("SeparatorTextAlign", style.SeparatorTextAlign);
+		setV2("SeparatorTextPadding", style.SeparatorTextPadding);
+		setV2("DisplayWindowPadding", style.DisplayWindowPadding);
+		setV2("DisplaySafeAreaPadding", style.DisplaySafeAreaPadding);
+		setF("DockingSeparatorSize", style.DockingSeparatorSize);
+		setF("MouseCursorScale", style.MouseCursorScale);
+		setB("AntiAliasedLines", style.AntiAliasedLines);
+		setB("AntiAliasedLinesUseTex", style.AntiAliasedLinesUseTex);
+		setB("AntiAliasedFill", style.AntiAliasedFill);
+		setF("CurveTessellationTol", style.CurveTessellationTol);
+		setF("CircleTessellationMaxError", style.CircleTessellationMaxError);
+		setF("HoverStationaryDelay", style.HoverStationaryDelay);
+		setF("HoverDelayShort", style.HoverDelayShort);
+		setF("HoverDelayNormal", style.HoverDelayNormal);
 	}
 	return true;
 }

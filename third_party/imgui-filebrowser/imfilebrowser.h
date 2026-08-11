@@ -390,15 +390,26 @@ inline void ImGui::FileBrowser::Display()
         {
             SetNextWindowPos(ImVec2(static_cast<float>(posX_), static_cast<float>(posY_)));
         }
+        else if(const ImGuiViewport* vp = GetMainViewport())
+        {
+            SetNextWindowPos(vp->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        }
         SetNextWindowSize(ImVec2(static_cast<float>(width_), static_cast<float>(height_)));
     }
     else
     {
+        // Modal: center on the work viewport unless the host set an explicit
+        // corner. Size uses Appearing so hosts can bump DPI-scaled layout on
+        // every Open() (FirstUseEver left undersized crumbs stuck in imgui.ini).
         if(isPosSet_)
         {
-            SetNextWindowPos(ImVec2(static_cast<float>(posX_), static_cast<float>(posY_)), ImGuiCond_FirstUseEver);
+            SetNextWindowPos(ImVec2(static_cast<float>(posX_), static_cast<float>(posY_)), ImGuiCond_Appearing);
         }
-        SetNextWindowSize(ImVec2(static_cast<float>(width_), static_cast<float>(height_)), ImGuiCond_FirstUseEver);
+        else if(const ImGuiViewport* vp = GetMainViewport())
+        {
+            SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        }
+        SetNextWindowSize(ImVec2(static_cast<float>(width_), static_cast<float>(height_)), ImGuiCond_Appearing);
     }
     if(flags_ & ImGuiFileBrowserFlags_NoModal)
     {

@@ -10,15 +10,29 @@
 #include <vector>
 
 #include "core/util/AppPaths.h"
+#include "UiDpi.h"
 
 namespace rigkit {
 
 /** Design (1x) size of the open/save browser — pass through uiPx at open.
  * Room for the quick-access sidebar plus a usable file list. */
-inline constexpr int kFileDialogDesignW = 900;
-inline constexpr int kFileDialogDesignH = 520;
+inline constexpr int kFileDialogDesignW = 1100;
+inline constexpr int kFileDialogDesignH = 700;
 /** Quick-access sidebar width in 1x design units. */
-inline constexpr float kFileDialogQuickAccessDesignW = 148.f;
+inline constexpr float kFileDialogQuickAccessDesignW = 160.f;
+
+/**
+ * @brief DPI-scaled size for any ImGui::FileBrowser (Place / Open / Save / …).
+ * @details Centering is handled in imfilebrowser when no explicit SetWindowPos
+ * was set. Call before Open() so Appearing size picks up the new layout.
+ */
+inline void applyFileBrowserLayout(ImGui::FileBrowser& browser) {
+	int w = 0;
+	int h = 0;
+	uiWindowSize(kFileDialogDesignW, kFileDialogDesignH, w, h);
+	browser.SetWindowSize(w, h);
+	browser.SetQuickAccessWidth(uiPx(kFileDialogQuickAccessDesignW));
+}
 
 /** @brief App data / User data / Home / Desktop / Documents / Downloads shortcuts (left sidebar).
  * @details Width is not touched here — the sidebar splitter owns it, and this

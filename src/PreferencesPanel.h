@@ -15,6 +15,8 @@ class PreferencesPanel : public IWindow {
 					 ImGuiWindowFlags flags = 0);
 	~PreferencesPanel() override = default;
 
+	void render() override;
+
   private:
 	void renderContents() override;
 

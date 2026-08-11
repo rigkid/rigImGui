@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <spdlog/spdlog.h>
 #include "DebugPanel.h"
@@ -68,8 +69,8 @@ void Mui::setRigKitEngine(RigKitEngine *engine) {
 	if (engine) {
 		m_window = engine->getWindow();
 		loadRecentFilesFromSettings();
-		// Restore the active workspace name (menu checkmark); the layout
-		// itself lives in the autosaved session imgui.ini.
+		// Restore the last used workspace name; layout+visibility are loaded
+		// on the first render via queueStartupWorkspace().
 		if (auto *settings = engine->getSettingsManager()) {
 			const json ws = settings->getValue("workspace");
 			if (ws.is_string()) {
@@ -147,6 +148,8 @@ void Mui::initImGui() {
 	m_appliedFontSize = m_uiPrefs.fontSize;
 	setImGuiTheme(m_currentTheme);
 
+	registerVisibilitySettingsHandler();
+
 	m_imguiReady = true;
 	spdlog::info("[rigImGui] ImGui context ready (dpi scale {:.2f})", m_dpiScale);
 }
@@ -217,6 +220,7 @@ void Mui::setupDockspace() {
 			m_centralValid = true;
 		}
 	}
+	maybeSeedStandardWorkspace();
 	ImGui::End();
 }
 
@@ -333,19 +337,27 @@ void Mui::renderAbout() {
 	}
 
 	ImGui::OpenPopup("About");
-	ImGui::SetNextWindowSize(ImVec2(460.f, 520.f), ImGuiCond_Appearing);
+	const ImVec2 want = uiClampToWork(uiSize(640.f, 680.f), 16.f);
+	const ImGuiViewport *vp = ImGui::GetMainViewport();
+	const float pad = uiPx(16.f);
+	const ImVec2 maxSz =
+		vp ? ImVec2(std::max(1.f, vp->WorkSize.x - pad), std::max(1.f, vp->WorkSize.y - pad))
+		   : want;
+	const ImVec2 minSz(std::min(uiPx(360.f), maxSz.x), std::min(uiPx(280.f), maxSz.y));
+	ImGui::SetNextWindowSize(want, ImGuiCond_Appearing);
+	ImGui::SetNextWindowSizeConstraints(minSz, maxSz);
 	bool open = m_aboutOpen;
 	if (ImGui::BeginPopupModal("About", &open, 0)) {
 		ImGui::TextUnformatted("RigKit");
 		ImGui::Spacing();
 		ImGui::TextWrapped(
-			"Rig you can code. Setup, update, draw — shapes on screen "
-			"without a manager tree. Plain data travels; packs bring systems, "
-			"UI, and tools. Raspberry Pi is the floor; rebuilds stay cheap.");
+			"Creative coding host for Rig. Author with setup, update, and draw; "
+			"entity meaning stays plain data. Packs bring systems, UI, and tools. "
+			"Targets Raspberry Pi. Keeps rebuilds cheap.");
 		ImGui::Spacing();
 		ImGui::TextDisabled("MIT Rigkid Contributors");
 		ImGui::Separator();
-		ImGui::TextUnformatted("Loaded packs");
+		ImGui::TextUnformatted("Pack info");
 		const float footer = ImGui::GetFrameHeightWithSpacing();
 		if (ImGui::BeginChild("about_packs", ImVec2(0.f, -footer),
 							  ImGuiChildFlags_Borders)) {
@@ -368,6 +380,17 @@ void Mui::renderAbout() {
 							ImGui::TextWrapped("%s", desc.c_str());
 							ImGui::Spacing();
 						}
+						std::string url = pack->getUrl();
+						if (url.empty()) {
+							url = "https://github.com/rigkid/" + pack->getName();
+						} else if (url.size() > 4 &&
+								   url.compare(url.size() - 4, 4, ".git") == 0) {
+							url.resize(url.size() - 4);
+						}
+						ImGui::TextDisabled("URL");
+						ImGui::TextLinkOpenURL(url.c_str());
+						ImGui::Spacing();
+						ImGui::TextDisabled("License");
 						ImGui::TextWrapped("%s", pack->getLicense().c_str());
 						ImGui::Unindent();
 					}
@@ -401,10 +424,24 @@ void Mui::render() {
 		reloadFonts();
 	}
 
-	// Workspace ini swap must also stay outside the frame.
+	if (!m_startupWorkspaceQueued) {
+		m_startupWorkspaceQueued = true;
+		queueStartupWorkspace();
+	}
+
+	// Workspace ini swap must also stay outside the frame. Drop any one-shot
+	// dock builder first — pack seeds (e.g. plotter) must not rebuild over the
+	// snapshot on the same frame.
 	if (!m_pendingWorkspaceLoad.empty()) {
-		ImGui::LoadIniSettingsFromDisk(m_pendingWorkspaceLoad.c_str());
+		const std::string path = m_pendingWorkspaceLoad;
 		m_pendingWorkspaceLoad.clear();
+		setDockLayoutBuilder(nullptr);
+		ImGui::LoadIniSettingsFromDisk(path.c_str());
+		// Keep the live session file aligned with the loaded snapshot.
+		if (!m_iniPath.empty()) {
+			ImGui::SaveIniSettingsToDisk(m_iniPath.c_str());
+		}
+		spdlog::info("[rigImGui] loaded workspace ini '{}'", path);
 	}
 
 	ImGui_ImplOpenGL3_NewFrame();
@@ -426,6 +463,7 @@ void Mui::render() {
 		m_menuBar->render();
 	}
 	setupDockspace();
+	applyPendingWindowVisibility();
 	renderAllWindows();
 	renderMainViewOverlays();
 	if (m_gizmoDrawer && m_engine) {
@@ -540,10 +578,10 @@ bool Mui::saveCurrentTheme(const std::string& path, bool notify) {
 			}
 		}
 		if (notify) {
-			showNotification("Theme saved: " + m_uiPrefs.themeFile, NotificationType::Success);
+			showNotification("Style saved: " + m_uiPrefs.themeFile, NotificationType::Success);
 		}
 	} else if (notify) {
-		showNotification("Failed to save theme", NotificationType::Error);
+		showNotification("Failed to save style", NotificationType::Error);
 	}
 	return ok;
 }
@@ -552,7 +590,7 @@ bool Mui::loadTheme(const std::string& path, bool notify) {
 	const std::string resolved = resolveThemePath(path.empty() ? m_uiPrefs.themeFile : path);
 	if (resolved.empty()) {
 		if (notify) {
-			showNotification("No theme file specified", NotificationType::Warning);
+			showNotification("No style file specified", NotificationType::Warning);
 		}
 		return false;
 	}
@@ -560,7 +598,7 @@ bool Mui::loadTheme(const std::string& path, bool notify) {
 	ImGuiStyle& style = ImGui::GetStyle();
 	if (!ImGuiStyleKit::loadStyleFromFile(resolved, style, &baseTheme)) {
 		if (notify) {
-			showNotification("Failed to load theme", NotificationType::Error);
+			showNotification("Failed to load style", NotificationType::Error);
 		}
 		return false;
 	}
@@ -584,7 +622,7 @@ bool Mui::loadTheme(const std::string& path, bool notify) {
 		}
 	}
 	if (notify) {
-		showNotification("Theme loaded: " + m_uiPrefs.themeFile, NotificationType::Success);
+		showNotification("Style loaded: " + m_uiPrefs.themeFile, NotificationType::Success);
 	}
 	return true;
 }
@@ -648,7 +686,8 @@ void Mui::registerFontAtlasHook(std::function<void(ImFontAtlas& atlas)> hook) {
 
 namespace {
 // Workspace names become filenames; keep them portable. "imgui" is the
-// session autosave and stays reserved.
+// session autosave; "Standard" is the seeded default (deletable only by
+// wiping the file on disk — deleteWorkspace refuses it).
 bool workspaceNameValid(const std::string &name) {
 	if (name.empty() || name == "imgui") {
 		return false;
@@ -666,7 +705,145 @@ std::filesystem::path workspaceIniPath(const std::string &name) {
 }
 } // namespace
 
-bool Mui::saveWorkspace(const std::string &name) {
+void Mui::RigVisibility_ClearAll(ImGuiContext *, ImGuiSettingsHandler *handler) {
+	auto *ui = static_cast<Mui *>(handler->UserData);
+	if (!ui) {
+		return;
+	}
+	ui->m_pendingVisibility.clear();
+	ui->m_rigVisibilitySectionSeen = false;
+	ui->m_applyPendingVisibility = false;
+}
+
+void Mui::RigVisibility_ReadInit(ImGuiContext *, ImGuiSettingsHandler *handler) {
+	auto *ui = static_cast<Mui *>(handler->UserData);
+	if (!ui) {
+		return;
+	}
+	ui->m_pendingVisibility.clear();
+	ui->m_rigVisibilitySectionSeen = false;
+}
+
+void *Mui::RigVisibility_ReadOpen(ImGuiContext *, ImGuiSettingsHandler *handler,
+								  const char *name) {
+	auto *ui = static_cast<Mui *>(handler->UserData);
+	if (!ui || !name || strcmp(name, "Windows") != 0) {
+		return nullptr;
+	}
+	ui->m_rigVisibilitySectionSeen = true;
+	ui->m_pendingVisibility.clear();
+	return ui;
+}
+
+void Mui::RigVisibility_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void *entry,
+								 const char *line) {
+	auto *ui = static_cast<Mui *>(entry);
+	if (!ui || !line || !line[0]) {
+		return;
+	}
+	const char *eq = strrchr(line, '=');
+	if (!eq || eq == line) {
+		return;
+	}
+	std::string title(line, static_cast<size_t>(eq - line));
+	while (!title.empty() && (title.back() == ' ' || title.back() == '\t')) {
+		title.pop_back();
+	}
+	int visible = 0;
+	if (sscanf(eq + 1, "%d", &visible) == 1) {
+		ui->m_pendingVisibility[title] = (visible != 0);
+	}
+}
+
+void Mui::RigVisibility_ApplyAll(ImGuiContext *, ImGuiSettingsHandler *handler) {
+	auto *ui = static_cast<Mui *>(handler->UserData);
+	if (!ui || !ui->m_rigVisibilitySectionSeen) {
+		return;
+	}
+	ui->m_applyPendingVisibility = true;
+}
+
+void Mui::RigVisibility_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler,
+								 ImGuiTextBuffer *out_buf) {
+	auto *ui = static_cast<Mui *>(handler->UserData);
+	if (!ui || !ui->getWindowManager() || !out_buf) {
+		return;
+	}
+	out_buf->appendf("[%s][Windows]\n", handler->TypeName);
+	for (const auto &name : ui->getWindowManager()->getAllWindowNames()) {
+		const bool visible = ui->getWindowManager()->getWindowVisibility(name);
+		out_buf->appendf("%s=%d\n", name.c_str(), visible ? 1 : 0);
+	}
+	out_buf->append("\n");
+}
+
+void Mui::registerVisibilitySettingsHandler() {
+	ImGuiSettingsHandler handler;
+	handler.TypeName = "RigVisibility";
+	handler.TypeHash = ImHashStr("RigVisibility");
+	handler.ClearAllFn = RigVisibility_ClearAll;
+	handler.ReadInitFn = RigVisibility_ReadInit;
+	handler.ReadOpenFn = RigVisibility_ReadOpen;
+	handler.ReadLineFn = RigVisibility_ReadLine;
+	handler.ApplyAllFn = RigVisibility_ApplyAll;
+	handler.WriteAllFn = RigVisibility_WriteAll;
+	handler.UserData = this;
+	ImGui::AddSettingsHandler(&handler);
+}
+
+bool Mui::workspaceFileExists(const std::string &name) {
+	std::error_code ec;
+	return std::filesystem::exists(workspaceIniPath(name), ec);
+}
+
+void Mui::queueStartupWorkspace() {
+	if (!m_currentWorkspace.empty() && workspaceNameValid(m_currentWorkspace) &&
+		workspaceFileExists(m_currentWorkspace)) {
+		m_pendingWorkspaceLoad = workspaceIniPath(m_currentWorkspace).string();
+		return;
+	}
+	if (workspaceFileExists(kStandardWorkspace)) {
+		m_pendingWorkspaceLoad = workspaceIniPath(kStandardWorkspace).string();
+		m_currentWorkspace = kStandardWorkspace;
+		persistCurrentWorkspace();
+		return;
+	}
+	// No named snapshot yet — leave dock builders to seed Standard.ini.
+}
+
+void Mui::applyPendingWindowVisibility() {
+	if (!m_applyPendingVisibility || !m_windowManager) {
+		return;
+	}
+	m_applyPendingVisibility = false;
+	m_windowManager->hideAllWindows();
+	for (const auto &pair : m_pendingVisibility) {
+		if (pair.second) {
+			m_windowManager->setWindowVisible(pair.first, true);
+		}
+	}
+	m_pendingVisibility.clear();
+	m_rigVisibilitySectionSeen = false;
+}
+
+void Mui::maybeSeedStandardWorkspace() {
+	if (m_standardSeedAttempted || !m_imguiReady) {
+		return;
+	}
+	if (workspaceFileExists(kStandardWorkspace)) {
+		m_standardSeedAttempted = true;
+		return;
+	}
+	ImGuiDockNode *node =
+		m_dockspaceId ? ImGui::DockBuilderGetNode(m_dockspaceId) : nullptr;
+	if (!node || !node->IsSplitNode()) {
+		return; // Wait until a builder (or restored ini) settles a split.
+	}
+	m_standardSeedAttempted = true;
+	saveWorkspace(kStandardWorkspace, false);
+}
+
+bool Mui::saveWorkspace(const std::string &name, bool notify) {
 	if (!m_imguiReady || !workspaceNameValid(name)) {
 		return false;
 	}
@@ -675,23 +852,29 @@ bool Mui::saveWorkspace(const std::string &name) {
 	std::filesystem::create_directories(path.parent_path(), ec);
 	ImGui::SaveIniSettingsToDisk(path.string().c_str());
 	if (!std::filesystem::exists(path, ec)) {
-		showNotification("Could not save workspace: " + name, NotificationType::Error);
+		if (notify) {
+			showNotification("Could not save workspace: " + name, NotificationType::Error);
+		}
 		return false;
 	}
 	m_currentWorkspace = name;
 	persistCurrentWorkspace();
-	showNotification("Workspace saved: " + name, NotificationType::Success);
+	if (notify) {
+		showNotification("Workspace saved: " + name, NotificationType::Success);
+	}
 	return true;
 }
 
-bool Mui::loadWorkspace(const std::string &name) {
+bool Mui::loadWorkspace(const std::string &name, bool notify) {
 	if (!workspaceNameValid(name)) {
 		return false;
 	}
 	const std::filesystem::path path = workspaceIniPath(name);
 	std::error_code ec;
 	if (!std::filesystem::exists(path, ec)) {
-		showNotification("Workspace not found: " + name, NotificationType::Warning);
+		if (notify) {
+			showNotification("Workspace not found: " + name, NotificationType::Warning);
+		}
 		return false;
 	}
 	// Swapping dock state mid-frame corrupts the open draw pass — defer to
@@ -703,7 +886,7 @@ bool Mui::loadWorkspace(const std::string &name) {
 }
 
 bool Mui::deleteWorkspace(const std::string &name) {
-	if (!workspaceNameValid(name)) {
+	if (!workspaceNameValid(name) || name == kStandardWorkspace) {
 		return false;
 	}
 	std::error_code ec;
@@ -872,7 +1055,7 @@ void Mui::addAllHostPanels() {
 		}
 	}
 
-	if (!m_dockLayoutBuilder) {
+	if (!m_dockLayoutBuilder && !workspaceFileExists(kStandardWorkspace)) {
 		setFirstRunHostDockLayout();
 	}
 	spdlog::info("[rigImGui] Host panels ready (Log, Windows, Debug, Properties, "
@@ -886,7 +1069,7 @@ void Mui::setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows) 
 			return; // DockSpace not created yet
 		}
 		if (node->IsSplitNode()) {
-			// Restored from imgui.ini — leave user layout alone.
+			// Restored from ini — leave user layout alone; still seed Standard.
 			setDockLayoutBuilder(nullptr);
 			return;
 		}
@@ -898,7 +1081,8 @@ void Mui::setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows) 
 
 		ImGuiID left = 0, center = 0, right = 0, bottom = 0;
 		ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.22f, &left, &center);
-		ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.28f, &right, &center);
+		// Right strip holds Properties (+ app extras like Show Control / ColorEdit).
+		ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.36f, &right, &center);
 		ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.28f, &bottom, &center);
 
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Scene), left);
@@ -972,6 +1156,15 @@ void Mui::registerFileAction(const std::string &label, std::function<void()> act
 
 void Mui::registerFileSubmenu(const std::string &label, std::function<void()> drawContents) {
 	m_fileActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
+}
+
+void Mui::registerAppAction(const std::string &label, std::function<void()> action,
+							const std::string &shortcut) {
+	m_appActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
+}
+
+void Mui::registerAppSubmenu(const std::string &label, std::function<void()> drawContents) {
+	m_appActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
 }
 
 void Mui::loadRecentFilesFromSettings() {
@@ -1232,12 +1425,8 @@ std::string Mui::fpsStatusText() const {
 }
 
 void Mui::syncFpsChromeFromPrefs() {
-	const bool fpsOnStatusBar = statusBarVisible() && fpsDisplayMode() == 0;
-	if (fpsOnStatusBar) {
-		m_statusBar.setSlot({"fps", [this]() -> std::string { return fpsStatusText(); }, 80.f});
-	} else {
-		m_statusBar.removeSlot("fps");
-	}
+	// Status-bar FPS is drawn left-aligned in renderStatusBar (menu indent).
+	m_statusBar.removeSlot("fps");
 }
 
 void Mui::drawProgressInStatusBar(bool sameLine) {
@@ -1326,12 +1515,32 @@ void Mui::renderStatusBar() {
 		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |
 		ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing;
 
+	// Match main-menu File label indent (MenuBarOffset ~ ItemSpacing + FramePadding).
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const float padX = style.ItemSpacing.x + style.FramePadding.x;
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.f, 2.f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(padX, 2.f));
 	if (ImGui::Begin("##rigImGuiStatusBar", nullptr, flags)) {
+		// Same stroke as BeginMainMenuBar bottom edge (ImGuiCol_Border / FrameBorderSize).
+		{
+			const ImVec2 p = ImGui::GetWindowPos();
+			const float borderSz =
+				(style.FrameBorderSize > 0.f) ? style.FrameBorderSize : 1.f;
+			ImGui::GetWindowDrawList()->AddLine(
+				ImVec2(p.x, p.y), ImVec2(p.x + ImGui::GetWindowWidth(), p.y),
+				ImGui::GetColorU32(ImGuiCol_Border), borderSz);
+		}
+
 		bool leftDrawn = false;
+		if (fpsDisplayMode() == 0) {
+			ImGui::TextUnformatted(fpsStatusText().c_str());
+			leftDrawn = true;
+		}
 		if (m_editMode) {
+			if (leftDrawn) {
+				ImGui::SameLine(0, 12.f);
+			}
 			ImGui::TextUnformatted(kEditModeStatus);
 			leftDrawn = true;
 		}
@@ -1350,7 +1559,7 @@ void Mui::renderStatusBar() {
 		}
 		if (right > 0.f) {
 			ImGui::SameLine();
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - right - 8.f);
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - right - padX);
 		}
 		for (size_t i = 0; i < m_statusBar.slots().size(); ++i) {
 			const auto &slot = m_statusBar.slots()[i];

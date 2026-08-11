@@ -18,6 +18,7 @@ void HostMenuBar::render() {
 		return;
 	}
 
+	renderAppMenu();
 	renderFileMenu();
 	renderEditMenu();
 	renderViewMenu();
@@ -62,6 +63,54 @@ void HostMenuBar::render() {
 	renderWorkspaceSavePopup();
 }
 
+void HostMenuBar::renderWorkspaceMenu() {
+	if (!ImGui::BeginMenu("Workspace")) {
+		return;
+	}
+	if (!m_ui) {
+		ImGui::TextDisabled("UI manager unavailable");
+		ImGui::EndMenu();
+		return;
+	}
+	const auto names = m_ui->workspaceNames();
+	const std::string &current = m_ui->currentWorkspace();
+	for (const auto &name : names) {
+		if (ImGui::MenuItem(name.c_str(), nullptr, name == current)) {
+			m_ui->loadWorkspace(name);
+		}
+	}
+	if (names.empty()) {
+		ImGui::TextDisabled("No saved workspaces");
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("Save Workspace As...")) {
+		m_openWorkspaceSavePopup = true;
+	}
+	bool canDelete = false;
+	for (const auto &name : names) {
+		if (name != Mui::kStandardWorkspace) {
+			canDelete = true;
+			break;
+		}
+	}
+	if (ImGui::BeginMenu("Delete Workspace", canDelete)) {
+		for (const auto &name : names) {
+			if (name == Mui::kStandardWorkspace) {
+				continue;
+			}
+			if (ImGui::MenuItem(name.c_str())) {
+				Mui *ui = m_ui;
+				ui->showModal("Delete Workspace",
+							  "Delete workspace \"" + name + "\"?",
+							  NotificationType::Warning,
+							  [ui, name]() { ui->deleteWorkspace(name); });
+			}
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::EndMenu();
+}
+
 void HostMenuBar::renderWorkspaceSavePopup() {
 	if (!m_ui) {
 		return;
@@ -92,6 +141,55 @@ void HostMenuBar::renderWorkspaceSavePopup() {
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::EndPopup();
+}
+
+void HostMenuBar::renderAppMenu() {
+	const char *appLabel = "App";
+	if (m_engine && m_engine->getApp()) {
+		const auto &name = m_engine->getApp()->settings().appName;
+		if (!name.empty()) {
+			appLabel = name.c_str();
+		}
+	}
+	if (!ImGui::BeginMenu(appLabel)) {
+		return;
+	}
+	if (m_ui) {
+		const auto &rows = m_ui->appActions();
+		for (const auto &row : rows) {
+			if (row.submenu) {
+				if (ImGui::BeginMenu(row.label.c_str())) {
+					if (row.action) {
+						row.action();
+					}
+					ImGui::EndMenu();
+				}
+				continue;
+			}
+			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+			if (ImGui::MenuItem(row.label.c_str(), chord)) {
+				if (row.action) {
+					row.action();
+				}
+			}
+		}
+		if (!rows.empty()) {
+			ImGui::Separator();
+		}
+	}
+	renderWorkspaceMenu();
+	if (ImGui::MenuItem("Preferences...")) {
+		if (m_ui) {
+			m_ui->showPreferences();
+		}
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("Quit", "Alt+F4")) {
+		if (m_engine && m_engine->getWindow()) {
+			glfwSetWindowShouldClose(m_engine->getWindow(), GLFW_TRUE);
+		}
+	}
+	ImGui::EndMenu();
 }
 
 void HostMenuBar::renderFileMenu() {
@@ -168,18 +266,6 @@ void HostMenuBar::renderFileMenu() {
 			}
 		}
 		ImGui::EndMenu();
-	}
-	ImGui::Separator();
-	if (ImGui::MenuItem("Preferences...")) {
-		if (m_ui) {
-			m_ui->showPreferences();
-		}
-	}
-	ImGui::Separator();
-	if (ImGui::MenuItem("Quit", "Alt+F4")) {
-		if (m_engine && m_engine->getWindow()) {
-			glfwSetWindowShouldClose(m_engine->getWindow(), GLFW_TRUE);
-		}
 	}
 	ImGui::EndMenu();
 }
@@ -270,40 +356,6 @@ void HostMenuBar::renderViewMenu() {
 			}
 		} else {
 			ImGui::TextDisabled("Window manager unavailable");
-		}
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Workspace")) {
-		if (m_ui) {
-			const auto names = m_ui->workspaceNames();
-			const std::string &current = m_ui->currentWorkspace();
-			for (const auto &name : names) {
-				if (ImGui::MenuItem(name.c_str(), nullptr, name == current)) {
-					m_ui->loadWorkspace(name);
-				}
-			}
-			if (names.empty()) {
-				ImGui::TextDisabled("No saved workspaces");
-			}
-			ImGui::Separator();
-			if (ImGui::MenuItem("Save Workspace As...")) {
-				m_openWorkspaceSavePopup = true;
-			}
-			if (ImGui::BeginMenu("Delete Workspace", !names.empty())) {
-				for (const auto &name : names) {
-					if (ImGui::MenuItem(name.c_str())) {
-						Mui *ui = m_ui;
-						ui->showModal("Delete Workspace",
-									  "Delete workspace \"" + name + "\"?",
-									  NotificationType::Warning,
-									  [ui, name]() { ui->deleteWorkspace(name); });
-					}
-				}
-				ImGui::EndMenu();
-			}
-		} else {
-			ImGui::TextDisabled("UI manager unavailable");
 		}
 		ImGui::EndMenu();
 	}

@@ -1,6 +1,8 @@
 #include "PreferencesPanel.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <string>
 #include <vector>
 
 #include <imgui.h>
@@ -9,6 +11,7 @@
 #include "PropEditors.h"
 #include "UiDpi.h"
 #include "core/RigKitEngine.h"
+#include "core/util/AppPaths.h"
 #include "core/util/MSettings.h"
 
 namespace rigkit {
@@ -34,6 +37,24 @@ const PrefCategory* findCategory(const std::vector<PrefCategory>& categories,
 
 PreferencesPanel::PreferencesPanel(const std::string& title, ImGuiWindowFlags flags)
 	: IWindow(title, flags != 0 ? flags : ImGuiWindowFlags_NoDocking) {}
+
+void PreferencesPanel::render() {
+	if (!isVisible()) {
+		return;
+	}
+	// Prefer a usable settings size, but never larger than the host work area
+	// (small heroes like osc 800x480 must still fit Preferences).
+	const ImVec2 want = uiClampToWork(uiSize(800.f, 560.f), 16.f);
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
+	const float pad = uiPx(16.f);
+	const ImVec2 maxSz =
+		vp ? ImVec2(std::max(1.f, vp->WorkSize.x - pad), std::max(1.f, vp->WorkSize.y - pad))
+		   : want;
+	const ImVec2 minSz(std::min(uiPx(280.f), maxSz.x), std::min(uiPx(200.f), maxSz.y));
+	ImGui::SetNextWindowSize(want, ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSizeConstraints(minSz, maxSz);
+	IWindow::render();
+}
 
 void PreferencesPanel::renderContents() {
 	auto* engine = getEngine();
@@ -71,14 +92,18 @@ void PreferencesPanel::renderContents() {
 		m_selectedId = categories.front().id;
 	}
 
-	// First open: room for sidebar + fields (no AlwaysAutoResize).
-	// Prefer a usable settings size (upgrades leftover AlwaysAutoResize crumbs).
-	const ImVec2 want = uiSize(800.f, 560.f);
-	ImGui::SetWindowSize(want, ImGuiCond_FirstUseEver);
+	// Saved imgui.ini sizes from a larger host can still overrun — clamp each frame.
 	{
-		const ImVec2 cur = ImGui::GetWindowSize();
-		if (cur.x < uiPx(640.f) || cur.y < uiPx(420.f)) {
-			ImGui::SetWindowSize(want);
+		const ImGuiViewport* vp = ImGui::GetMainViewport();
+		if (vp) {
+			const float pad = uiPx(16.f);
+			const ImVec2 maxSz(std::max(1.f, vp->WorkSize.x - pad),
+							  std::max(1.f, vp->WorkSize.y - pad));
+			const ImVec2 cur = ImGui::GetWindowSize();
+			if (cur.x > maxSz.x + 0.5f || cur.y > maxSz.y + 0.5f) {
+				ImGui::SetWindowSize(
+					ImVec2(std::min(cur.x, maxSz.x), std::min(cur.y, maxSz.y)));
+			}
 		}
 	}
 
@@ -87,8 +112,9 @@ void PreferencesPanel::renderContents() {
 
 	const PrefCategory* selected = findCategory(categories, m_selectedId);
 	// Resizable table = draggable divider; column width persists via imgui.ini.
+	const float sidebar = std::min(uiPx(200.f), std::max(uiPx(120.f), ImGui::GetContentRegionAvail().x * 0.32f));
 	if (ImGui::BeginTable("##PrefColumns", 2, ImGuiTableFlags_Resizable)) {
-		ImGui::TableSetupColumn("##Sidebar", ImGuiTableColumnFlags_WidthFixed, 200.0f);
+		ImGui::TableSetupColumn("##Sidebar", ImGuiTableColumnFlags_WidthFixed, sidebar);
 		ImGui::TableSetupColumn("##Detail", ImGuiTableColumnFlags_WidthStretch);
 		ImGui::TableNextRow();
 
@@ -140,6 +166,36 @@ void PreferencesPanel::renderContents() {
 						changed = true;
 					}
 					if (ImGui::CollapsingHeader("ImGui Style")) {
+						// ofxImGuiStyle parity: tweak live style, then snapshot to themes dir.
+						ImGui::TextWrapped(
+							"Edit the live Dear ImGui style, then Save Style to keep it "
+							"(JSON under %s).",
+							AppPaths::getThemesDir().c_str());
+						std::string& themeFile = mui->uiPrefs().themeFile;
+						char nameBuf[256];
+						if (themeFile.empty()) {
+							std::snprintf(nameBuf, sizeof(nameBuf), "custom.json");
+						} else {
+							std::snprintf(nameBuf, sizeof(nameBuf), "%s", themeFile.c_str());
+						}
+						if (ImGui::InputText("Style file", nameBuf, sizeof(nameBuf))) {
+							themeFile = nameBuf;
+							settings->markDirty();
+						}
+						if (ImGui::Button("Save Style")) {
+							mui->saveCurrentTheme(themeFile.empty() ? "custom.json" : themeFile);
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Load Style")) {
+							mui->loadTheme(themeFile.empty() ? "custom.json" : themeFile);
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Clear File")) {
+							themeFile.clear();
+							mui->setImGuiTheme(mui->getImGuiTheme());
+							settings->markDirty();
+						}
+						ImGui::Separator();
 						ImGui::ShowStyleEditor();
 					}
 					if (changed) {
