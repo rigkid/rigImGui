@@ -430,7 +430,7 @@ void Mui::render() {
 	}
 
 	// Workspace ini swap must also stay outside the frame. Drop any one-shot
-	// dock builder first — pack seeds (e.g. plotter) must not rebuild over the
+	// dock builder first - pack seeds (e.g. plotter) must not rebuild over the
 	// snapshot on the same frame.
 	if (!m_pendingWorkspaceLoad.empty()) {
 		const std::string path = m_pendingWorkspaceLoad;
