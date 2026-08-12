@@ -18,6 +18,7 @@ void HostMenuBar::render() {
 		return;
 	}
 
+	renderAppMenu();
 	renderFileMenu();
 	renderEditMenu();
 	renderViewMenu();
@@ -94,6 +95,54 @@ void HostMenuBar::renderWorkspaceSavePopup() {
 	ImGui::EndPopup();
 }
 
+void HostMenuBar::renderAppMenu() {
+	const char *appLabel = "App";
+	if (m_engine && m_engine->getApp()) {
+		const auto &name = m_engine->getApp()->settings().appName;
+		if (!name.empty()) {
+			appLabel = name.c_str();
+		}
+	}
+	if (!ImGui::BeginMenu(appLabel)) {
+		return;
+	}
+	if (m_ui) {
+		const auto &rows = m_ui->appActions();
+		for (const auto &row : rows) {
+			if (row.submenu) {
+				if (ImGui::BeginMenu(row.label.c_str())) {
+					if (row.action) {
+						row.action();
+					}
+					ImGui::EndMenu();
+				}
+				continue;
+			}
+			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+			if (ImGui::MenuItem(row.label.c_str(), chord)) {
+				if (row.action) {
+					row.action();
+				}
+			}
+		}
+		if (!rows.empty()) {
+			ImGui::Separator();
+		}
+	}
+	if (ImGui::MenuItem("Preferences...")) {
+		if (m_ui) {
+			m_ui->showPreferences();
+		}
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("Quit", "Alt+F4")) {
+		if (m_engine && m_engine->getWindow()) {
+			glfwSetWindowShouldClose(m_engine->getWindow(), GLFW_TRUE);
+		}
+	}
+	ImGui::EndMenu();
+}
+
 void HostMenuBar::renderFileMenu() {
 	if (!ImGui::BeginMenu("File")) {
 		return;
@@ -168,18 +217,6 @@ void HostMenuBar::renderFileMenu() {
 			}
 		}
 		ImGui::EndMenu();
-	}
-	ImGui::Separator();
-	if (ImGui::MenuItem("Preferences...")) {
-		if (m_ui) {
-			m_ui->showPreferences();
-		}
-	}
-	ImGui::Separator();
-	if (ImGui::MenuItem("Quit", "Alt+F4")) {
-		if (m_engine && m_engine->getWindow()) {
-			glfwSetWindowShouldClose(m_engine->getWindow(), GLFW_TRUE);
-		}
 	}
 	ImGui::EndMenu();
 }
@@ -290,8 +327,18 @@ void HostMenuBar::renderViewMenu() {
 			if (ImGui::MenuItem("Save Workspace As...")) {
 				m_openWorkspaceSavePopup = true;
 			}
-			if (ImGui::BeginMenu("Delete Workspace", !names.empty())) {
+			bool canDelete = false;
+			for (const auto &name : names) {
+				if (name != Mui::kStandardWorkspace) {
+					canDelete = true;
+					break;
+				}
+			}
+			if (ImGui::BeginMenu("Delete Workspace", canDelete)) {
 				for (const auto &name : names) {
+					if (name == Mui::kStandardWorkspace) {
+						continue;
+					}
 					if (ImGui::MenuItem(name.c_str())) {
 						Mui *ui = m_ui;
 						ui->showModal("Delete Workspace",
