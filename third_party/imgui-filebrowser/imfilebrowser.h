@@ -112,6 +112,9 @@ namespace ImGui
         // default value is 0 (the first type filter)
         void SetCurrentTypeFilterIndex(int index);
 
+        // current type-filter string (e.g. ".gcode"); empty when none set
+        const std::string &GetCurrentTypeFilter() const noexcept;
+
         // when ImGuiFileBrowserFlags_EnterNewFilename is set
         // this function will pre-fill the input dialog with a filename.
         void SetInputName(std::string_view input);
@@ -1084,6 +1087,20 @@ inline void ImGui::FileBrowser::SetTypeFilters(const std::vector<std::string> &_
 inline void ImGui::FileBrowser::SetCurrentTypeFilterIndex(int index)
 {
     typeFilterIndex_ = static_cast<unsigned int>(index);
+}
+
+inline const std::string &ImGui::FileBrowser::GetCurrentTypeFilter() const noexcept
+{
+    static const std::string empty;
+    if(typeFilters_.empty())
+    {
+        return empty;
+    }
+    if(static_cast<size_t>(typeFilterIndex_) >= typeFilters_.size())
+    {
+        return typeFilters_.front();
+    }
+    return typeFilters_[typeFilterIndex_];
 }
 
 inline void ImGui::FileBrowser::ClearQuickAccess()

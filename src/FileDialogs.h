@@ -114,6 +114,9 @@ class FileDialogs {
 
   private:
 	void applyLayout();
+	/** @brief Append the active type-filter extension when the name lacks it.
+	 * @details Concrete combo only (e.g. `.svg`); `.*` skips. No double suffix. */
+	std::string withSaveExtension(std::filesystem::path path) const;
 
 	enum class Mode { None, Open, Save };
 

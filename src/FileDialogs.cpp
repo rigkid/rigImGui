@@ -1,6 +1,29 @@
 #include "FileDialogs.h"
 
+#include <cctype>
+
 namespace rigkit {
+namespace {
+
+bool isConcreteExtension(const std::string& f) {
+	return f.size() >= 2 && f[0] == '.' && f != ".*" && f.find(',') == std::string::npos;
+}
+
+bool endsWithIgnoreCase(const std::string& s, const std::string& suffix) {
+	if (s.size() < suffix.size()) {
+		return false;
+	}
+	for (size_t i = 0; i < suffix.size(); ++i) {
+		const unsigned char a = static_cast<unsigned char>(s[s.size() - suffix.size() + i]);
+		const unsigned char b = static_cast<unsigned char>(suffix[i]);
+		if (std::tolower(a) != std::tolower(b)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+} // namespace
 
 FileDialogs::FileDialogs()
 	: m_open(ImGuiFileBrowserFlags_CloseOnEsc),
@@ -40,6 +63,21 @@ void FileDialogs::save(const std::string& title, std::vector<std::string> filter
 	m_save.Open();
 }
 
+std::string FileDialogs::withSaveExtension(std::filesystem::path path) const {
+	// Same as native Save dialogs: append only when the type combo is a real
+	// extension. ".*" (All files) means leave the stem alone. Never double-append
+	// (file.svg + .svg must stay file.svg, not file.svg.svg).
+	const std::string& ext = m_save.GetCurrentTypeFilter();
+	if (!isConcreteExtension(ext)) {
+		return path.string();
+	}
+	if (endsWithIgnoreCase(path.filename().string(), ext)) {
+		return path.string();
+	}
+	path += ext;
+	return path.string();
+}
+
 void FileDialogs::tick() {
 	if (m_mode == Mode::None) {
 		return;
@@ -49,7 +87,10 @@ void FileDialogs::tick() {
 	browser.Display();
 
 	if (browser.HasSelected()) {
-		const std::string path = browser.GetSelected().string();
+		std::string path = browser.GetSelected().string();
+		if (m_mode == Mode::Save) {
+			path = withSaveExtension(browser.GetSelected());
+		}
 		browser.ClearSelected();
 		auto cb = std::move(m_callback);
 		m_callback = nullptr;
