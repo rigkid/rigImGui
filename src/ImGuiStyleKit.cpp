@@ -381,7 +381,7 @@ json styleToJson(const ImGuiStyle& style, int baseTheme) {
 	}
 	j["colors"] = std::move(colors);
 
-	// Full ShowStyleEditor surface (portable JSON; not ofx raw .bin).
+	// Full ShowStyleEditor surface (portable JSON, not a binary dump).
 	json s;
 	s["Alpha"] = style.Alpha;
 	s["DisabledAlpha"] = style.DisabledAlpha;

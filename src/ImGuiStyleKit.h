@@ -28,7 +28,7 @@ void applyTheme(ImGuiTheme theme);
 void applyStyleExtras(ImGuiTheme theme);
 
 /// Serialize current ImGui style (full ShowStyleEditor surface) to JSON.
-/// Portable stand-in for ofxImGuiStyle SaveStyle (.bin) — same save/load workflow.
+/// Portable theme save/load workflow.
 json styleToJson(const ImGuiStyle& style, int baseTheme = 0);
 /// Apply JSON onto a style object (missing keys leave values unchanged).
 bool jsonToStyle(const json& j, ImGuiStyle& style, int* outBaseTheme = nullptr);

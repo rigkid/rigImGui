@@ -166,7 +166,7 @@ void PreferencesPanel::renderContents() {
 						changed = true;
 					}
 					if (ImGui::CollapsingHeader("ImGui Style")) {
-						// ofxImGuiStyle parity: tweak live style, then snapshot to themes dir.
+						// Tweak live style, then snapshot to themes dir.
 						ImGui::TextWrapped(
 							"Edit the live Dear ImGui style, then Save Style to keep it "
 							"(JSON under %s).",

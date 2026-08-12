@@ -68,6 +68,17 @@ void LogWindow::setupSpdlogSink() {
 void LogWindow::addLogFromSink(LogLevel level, const std::string &message,
 							   const std::string &timestamp) {
 	std::lock_guard<std::mutex> lock(m_logMutex);
+	if (m_collapseDuplicates) {
+		for (size_t i = m_logEntries.size(); i-- > 0;) {
+			LogEntry &prev = m_logEntries[i];
+			if (prev.level == level && prev.message == message) {
+				++prev.count;
+				prev.timestamp = timestamp;
+				// The row stays where it is, so leave the view where it is too.
+				return;
+			}
+		}
+	}
 	m_logEntries.emplace_back(level, message, timestamp);
 	if (m_logEntries.size() > m_maxLogLines) {
 		m_logEntries.erase(m_logEntries.begin());
@@ -82,6 +93,13 @@ void LogWindow::clearLog() {
 	spdlog::info("Log cleared.");
 }
 
+void LogWindow::dismissEntry(size_t index) {
+	std::lock_guard<std::mutex> lock(m_logMutex);
+	if (index < m_logEntries.size()) {
+		m_logEntries.erase(m_logEntries.begin() + static_cast<std::ptrdiff_t>(index));
+	}
+}
+
 void LogWindow::renderContents() {
 	renderMenuBar();
 	renderFilterControls();
@@ -91,6 +109,11 @@ void LogWindow::renderContents() {
 void LogWindow::renderMenuBar() {
 	if (ImGui::BeginMenuBar()) {
 		ImGui::Checkbox("Show Timestamps", &m_showTimestamps);
+		ImGui::Checkbox("Collapse Duplicates", &m_collapseDuplicates);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("Repeats of a message bump a count on its row\n"
+							  "instead of adding another line.");
+		}
 		ImGui::EndMenuBar();
 	}
 }
@@ -115,8 +138,11 @@ void LogWindow::renderLogEntries() {
 	// Set black background for log text area only
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 1));
 	ImGui::BeginChild("LogEntries", ImVec2(0, 0), true);
-	std::lock_guard<std::mutex> lock(m_logMutex);
-	for (const auto &entry : m_logEntries) {
+	std::unique_lock<std::mutex> lock(m_logMutex);
+	// Erasing mid-loop would invalidate the row we are drawing.
+	size_t dismiss = m_logEntries.size();
+	for (size_t i = 0; i < m_logEntries.size(); ++i) {
+		const LogEntry &entry = m_logEntries[i];
 		bool shouldShow = false;
 		switch (entry.level) {
 		case LogLevel::Debug:
@@ -134,6 +160,14 @@ void LogWindow::renderLogEntries() {
 		}
 		if (!shouldShow)
 			continue;
+		ImGui::PushID(static_cast<int>(i));
+		if (ImGui::SmallButton("x")) {
+			dismiss = i;
+		}
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("Dismiss this line");
+		}
+		ImGui::SameLine();
 		ImGui::PushStyleColor(ImGuiCol_Text, getLogColor(entry.level));
 		std::string header;
 		if (m_showTimestamps) {
@@ -142,10 +176,19 @@ void LogWindow::renderLogEntries() {
 		} else {
 			header = "[" + getLogLevelString(entry.level) + "] ";
 		}
+		if (entry.count > 1) {
+			header += "x" + std::to_string(entry.count) + " ";
+		}
 		ImGui::TextUnformatted(header.c_str());
 		ImGui::SameLine();
 		ImGui::TextWrapped("%s", entry.message.c_str());
 		ImGui::PopStyleColor();
+		ImGui::PopID();
+	}
+	if (dismiss < m_logEntries.size()) {
+		lock.unlock();
+		dismissEntry(dismiss);
+		lock.lock();
 	}
 	if (m_scrollToBottom) {
 		ImGui::SetScrollHereY(1.0f);

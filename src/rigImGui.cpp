@@ -6,10 +6,7 @@
 
 namespace rigkit {
 
-rigImGui::rigImGui() : rigkit::IPack("rigImGui") {
-	setDescription("rigImGui — RigKit UI pack (IMui / Dear ImGui)");
-	setLicense("MIT Rigkid Contributors");
-}
+rigImGui::rigImGui() : rigkit::IPack("rigImGui") {}
 
 bool rigImGui::init() {
 	spdlog::info("[rigImGui] Initializing");

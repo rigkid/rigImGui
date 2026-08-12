@@ -96,7 +96,7 @@ void ThemePanel::renderThemeFileControls() {
 
 	ImGui::TextUnformatted("Style snapshot");
 	ImGui::TextWrapped("Saved under %s (relative names preferred). "
-					   "Same idea as ofxImGuiStyle SaveStyle / LoadStyle — portable JSON.",
+					   "Save / load themes as portable JSON.",
 					   AppPaths::getThemesDir().c_str());
 
 	char nameBuf[256];
