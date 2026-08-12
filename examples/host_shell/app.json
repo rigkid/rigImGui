@@ -2,7 +2,7 @@
   "name": "host_shell",
   "version": "0.1.0",
   "license": "MIT",
-  "description": "rigImGui hero - Dark author shell with 3D bed + grid",
+  "description": "rigImGui example - Dark author shell with 3D bed + grid",
   "window": { "width": 1100, "height": 700, "title": "rigImGui - host_shell" },
   "dependencies": [
     {

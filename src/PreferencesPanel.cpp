@@ -43,7 +43,7 @@ void PreferencesPanel::render() {
 		return;
 	}
 	// Prefer a usable settings size, but never larger than the host work area
-	// (small heroes like osc 800x480 must still fit Preferences).
+	// (small examples like osc 800x480 must still fit Preferences).
 	const ImVec2 want = uiClampToWork(uiSize(800.f, 560.f), 16.f);
 	const ImGuiViewport* vp = ImGui::GetMainViewport();
 	const float pad = uiPx(16.f);
