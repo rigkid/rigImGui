@@ -77,6 +77,11 @@ void DebugPanel::renderDebugInfo() {
 	ImGui::Text("Debug Info:");
 	ImGui::Text("  Delta Time: %.3f ms", deltaTime * 1000.0f);
 	ImGui::Text("  Frame Rate: %.1f FPS", 1.0f / deltaTime);
+	if (IMui* ui = m_engine->getUiManager()) {
+		ImGui::Text("  Chrome kerning: %s (%d kern pairs)", ui->chromeKerning() ? "on" : "off",
+					ui->chromeKernPairCount());
+		ImGui::TextUnformatted("  AV To LiveFace");
+	}
 }
 
 void DebugPanel::renderClearShapesButton() {

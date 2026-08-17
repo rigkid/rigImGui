@@ -49,6 +49,8 @@ set(PACK_SOURCES
     src/PreferencesPanel.h
     src/ThemePanel.cpp
     src/ThemePanel.h
+    src/TtfKern.cpp
+    src/TtfKern.h
     src/ShortcutManager.cpp
     src/ShortcutManager.h
     src/ShortcutsPanel.cpp
@@ -66,6 +68,8 @@ set(PACK_SOURCES
     src/UiDpi.h
     src/FontPicker.cpp
     src/FontPicker.h
+    src/PresetBar.cpp
+    src/PresetBar.h
     src/ExportPng.cpp
     src/ExportPng.h
     src/Rulers.cpp

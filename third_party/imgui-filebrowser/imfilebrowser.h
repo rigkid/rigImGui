@@ -2,13 +2,28 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
+#include <mutex>
 #include <set>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <thread>
 #include <vector>
+
+#ifdef _WIN32
+#ifndef _WINBASE_
+extern "C" __declspec(dllimport) unsigned long __stdcall GetLogicalDrives(void);
+extern "C" __declspec(dllimport) unsigned int __stdcall GetDriveTypeA(const char *);
+#endif
+#endif
 
 #ifndef IMGUI_VERSION
 #   error "include imgui.h before this header"
@@ -46,6 +61,8 @@ namespace ImGui
         FileBrowser(const FileBrowser &copyFrom);
 
         FileBrowser &operator=(const FileBrowser &copyFrom);
+
+        ~FileBrowser();
 
         // set the window position (in pixels)
         // default is centered
@@ -149,6 +166,11 @@ namespace ImGui
             std::filesystem::path name;
             std::string           showName;
             std::filesystem::path extension;
+            std::uint64_t         size = 0;
+            std::int64_t          lastWriteUnix = 0;
+            std::string           sizeText;
+            std::string           typeText;
+            std::string           dateText;
         };
 
         static std::string ToLower(const std::string &s);
@@ -156,6 +178,22 @@ namespace ImGui
         void ToolTip(const std::string_view &s);
 
         void UpdateFileRecords();
+
+        static std::vector<FileRecord> CollectFileRecords(
+            const std::filesystem::path &dir, ImGuiFileBrowserFlags flags);
+
+        void RequestListing();
+        void ReapListing();
+        void PumpListing();
+        void ShowListingPlaceholder();
+
+        static std::string FormatByteSize(std::uint64_t bytes);
+
+        static std::string FormatFileTime(const std::filesystem::file_time_type &tp);
+
+        static int CompareRecordNames(const FileRecord &a, const FileRecord &b);
+
+        void SortFileRecords(const ImGuiTableSortSpecs *sortSpecs);
 
         void SetCurrentDirectoryUncatched(const std::filesystem::path &pwd);
 
@@ -173,6 +211,8 @@ namespace ImGui
 
 #ifdef _WIN32
         static std::uint32_t GetDrivesBitMask();
+        void RequestDriveScan(bool force);
+        void ReapDriveScan();
 #endif
 
         // for c++17 compatibility
@@ -208,6 +248,23 @@ namespace ImGui
 
         std::filesystem::path   currentDirectory_;
         std::vector<FileRecord> fileRecords_;
+        bool                    needSort_ = true;
+
+        struct ListingResult
+        {
+            std::uint64_t             generation = 0;
+            std::filesystem::path     directory;
+            std::vector<FileRecord>   records;
+            std::string               error;
+        };
+        std::filesystem::path     listingPath_;
+        std::filesystem::path     listingFallback_;
+        std::atomic<std::uint64_t> listingGen_{0};
+        std::atomic<bool>         listingBusy_{false};
+        std::atomic<bool>         listingStale_{false};
+        std::thread               listingThread_;
+        std::mutex                listingMutex_;
+        ListingResult             listingPending_;
 
         unsigned int                    rangeSelectionStart_; // enable range selection when shift is pressed
         std::set<std::filesystem::path> selectedFilenames_;
@@ -222,7 +279,12 @@ namespace ImGui
         std::vector<char> currDirBuffer_;
 
 #ifdef _WIN32
-        std::uint32_t drives_;
+        std::uint32_t                 drives_ = 0;
+        std::atomic<std::uint32_t>    drivesLive_{0};
+        std::atomic<unsigned int>     driveType_[26];
+        std::atomic<bool>             driveScanBusy_{false};
+        std::thread                   driveScanThread_;
+        double                        lastDriveScanTime_ = -1.0;
 #endif
 
         std::vector<QuickAccessEntry> quickAccess_;
@@ -261,7 +323,9 @@ inline ImGui::FileBrowser::FileBrowser(ImGuiFileBrowserFlags flags, std::filesys
     hasAllFilter_ = false;
 
 #ifdef _WIN32
-    drives_ = GetDrivesBitMask();
+    const std::uint32_t mask = GetDrivesBitMask();
+    drives_ = mask;
+    drivesLive_.store(mask, std::memory_order_relaxed);
 #endif
 }
 
@@ -274,6 +338,18 @@ inline ImGui::FileBrowser::FileBrowser(const FileBrowser &copyFrom)
 inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     const FileBrowser &copyFrom)
 {
+    if(listingThread_.joinable())
+    {
+        listingThread_.join();
+    }
+#ifdef _WIN32
+    ReapDriveScan();
+    if(driveScanThread_.joinable())
+    {
+        driveScanThread_.join();
+    }
+#endif
+
     width_  = copyFrom.width_;
     height_ = copyFrom.height_;
 
@@ -300,6 +376,7 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
 
     currentDirectory_ = copyFrom.currentDirectory_;
     fileRecords_      = copyFrom.fileRecords_;
+    needSort_         = true;
 
     openNewDirLabel_     = copyFrom.openNewDirLabel_;
     newDirNameBuffer_    = copyFrom.newDirNameBuffer_;
@@ -310,7 +387,15 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     currDirBuffer_ = copyFrom.currDirBuffer_;
 
 #ifdef _WIN32
-    drives_ = copyFrom.drives_;
+    ReapDriveScan();
+    drives_ = copyFrom.drivesLive_.load(std::memory_order_relaxed);
+    drivesLive_.store(drives_, std::memory_order_relaxed);
+    for(int i = 0; i < 26; ++i)
+    {
+        driveType_[i].store(copyFrom.driveType_[i].load(std::memory_order_relaxed),
+                            std::memory_order_relaxed);
+    }
+    lastDriveScanTime_ = copyFrom.lastDriveScanTime_;
 #endif
 
     quickAccess_      = copyFrom.quickAccess_;
@@ -344,7 +429,11 @@ inline void ImGui::FileBrowser::SetTitle(std::string title)
 
 inline void ImGui::FileBrowser::Open()
 {
-    UpdateFileRecords();
+#ifdef _WIN32
+    RequestDriveScan(true);
+#endif
+    listingPath_ = currentDirectory_;
+    RequestListing();
     ClearSelected();
     statusStr_ = std::string();
     shouldOpen_ = true;
@@ -378,6 +467,8 @@ inline void ImGui::FileBrowser::Display()
         shouldClose_ = false;
         PopID();
     });
+
+    PumpListing();
 
     if(shouldOpen_)
     {
@@ -430,6 +521,12 @@ inline void ImGui::FileBrowser::Display()
     isOpened_ = true;
     ScopeGuard endPopup([] { EndPopup(); });
 
+#ifdef _WIN32
+    ReapDriveScan();
+    drives_ = drivesLive_.load(std::memory_order_acquire);
+    RequestDriveScan(false);
+#endif
+
     std::filesystem::path newDir; bool shouldSetNewDir = false;
 
     if(editDir_)
@@ -455,20 +552,8 @@ inline void ImGui::FileBrowser::Display()
         if(enter)
         {
             std::filesystem::path enteredDir = u8StrToPath(currDirBuffer_.data());
-            if(is_directory(enteredDir))
-            {
-                newDir = std::move(enteredDir);
-                shouldSetNewDir = true;
-            }
-            else if(is_directory(enteredDir.parent_path()))
-            {
-                newDir = enteredDir.parent_path();
-                shouldSetNewDir = true;
-            }
-            else
-            {
-                statusStr_ = "[" + std::string(currDirBuffer_.data()) + "] is not a valid directory";
-            }
+            newDir = std::move(enteredDir);
+            shouldSetNewDir = true;
         }
     }
     else
@@ -577,13 +662,14 @@ inline void ImGui::FileBrowser::Display()
     }
 
     SameLine();
-    if(SmallButton("*"))
+    if(SmallButton("Refresh"))
     {
 #ifdef _WIN32
-        drives_ = GetDrivesBitMask();
+        RequestDriveScan(true);
 #endif
 
-        UpdateFileRecords();
+        listingPath_ = currentDirectory_;
+        RequestListing();
 
         std::set<std::filesystem::path> newSelectedFilenames;
         for(auto &name : selectedFilenames_)
@@ -638,7 +724,8 @@ inline void ImGui::FileBrowser::Display()
                 ScopeGuard closeNewDirPopup([] { CloseCurrentPopup(); });
                 if(create_directory(currentDirectory_ / u8StrToPath(newDirNameBuffer_.data())))
                 {
-                    UpdateFileRecords();
+                    listingPath_ = currentDirectory_;
+                    RequestListing();
                 }
                 else
                 {
@@ -693,8 +780,27 @@ inline void ImGui::FileBrowser::Display()
                 const bool selected =
                     !currentDirectory_.empty() &&
                     static_cast<char>(currentDirectory_.c_str()[0]) == driveCh;
+                const unsigned int dtype =
+                    driveType_[i].load(std::memory_order_relaxed);
+                char rowLabel[32];
+                if(dtype == 2) // DRIVE_REMOVABLE
+                {
+                    std::snprintf(rowLabel, sizeof(rowLabel), "%s  Removable", selectableStr);
+                }
+                else if(dtype == 4) // DRIVE_REMOTE
+                {
+                    std::snprintf(rowLabel, sizeof(rowLabel), "%s  Network", selectableStr);
+                }
+                else if(dtype == 5) // DRIVE_CDROM
+                {
+                    std::snprintf(rowLabel, sizeof(rowLabel), "%s  CD", selectableStr);
+                }
+                else
+                {
+                    std::snprintf(rowLabel, sizeof(rowLabel), "%s", selectableStr);
+                }
                 PushID(100 + i);
-                if(Selectable(selectableStr, selected))
+                if(Selectable(rowLabel, selected))
                 {
                     SetDirectory(drivePwd);
                 }
@@ -736,132 +842,187 @@ inline void ImGui::FileBrowser::Display()
             SameLine(0.0f, 0.0f);
         }
 
-        BeginChild("ch", ImVec2(0, -reserveHeight), true,
-                   (flags_ & ImGuiFileBrowserFlags_NoModal) ? ImGuiWindowFlags_AlwaysHorizontalScrollbar : 0);
+        BeginChild("ch", ImVec2(0, -reserveHeight), true);
         ScopeGuard endChild([] { EndChild(); });
 
         const bool shouldHideRegularFiles =
             (flags_ & ImGuiFileBrowserFlags_HideRegularFiles) && (flags_ & ImGuiFileBrowserFlags_SelectDirectory);
 
-        for(unsigned int rscIndex = 0; rscIndex < fileRecords_.size(); ++rscIndex)
+        const ImGuiTableFlags tableFlags =
+            ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable |
+            ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
+            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV;
+        if(BeginTable("##files", 4, tableFlags, ImVec2(0.0f, 0.0f)))
         {
-            const auto &rsc = fileRecords_[rscIndex];
-            if(!rsc.isDir && shouldHideRegularFiles)
+            ScopeGuard endTable([] { EndTable(); });
+            TableSetupScrollFreeze(0, 1);
+            TableSetupColumn("Name",
+                             ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort |
+                                 ImGuiTableColumnFlags_NoHide,
+                             0.0f, 0);
+            TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending,
+                             GetFontSize() * 5.5f, 1);
+            TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, GetFontSize() * 7.0f, 2);
+            TableSetupColumn("Date modified",
+                             ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending,
+                             GetFontSize() * 10.5f, 3);
+            TableHeadersRow();
+
+            if(ImGuiTableSortSpecs *sortSpecs = TableGetSortSpecs())
             {
-                continue;
+                if(sortSpecs->SpecsDirty || needSort_)
+                {
+                    SortFileRecords(sortSpecs);
+                    sortSpecs->SpecsDirty = false;
+                    needSort_ = false;
+                }
             }
-            if(!rsc.isDir && !IsExtensionMatched(rsc.extension))
+            else if(needSort_)
             {
-                continue;
-            }
-            if(!rsc.name.empty() && rsc.name.c_str()[0] == '$')
-            {
-                continue;
+                SortFileRecords(nullptr);
+                needSort_ = false;
             }
 
-            const bool selected = selectedFilenames_.find(rsc.name) != selectedFilenames_.end();
-            
+            for(unsigned int rscIndex = 0; rscIndex < fileRecords_.size(); ++rscIndex)
+            {
+                const auto &rsc = fileRecords_[rscIndex];
+                if(!rsc.isDir && shouldHideRegularFiles)
+                {
+                    continue;
+                }
+                if(!rsc.isDir && !IsExtensionMatched(rsc.extension))
+                {
+                    continue;
+                }
+                if(!rsc.name.empty() && rsc.name.c_str()[0] == '$')
+                {
+                    continue;
+                }
+
+                const bool selected = selectedFilenames_.find(rsc.name) != selectedFilenames_.end();
+
 #if IMGUI_VERSION_NUM >= 19100
-            const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_NoAutoClosePopups;
+                const ImGuiSelectableFlags selectableFlag =
+                    ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_SpanAllColumns;
 #else
-            const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_DontClosePopups;
+                const ImGuiSelectableFlags selectableFlag =
+                    ImGuiSelectableFlags_DontClosePopups | ImGuiSelectableFlags_SpanAllColumns;
 #endif
 
-            if(Selectable(rsc.showName.c_str(), selected, selectableFlag))
-            {
-                const bool wantDir = flags_ & ImGuiFileBrowserFlags_SelectDirectory;
-                const bool canSelect = rsc.name != ".." && rsc.isDir == wantDir;
-                const bool rangeSelect =
-                    canSelect && GetIO().KeyShift &&
-                    rangeSelectionStart_ < fileRecords_.size() &&
-                    (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
-                    IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-                const bool multiSelect =
-                    !rangeSelect && GetIO().KeyCtrl &&
-                    (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
-                    IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+                TableNextRow();
+                TableSetColumnIndex(0);
+                if(Selectable(rsc.showName.c_str(), selected, selectableFlag))
+                {
+                    const bool wantDir = flags_ & ImGuiFileBrowserFlags_SelectDirectory;
+                    const bool canSelect = rsc.name != ".." && rsc.isDir == wantDir;
+                    const bool rangeSelect =
+                        canSelect && GetIO().KeyShift &&
+                        rangeSelectionStart_ < fileRecords_.size() &&
+                        (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
+                        IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+                    const bool multiSelect =
+                        !rangeSelect && GetIO().KeyCtrl &&
+                        (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
+                        IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
-                if(rangeSelect)
-                {
-                    const unsigned int first = (std::min)(rangeSelectionStart_, rscIndex);
-                    const unsigned int last = (std::max)(rangeSelectionStart_, rscIndex);
-                    selectedFilenames_.clear();
-                    for(unsigned int i = first; i <= last; ++i)
+                    if(rangeSelect)
                     {
-                        if(fileRecords_[i].isDir != wantDir)
+                        const unsigned int first = (std::min)(rangeSelectionStart_, rscIndex);
+                        const unsigned int last = (std::max)(rangeSelectionStart_, rscIndex);
+                        selectedFilenames_.clear();
+                        for(unsigned int i = first; i <= last; ++i)
                         {
-                            continue;
+                            if(fileRecords_[i].isDir != wantDir)
+                            {
+                                continue;
+                            }
+                            if(!wantDir && !IsExtensionMatched(fileRecords_[i].extension))
+                            {
+                                continue;
+                            }
+                            selectedFilenames_.insert(fileRecords_[i].name);
                         }
-                        if(!wantDir && !IsExtensionMatched(fileRecords_[i].extension))
-                        {
-                            continue;
-                        }
-                        selectedFilenames_.insert(fileRecords_[i].name);
                     }
-                }
-                else if(selected)
-                {
-                    if(!multiSelect)
+                    else if(selected)
                     {
-                        selectedFilenames_ = { rsc.name };
+                        if(!multiSelect)
+                        {
+                            selectedFilenames_ = { rsc.name };
+                            rangeSelectionStart_ = rscIndex;
+                        }
+                        else
+                        {
+                            selectedFilenames_.erase(rsc.name);
+                        }
+                        if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
+                        {
+                            AssignToArrayStyleString(inputNameBuffer_, "");
+                        }
+                    }
+                    else if(canSelect)
+                    {
+                        if(multiSelect)
+                        {
+                            selectedFilenames_.insert(rsc.name);
+                        }
+                        else
+                        {
+                            selectedFilenames_ = { rsc.name };
+                        }
+                        if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
+                        {
+                            const auto rscName = u8StrToStr(rsc.name.u8string());
+                            AssignToArrayStyleString(inputNameBuffer_, rscName);
+                        }
                         rangeSelectionStart_ = rscIndex;
                     }
-                    else
-                    {
-                        selectedFilenames_.erase(rsc.name);
-                    }
-                    if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
-                    {
-                        AssignToArrayStyleString(inputNameBuffer_, "");
-                    }
                 }
-                else if(canSelect)
+
+                if(IsMouseDoubleClicked(ImGuiMouseButton_Left) && IsItemHovered(ImGuiHoveredFlags_None))
                 {
-                    if(multiSelect)
+                    if(rsc.isDir)
                     {
-                        selectedFilenames_.insert(rsc.name);
+                        shouldSetNewDir = true;
+                        newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
                     }
-                    else
+                    else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
                     {
                         selectedFilenames_ = { rsc.name };
+                        isOk_ = true;
+                        CloseCurrentPopup();
                     }
-                    if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
+                }
+                else if(IsKeyPressed(ImGuiKey_GamepadFaceDown) && IsItemHovered())
+                {
+                    if(rsc.isDir)
                     {
-                        const auto rscName = u8StrToStr(rsc.name.u8string());
-                        AssignToArrayStyleString(inputNameBuffer_, rscName);
+                        shouldSetNewDir = true;
+                        newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
+                        SetKeyboardFocusHere(-1);
                     }
-                    rangeSelectionStart_ = rscIndex;
+                    else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
+                    {
+                        selectedFilenames_ = { rsc.name };
+                        isOk_ = true;
+                        CloseCurrentPopup();
+                    }
                 }
-            }
 
-            if(IsMouseDoubleClicked(ImGuiMouseButton_Left) && IsItemHovered(ImGuiHoveredFlags_None))
-            {
-                if(rsc.isDir)
+                TableSetColumnIndex(1);
+                if(!rsc.isDir && !rsc.sizeText.empty())
                 {
-                    shouldSetNewDir = true;
-                    newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
+                    const float avail = GetContentRegionAvail().x;
+                    const float tw = CalcTextSize(rsc.sizeText.c_str()).x;
+                    if(tw < avail)
+                    {
+                        SetCursorPosX(GetCursorPosX() + avail - tw);
+                    }
+                    TextUnformatted(rsc.sizeText.c_str());
                 }
-                else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
-                {
-                    selectedFilenames_ = { rsc.name };
-                    isOk_ = true;
-                    CloseCurrentPopup();
-                }
-            }
-            else if(IsKeyPressed(ImGuiKey_GamepadFaceDown) && IsItemHovered()) 
-            {
-                if(rsc.isDir)
-                {
-                    shouldSetNewDir = true;
-                    newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
-                    SetKeyboardFocusHere(-1);
-                }
-                else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
-                {
-                    selectedFilenames_ = { rsc.name };
-                    isOk_ = true;
-                    CloseCurrentPopup();
-                }
+                TableSetColumnIndex(2);
+                TextUnformatted(rsc.typeText.c_str());
+                TableSetColumnIndex(3);
+                TextUnformatted(rsc.dateText.c_str());
             }
         }
     }
@@ -881,15 +1042,42 @@ inline void ImGui::FileBrowser::Display()
             inputNameBuffer_.resize(1, '\0');
         }
 
-        PushItemWidth(-1);
-        if(InputText(
-            "", inputNameBuffer_.data(), inputNameBuffer_.size(),
-            ImGuiInputTextFlags_CallbackResize, ExpandInputBuffer, &inputNameBuffer_) && inputNameBuffer_[0] != '\0')
+        AlignTextToFramePadding();
+        TextUnformatted("File name");
+        SameLine();
+
+        const bool showFilterHere = !typeFilters_.empty();
+        const float filterW = showFilterHere ? 8.0f * GetFontSize() : 0.0f;
+        const float gap = showFilterHere ? GetStyle().ItemSpacing.x : 0.0f;
+        PushItemWidth(GetContentRegionAvail().x - filterW - gap);
+        if(InputTextWithHint(
+            "##filename", "File name", inputNameBuffer_.data(), inputNameBuffer_.size(),
+            ImGuiInputTextFlags_CallbackResize, ExpandInputBuffer, &inputNameBuffer_) &&
+           inputNameBuffer_[0] != '\0')
         {
             selectedFilenames_ = { u8StrToPath(inputNameBuffer_.data()) };
         }
         focusOnInputText |= IsItemFocused();
         PopItemWidth();
+
+        if(showFilterHere)
+        {
+            SameLine();
+            PushItemWidth(filterW);
+            if(BeginCombo("##type_filters", typeFilters_[typeFilterIndex_].c_str()))
+            {
+                ScopeGuard guard([&] { EndCombo(); });
+                for(size_t i = 0; i < typeFilters_.size(); ++i)
+                {
+                    const bool selected = i == typeFilterIndex_;
+                    if(Selectable(typeFilters_[i].c_str(), selected) && !selected)
+                    {
+                        typeFilterIndex_ = static_cast<unsigned int>(i);
+                    }
+                }
+            }
+            PopItemWidth();
+        }
     }
 
     if(!focusOnInputText && !editDir_)
@@ -917,53 +1105,16 @@ inline void ImGui::FileBrowser::Display()
         (flags_ & ImGuiFileBrowserFlags_ConfirmOnEnter) &&
         IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
         IsKeyPressed(ImGuiKey_Enter);
-    if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
-    {
-        if((Button(" ok ") || isEnterPressed) && !selectedFilenames_.empty())
-        {
-            isOk_ = true;
-            CloseCurrentPopup();
-        }
-    }
-    else
-    {
-        if(Button(" ok ") || isEnterPressed)
-        {
-            isOk_ = true;
-            CloseCurrentPopup();
-        }
-    }
 
-    SameLine();
-
-    const bool shouldClose =
-        Button("cancel") || shouldClose_ ||
-        ((flags_ & ImGuiFileBrowserFlags_CloseOnEsc) &&
-        IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-        IsKeyPressed(ImGuiKey_Escape));
-    if(shouldClose)
+    if(!(flags_ & ImGuiFileBrowserFlags_EnterNewFilename) && !typeFilters_.empty())
     {
-        CloseCurrentPopup();
-    }
-
-    if(!statusStr_.empty() && !(flags_ & ImGuiFileBrowserFlags_NoStatusBar))
-    {
-        SameLine();
-        Text("%s", statusStr_.c_str());
-    }
-
-    if(!typeFilters_.empty())
-    {
-        SameLine();
-        PushItemWidth(8 * GetFontSize());
-        if(BeginCombo(
-            "##type_filters", typeFilters_[typeFilterIndex_].c_str()))
+        PushItemWidth(8.0f * GetFontSize());
+        if(BeginCombo("##type_filters", typeFilters_[typeFilterIndex_].c_str()))
         {
             ScopeGuard guard([&] { EndCombo(); });
-
             for(size_t i = 0; i < typeFilters_.size(); ++i)
             {
-                bool selected = i == typeFilterIndex_;
+                const bool selected = i == typeFilterIndex_;
                 if(Selectable(typeFilters_[i].c_str(), selected) && !selected)
                 {
                     typeFilterIndex_ = static_cast<unsigned int>(i);
@@ -971,6 +1122,57 @@ inline void ImGui::FileBrowser::Display()
             }
         }
         PopItemWidth();
+        SameLine();
+    }
+
+    if(listingBusy_.load(std::memory_order_acquire) &&
+       !(flags_ & ImGuiFileBrowserFlags_NoStatusBar))
+    {
+        AlignTextToFramePadding();
+        TextUnformatted("Reading folder...");
+        SameLine();
+    }
+    else if(!statusStr_.empty() && !(flags_ & ImGuiFileBrowserFlags_NoStatusBar))
+    {
+        AlignTextToFramePadding();
+        TextUnformatted(statusStr_.c_str());
+        SameLine();
+    }
+
+    {
+        const ImGuiStyle &st = GetStyle();
+        const float minBtnW = GetFontSize() * 6.0f;
+        const float okW = (std::max)(minBtnW, CalcTextSize("OK").x + st.FramePadding.x * 2.0f);
+        const float cancelW = (std::max)(minBtnW, CalcTextSize("Cancel").x + st.FramePadding.x * 2.0f);
+        const float pairW = okW + st.ItemSpacing.x + cancelW;
+        SetCursorPosX(GetCursorPosX() + GetContentRegionAvail().x - pairW);
+
+        bool okClicked = false;
+        if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
+        {
+            okClicked = (Button("OK", ImVec2(okW, 0.0f)) || isEnterPressed) &&
+                        !selectedFilenames_.empty();
+        }
+        else
+        {
+            okClicked = Button("OK", ImVec2(okW, 0.0f)) || isEnterPressed;
+        }
+        if(okClicked)
+        {
+            isOk_ = true;
+            CloseCurrentPopup();
+        }
+
+        SameLine();
+        const bool shouldClose =
+            Button("Cancel", ImVec2(cancelW, 0.0f)) || shouldClose_ ||
+            ((flags_ & ImGuiFileBrowserFlags_CloseOnEsc) &&
+             IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+             IsKeyPressed(ImGuiKey_Escape));
+        if(shouldClose)
+        {
+            CloseCurrentPopup();
+        }
     }
 }
 
@@ -1153,11 +1355,136 @@ inline void ImGui::FileBrowser::ToolTip(const std::string_view &s)
     ImGui::SetTooltip("%s", s.data());
 }
 
-inline void ImGui::FileBrowser::UpdateFileRecords()
+inline std::string ImGui::FileBrowser::FormatByteSize(std::uint64_t bytes)
 {
-    fileRecords_ = { FileRecord{ true, "..", "[D] ..", "" } };
+    if(bytes < 1024ull)
+    {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%llu B", static_cast<unsigned long long>(bytes));
+        return buf;
+    }
+    const char *units[] = { "KB", "MB", "GB", "TB" };
+    double v = static_cast<double>(bytes);
+    int u = -1;
+    do
+    {
+        v /= 1024.0;
+        ++u;
+    } while(v >= 1024.0 && u < 3);
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), (v >= 10.0) ? "%.0f %s" : "%.1f %s", v, units[u]);
+    return buf;
+}
 
-    for(auto &p : std::filesystem::directory_iterator(currentDirectory_))
+inline std::string ImGui::FileBrowser::FormatFileTime(const std::filesystem::file_time_type &tp)
+{
+    try
+    {
+        const auto sys = std::chrono::clock_cast<std::chrono::system_clock>(tp);
+        const std::time_t tt = std::chrono::system_clock::to_time_t(sys);
+        const std::tm *tmp = std::localtime(&tt);
+        if(!tmp)
+        {
+            return {};
+        }
+        const std::tm tm = *tmp;
+        char buf[32];
+        if(std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tm) == 0)
+        {
+            return {};
+        }
+        return buf;
+    }
+    catch(...)
+    {
+        return {};
+    }
+}
+
+inline int ImGui::FileBrowser::CompareRecordNames(const FileRecord &a, const FileRecord &b)
+{
+    const auto as = u8StrToStr(a.name.u8string());
+    const auto bs = u8StrToStr(b.name.u8string());
+    const size_t n = (std::min)(as.size(), bs.size());
+    for(size_t i = 0; i < n; ++i)
+    {
+        const unsigned char ca = static_cast<unsigned char>(as[i]);
+        const unsigned char cb = static_cast<unsigned char>(bs[i]);
+        const unsigned char la = static_cast<unsigned char>(std::tolower(ca));
+        const unsigned char lb = static_cast<unsigned char>(std::tolower(cb));
+        if(la != lb)
+        {
+            return la < lb ? -1 : 1;
+        }
+        if(ca != cb)
+        {
+            return ca < cb ? -1 : 1;
+        }
+    }
+    if(as.size() != bs.size())
+    {
+        return as.size() < bs.size() ? -1 : 1;
+    }
+    return 0;
+}
+
+inline void ImGui::FileBrowser::SortFileRecords(const ImGuiTableSortSpecs *sortSpecs)
+{
+    if(fileRecords_.size() <= 2)
+    {
+        return;
+    }
+
+    ImGuiID column = 0;
+    bool descending = false;
+    if(sortSpecs && sortSpecs->SpecsCount > 0)
+    {
+        column = sortSpecs->Specs[0].ColumnUserID;
+        descending = sortSpecs->Specs[0].SortDirection == ImGuiSortDirection_Descending;
+    }
+
+    std::sort(fileRecords_.begin() + 1, fileRecords_.end(),
+        [&](const FileRecord &a, const FileRecord &b)
+        {
+            if(a.isDir != b.isDir)
+            {
+                return a.isDir;
+            }
+            int cmp = 0;
+            switch(column)
+            {
+            case 1:
+                cmp = (a.size < b.size) ? -1 : (a.size > b.size) ? 1 : 0;
+                break;
+            case 2:
+                cmp = a.typeText.compare(b.typeText);
+                break;
+            case 3:
+                cmp = (a.lastWriteUnix < b.lastWriteUnix) ? -1 : (a.lastWriteUnix > b.lastWriteUnix) ? 1 : 0;
+                break;
+            default:
+                break;
+            }
+            if(cmp == 0)
+            {
+                cmp = CompareRecordNames(a, b);
+            }
+            return descending ? (cmp > 0) : (cmp < 0);
+        });
+}
+
+inline std::vector<ImGui::FileBrowser::FileRecord> ImGui::FileBrowser::CollectFileRecords(
+    const std::filesystem::path &dir, ImGuiFileBrowserFlags flags)
+{
+    std::vector<FileRecord> records;
+    FileRecord parent;
+    parent.isDir = true;
+    parent.name = "..";
+    parent.showName = "..";
+    parent.typeText = "Folder";
+    records.push_back(std::move(parent));
+
+    for(auto &p : std::filesystem::directory_iterator(dir))
     {
         FileRecord rcd;
         try
@@ -1182,75 +1509,182 @@ inline void ImGui::FileBrowser::UpdateFileRecords()
             }
 
             rcd.extension = p.path().filename().extension();
-            rcd.showName = (rcd.isDir ? "[D] " : "[F] ") + u8StrToStr(p.path().filename().u8string());
+            rcd.showName = u8StrToStr(p.path().filename().u8string());
+            if(rcd.isDir)
+            {
+                rcd.typeText = "Folder";
+            }
+            else
+            {
+                std::string ext = u8StrToStr(rcd.extension.u8string());
+                if(ext.empty())
+                {
+                    rcd.typeText = "File";
+                }
+                else
+                {
+                    if(ext.front() == '.')
+                    {
+                        ext.erase(0, 1);
+                    }
+                    for(char &c : ext)
+                    {
+                        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                    }
+                    rcd.typeText = ext + " File";
+                }
+            }
+
+            std::error_code ec;
+            if(!rcd.isDir)
+            {
+                const auto sz = p.file_size(ec);
+                if(!ec)
+                {
+                    rcd.size = static_cast<std::uint64_t>(sz);
+                    rcd.sizeText = FormatByteSize(rcd.size);
+                }
+            }
+            const auto ft = p.last_write_time(ec);
+            if(!ec)
+            {
+                rcd.dateText = FormatFileTime(ft);
+                try
+                {
+                    const auto sys = std::chrono::clock_cast<std::chrono::system_clock>(ft);
+                    rcd.lastWriteUnix = static_cast<std::int64_t>(
+                        std::chrono::system_clock::to_time_t(sys));
+                }
+                catch(...)
+                {
+                }
+            }
         }
         catch(...)
         {
-            if(!(flags_ & ImGuiFileBrowserFlags_SkipItemsCausingError))
+            if(!(flags & ImGuiFileBrowserFlags_SkipItemsCausingError))
             {
                 throw;
             }
             continue;
         }
-        fileRecords_.push_back(rcd);
+        records.push_back(std::move(rcd));
     }
+    return records;
+}
 
-    // The default lexicographical order does not meet our sorting requirements.
-    // We want [b0, a0, A1] to be sorted into something like [a0, A1, b0] instead of [a0, b0, A1].
-    // Therefore, here we compute a custom key for each filename for sorting.
-    if(fileRecords_.size() > 2)
+inline void ImGui::FileBrowser::ShowListingPlaceholder()
+{
+    FileRecord parent;
+    parent.isDir = true;
+    parent.name = "..";
+    parent.showName = "..";
+    parent.typeText = "Folder";
+    fileRecords_ = { std::move(parent) };
+    needSort_ = true;
+}
+
+inline void ImGui::FileBrowser::ReapListing()
+{
+    if(!listingBusy_.load(std::memory_order_acquire) && listingThread_.joinable())
     {
-        std::vector<std::vector<uint32_t>> keys;
-        keys.reserve(fileRecords_.size());
-        for(auto &fileRecord : fileRecords_)
+        listingThread_.join();
+    }
+}
+
+inline void ImGui::FileBrowser::RequestListing()
+{
+    listingGen_.fetch_add(1, std::memory_order_acq_rel);
+    if(listingBusy_.load(std::memory_order_acquire))
+    {
+        listingStale_.store(true, std::memory_order_release);
+        return;
+    }
+    ReapListing();
+    listingStale_.store(false, std::memory_order_release);
+    const std::uint64_t gen = listingGen_.load(std::memory_order_acquire);
+    const std::filesystem::path dir = listingPath_.empty() ? currentDirectory_ : listingPath_;
+    const ImGuiFileBrowserFlags flags = flags_;
+    listingBusy_.store(true, std::memory_order_release);
+    listingThread_ = std::thread([this, dir, gen, flags]()
+    {
+        ListingResult r;
+        r.generation = gen;
+        try
         {
-            const auto name = u8StrToStr(fileRecord.name.u8string());
-            auto& key = keys.emplace_back();
-            key.reserve(name.size() + 1);
-            key.emplace_back(!fileRecord.isDir);
-            for(char c : name)
+            r.directory = std::filesystem::absolute(dir);
+            r.records = CollectFileRecords(r.directory, flags);
+        }
+        catch(const std::exception &err)
+        {
+            r.error = err.what();
+        }
+        catch(...)
+        {
+            r.error = "unknown error";
+        }
+        {
+            std::lock_guard<std::mutex> lock(listingMutex_);
+            listingPending_ = std::move(r);
+        }
+        listingBusy_.store(false, std::memory_order_release);
+    });
+}
+
+inline void ImGui::FileBrowser::PumpListing()
+{
+    ReapListing();
+    ListingResult pending;
+    {
+        std::lock_guard<std::mutex> lock(listingMutex_);
+        if(listingPending_.generation != 0)
+        {
+            pending = std::move(listingPending_);
+            listingPending_ = {};
+        }
+    }
+    if(pending.generation != 0 &&
+       pending.generation == listingGen_.load(std::memory_order_acquire))
+    {
+        if(pending.error.empty())
+        {
+            currentDirectory_ = std::move(pending.directory);
+            fileRecords_ = std::move(pending.records);
+            needSort_ = true;
+            SortFileRecords(nullptr);
+            ClearRangeSelectionState();
+            statusStr_.clear();
+        }
+        else
+        {
+            statusStr_ = std::string("error: ") + pending.error;
+            if(!listingFallback_.empty() && listingFallback_ != listingPath_)
             {
-                if('A' <= c && c <= 'Z')
-                {
-                    key.emplace_back(2 * (c + 'a' - 'A') + 1);
-                }
-                else
-                {
-                    key.emplace_back(2 * c);
-                }
+                listingPath_ = listingFallback_;
+                currentDirectory_ = listingFallback_;
+                listingFallback_.clear();
+                RequestListing();
             }
         }
-
-        std::vector<uint32_t> fileRecordRemapIndices;
-        fileRecordRemapIndices.reserve(fileRecords_.size());
-        for(uint32_t i = 0; i < fileRecords_.size(); ++i)
-        {
-            fileRecordRemapIndices.push_back(i);
-        }
-
-        std::sort(
-            fileRecordRemapIndices.begin() + 1, fileRecordRemapIndices.end(), [&](uint32_t li, uint32_t ri)
-            {
-                return keys[li] < keys[ri];
-            });
-
-        std::vector<FileRecord> remappedFileRecords;
-        remappedFileRecords.reserve(fileRecords_.size());
-        for(const uint32_t index : fileRecordRemapIndices)
-        {
-            remappedFileRecords.emplace_back(std::move(fileRecords_[index]));
-        }
-
-        fileRecords_ = std::move(remappedFileRecords);
     }
+    if(!listingBusy_.load(std::memory_order_acquire) &&
+       listingStale_.load(std::memory_order_acquire))
+    {
+        RequestListing();
+    }
+}
 
-    ClearRangeSelectionState();
+inline void ImGui::FileBrowser::UpdateFileRecords()
+{
+    listingPath_ = currentDirectory_;
+    RequestListing();
 }
 
 inline void ImGui::FileBrowser::SetCurrentDirectoryUncatched(const std::filesystem::path &pwd)
 {
-    currentDirectory_ = absolute(pwd);
-    UpdateFileRecords();
+    listingPath_ = pwd;
+    currentDirectory_ = pwd;
+    ShowListingPlaceholder();
 
     bool shouldClearInputNameBuffer = true;
 
@@ -1268,42 +1702,16 @@ inline void ImGui::FileBrowser::SetCurrentDirectoryUncatched(const std::filesyst
         selectedFilenames_.clear();
         AssignToArrayStyleString(inputNameBuffer_, "");
     }
+
+    RequestListing();
 }
 
 inline bool ImGui::FileBrowser::SetCurrentDirectoryInternal(
     const std::filesystem::path &dir, const std::filesystem::path &preferredFallback)
 {
-    try
-    {
-        SetCurrentDirectoryUncatched(dir);
-        return true;
-    }
-    catch(const std::exception &err)
-    {
-        statusStr_ = std::string("error: ") + err.what();
-    }
-    catch(...)
-    {
-        statusStr_ = "unknown error";
-    }
-
-    if(preferredFallback != defaultDirectory_)
-    {
-        try
-        {
-            SetCurrentDirectoryUncatched(preferredFallback);
-        }
-        catch(...)
-        {
-            SetCurrentDirectoryUncatched(defaultDirectory_);
-        }
-    }
-    else
-    {
-        SetCurrentDirectoryUncatched(defaultDirectory_);
-    }
-
-    return false;
+    listingFallback_ = preferredFallback;
+    SetCurrentDirectoryUncatched(dir);
+    return true;
 }
 
 inline bool ImGui::FileBrowser::IsExtensionMatched(const std::filesystem::path &_extension) const
@@ -1434,26 +1842,70 @@ inline std::filesystem::path ImGui::FileBrowser::u8StrToPath(const char *str)
 #endif
 }
 
+inline ImGui::FileBrowser::~FileBrowser()
+{
+    if(listingThread_.joinable())
+    {
+        listingThread_.join();
+    }
 #ifdef _WIN32
+    if(driveScanThread_.joinable())
+    {
+        driveScanThread_.join();
+    }
+#endif
+}
+
+#ifdef _WIN32
+
+inline void ImGui::FileBrowser::ReapDriveScan()
+{
+    // Never join a running scan on the UI thread — GetDriveTypeA can block
+    // for seconds while Windows mounts a USB stick.
+    if(!driveScanBusy_.load(std::memory_order_acquire) && driveScanThread_.joinable())
+    {
+        driveScanThread_.join();
+    }
+}
+
+inline void ImGui::FileBrowser::RequestDriveScan(bool force)
+{
+    if(driveScanBusy_.load(std::memory_order_acquire))
+    {
+        return;
+    }
+    ReapDriveScan();
+    const double now = GetTime();
+    if(!force && lastDriveScanTime_ >= 0.0 && (now - lastDriveScanTime_) < 0.5)
+    {
+        return;
+    }
+    lastDriveScanTime_ = now;
+    driveScanBusy_.store(true, std::memory_order_release);
+    driveScanThread_ = std::thread([this]()
+    {
+        const std::uint32_t mask = GetDrivesBitMask();
+        for(int i = 0; i < 26; ++i)
+        {
+            unsigned int t = 0;
+            if(mask & (1u << i))
+            {
+                const char root[] = { static_cast<char>('A' + i), ':', '\\', '\0' };
+                t = GetDriveTypeA(root);
+            }
+            driveType_[i].store(t, std::memory_order_relaxed);
+        }
+        drivesLive_.store(mask, std::memory_order_release);
+        driveScanBusy_.store(false, std::memory_order_release);
+    });
+}
 
 inline std::uint32_t ImGui::FileBrowser::GetDrivesBitMask()
 {
-    std::uint32_t ret = 0;
-    for(int i = 0; i < 26; ++i)
-    {
-        const char rootName[4] = { static_cast<char>('A' + i), ':', '\\', '\0' };
-        try{
-            if (std::filesystem::exists(rootName))
-            {
-                ret |= (1 << i);
-            }
-        }
-        catch (const std::filesystem::filesystem_error &)
-        {
-            // Ignore invalid paths or inaccessible drives, e.g., empty CD drives or network shares
-        }
-    }
-    return ret;
+    // GetLogicalDrives is the assigned-letter mask. std::filesystem::exists("E:\\")
+    // throws or returns false for removable volumes that are not fully ready yet,
+    // which is why a USB stick often never appeared in the combo / sidebar.
+    return static_cast<std::uint32_t>(GetLogicalDrives());
 }
 
 #endif

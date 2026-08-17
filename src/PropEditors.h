@@ -47,4 +47,12 @@ void writePropValue(const sProp& prop, const PropValue& value);
 bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t entityId = 0,
 				 const PropCommitFn& onCommit = {});
 
+/**
+ * @brief Make the last ImGui widget's label a Node Editor drag source.
+ * @details Dragging the value still edits it. Drag the label (or Alt-drag an
+ * unlabeled control) to drop a `ref.*` onto the Node Editor. `propName` is the
+ * `GetProperties()` / drive-slot name `applyRefWrites` will match.
+ */
+void offerScenePropDrag(uint32_t entityId, const char* propName, int propType);
+
 } // namespace rigkit

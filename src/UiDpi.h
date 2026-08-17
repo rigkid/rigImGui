@@ -74,4 +74,23 @@ inline void uiWindowSize(int designW, int designH, int& outW, int& outH,
 	outH = std::max(1, static_cast<int>(std::lround(clamped.y)));
 }
 
+/**
+ * @brief Cursor X for host menu items (before BeginMenu's half-ItemSpacing nudge).
+ * @details BeginMenu (horizontal) then adds `ItemSpacing.x / 2` so the File
+ * label sits at `chromeBarPadX()`.
+ */
+inline float chromeMenuBarCursorX() {
+	const ImGuiStyle& s = ImGui::GetStyle();
+	return s.ItemSpacing.x + s.FramePadding.x;
+}
+
+/**
+ * @brief Left inset for status-bar / unframed chrome text.
+ * @details Matches the File label after BeginMenu's half-ItemSpacing nudge.
+ */
+inline float chromeBarPadX() {
+	const ImGuiStyle& s = ImGui::GetStyle();
+	return chromeMenuBarCursorX() + static_cast<float>(static_cast<int>(s.ItemSpacing.x * 0.5f));
+}
+
 } // namespace rigkit

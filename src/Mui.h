@@ -14,6 +14,7 @@
 #include "Rulers.h"
 #include "ShortcutManager.h"
 #include "StatusBar.h"
+#include "TtfKern.h"
 #include "core/IMui.h"
 #include "core/json.h"
 #include "core/util/Progress.h"
@@ -69,6 +70,7 @@ struct UiPrefs {
 	std::string themeFile; // empty = built-in; else path under data/user/themes or absolute
 	std::string fontFile;  // empty = Roboto; else TTF under data/fonts or absolute
 	float fontSize = 16.0f;
+	bool chromeKerning = true; ///< Pair kerning on chrome labels (TTF `kern` or setChromeKernFn)
 	bool confirmQuit = false;
 	float notificationSeconds = 3.0f;
 	float notificationWidth = 320.f; ///< logical px; clamped 160–600, scaled by DPI
@@ -98,6 +100,7 @@ struct UiPrefs {
 			{1, "Theme File", EPT_STRING, &themeFile},
 			{2, "Font File", EPT_STRING, &fontFile},
 			{3, "Font Size", EPT_FLOAT, &fontSize},
+			{15, "Chrome Kerning", EPT_BOOL, &chromeKerning},
 			{4, "Confirm Quit", EPT_BOOL, &confirmQuit},
 			{5, "Notification Seconds", EPT_FLOAT, &notificationSeconds},
 			{14, "Notification Width", EPT_FLOAT, &notificationWidth},
@@ -152,6 +155,9 @@ class Mui : public IMui {
 	void applyUiPrefs();
 	/// Reload body font (+ icons) from UiPrefs. Defers if a frame is open.
 	bool reloadFonts();
+	/// Bind pair kerning on the body ImFont (TTF `kern` or setChromeKernFn).
+	void bindChromeKerning();
+	void loadChromeKernTable();
 
 	/**
 	 * @brief Save the current dock layout and window visibility as a named workspace.
@@ -273,6 +279,11 @@ class Mui : public IMui {
 
 	void registerFontAtlasHook(std::function<void(ImFontAtlas& atlas)> hook) override;
 
+	void setChromeKerning(bool enabled) override;
+	bool chromeKerning() const override { return m_uiPrefs.chromeKerning; }
+	void setChromeKernFn(ChromeKernFn fn, void* user) override;
+	int chromeKernPairCount() const override { return m_ttfKern.pairCount(); }
+
 	Progress* progress() override { return &m_progress; }
 
 	/**
@@ -298,10 +309,10 @@ class Mui : public IMui {
 	}
 
 	/**
-	 * @brief Screen rect of the empty central dock (GL bed) when passthrough is on.
-	 * @return false if unavailable (falls back to full work area).
+	 * @brief Window-client rect of the empty central dock (GL bed) when valid.
+	 * @details Subtracts main viewport origin so coords match GLFW cursor space.
 	 */
-	bool centralViewRect(float& outX, float& outY, float& outW, float& outH) const;
+	bool centralViewRect(float& outX, float& outY, float& outW, float& outH) const override;
 
 	ShortcutManager &shortcuts() { return m_shortcuts; }
 	const ShortcutManager &shortcuts() const { return m_shortcuts; }
@@ -358,7 +369,7 @@ class Mui : public IMui {
 	const UiPrefs &uiPrefs() const { return m_uiPrefs; }
 	float dpiScale() const { return m_dpiScale; }
 
-	/** @brief Host FPS text for status bar / menu bar chrome. */
+	/** @brief Host FPS text for status bar / menu bar chrome (smoothed). */
 	std::string fpsStatusText() const;
 
   private:
@@ -457,9 +468,15 @@ class Mui : public IMui {
 	bool m_centralValid = false;
 	float m_dpiScale = 1.f;
 	float m_statusBarHeight = 0.f;
+	float m_fpsShown = 0.f;	 ///< Averaged FPS for chrome text
+	float m_fpsAccum = 0.f;	 ///< Seconds in the current FPS sample window
+	int m_fpsFrames = 0;	 ///< Frames in the current FPS sample window
 	UiPrefs m_uiPrefs;
 	std::string m_appliedFontFile;
 	float m_appliedFontSize = -1.f;
+	TtfKern m_ttfKern;
+	ChromeKernFn m_chromeKernFn = nullptr;
+	void* m_chromeKernUser = nullptr;
 	std::vector<std::function<void(ImFontAtlas&)>> m_fontAtlasHooks;
 };
 

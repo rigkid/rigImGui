@@ -1,0 +1,4 @@
+[submodule "third_party/imgui"]
+	path = third_party/imgui
+	url = https://github.com/GitBruno/imgui.git
+	branch = features/font-kerning-fn-v1.92.1

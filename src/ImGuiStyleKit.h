@@ -43,6 +43,10 @@ bool loadStyleFromFile(const std::string& path, ImGuiStyle& style, int* outBaseT
 bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir = {},
 			   const std::string& bodyFontPath = {}, float sizePixels = 16.0f);
 
+/// Absolute TTF path `loadFonts` would open, or empty when only the ImGui default remains.
+std::string resolveBodyFontPath(const std::string& fontsSearchDir = {},
+								const std::string& bodyFontPath = {});
+
 /// @deprecated Prefer loadFonts()
 inline void loadDefaultFonts(ImGuiIO& io, const std::string& fontsSearchDir = {}) {
 	loadFonts(io, fontsSearchDir, {}, 16.0f);

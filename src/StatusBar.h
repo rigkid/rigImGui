@@ -12,7 +12,8 @@ namespace rigkit {
 struct StatusSlot {
 	std::string id;
 	std::function<std::string()> text;
-	float width = 0.f; ///< 0 = auto
+	float width = 0.f;			   ///< 0 = auto (72 when text-only)
+	std::function<void()> draw;	   ///< If set, drawn instead of text
 };
 
 class StatusBar {

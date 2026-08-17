@@ -5,6 +5,7 @@
 #include <string>
 #include "MWindow.h"
 #include "Mui.h"
+#include "UiDpi.h"
 #include "core/RigKitEngine.h"
 #include "core/util/UndoStack.h"
 #include "rendering/U_gladGlfw.h"
@@ -17,6 +18,11 @@ void HostMenuBar::render() {
 	if (!ImGui::BeginMainMenuBar()) {
 		return;
 	}
+
+	const ImGuiStyle &style = ImGui::GetStyle();
+	// BeginMenu adds ItemSpacing/2; File glyphs land on chromeBarPadX().
+	const float padX = chromeMenuBarCursorX();
+	ImGui::SetCursorPosX(padX);
 
 	renderAppMenu();
 	renderFileMenu();
@@ -46,8 +52,9 @@ void HostMenuBar::render() {
 		}
 		if (!status.empty()) {
 			const float textW = ImGui::CalcTextSize(status.c_str()).x;
-			const float pad = ImGui::GetStyle().FramePadding.x;
-			ImGui::SameLine(ImGui::GetWindowWidth() - textW - pad * 2.f);
+			// Unframed text: extra FramePadding so glyphs sit like a menu/button label.
+			const float padRight = padX + style.FramePadding.x;
+			ImGui::SameLine(ImGui::GetWindowWidth() - textW - padRight);
 			ImGui::TextDisabled("%s", status.c_str());
 		}
 	}

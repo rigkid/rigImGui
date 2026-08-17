@@ -6,6 +6,7 @@
 #include <cstring>
 #include <glm/glm.hpp>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <string>
 
 namespace rigkit {
@@ -33,22 +34,77 @@ struct ActivePropEdit {
 ActivePropEdit g_activeEdit;
 
 void offerPropDrag(uint32_t entityId, const sProp& prop) {
-	if (entityId == 0 || !prop.data) {
+	if (!prop.data) {
 		return;
 	}
-	if (!ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-		return;
-	}
-	RigScenePropPayload payload;
-	payload.entity = entityId;
-	payload.propType = static_cast<int>(prop.type);
-	std::snprintf(payload.name, sizeof(payload.name), "%s", prop.name.c_str());
-	ImGui::SetDragDropPayload(kRigScenePropPayload, &payload, sizeof(payload));
-	ImGui::Text("Ref → %s", prop.name.c_str());
-	ImGui::EndDragDropSource();
+	offerScenePropDrag(entityId, prop.name.c_str(), static_cast<int>(prop.type));
 }
 
 } // namespace
+
+void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
+	if (entityId == 0 || !propName || propName[0] == '\0') {
+		return;
+	}
+	ImGuiContext& g = *GImGui;
+	if (g.LastItemData.ID == 0) {
+		return;
+	}
+	const ImRect total = g.LastItemData.Rect;
+	const ImRect frame = g.LastItemData.NavRect;
+	const ImGuiStyle& style = ImGui::GetStyle();
+	const bool hasLabel = total.Max.x > frame.Max.x + 1.f;
+	ImRect hit = total;
+	if (hasLabel) {
+		// Label sits to the right of the frame (ImGui default). Drag the name,
+		// not the value — DragInt/DragFloat already own left-drag for editing.
+		hit.Min.x = frame.Max.x;
+	} else if (!g.IO.KeyAlt) {
+		return;
+	}
+
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	if (!window || window->SkipItems) {
+		return;
+	}
+	ImGui::PushID(static_cast<int>(entityId));
+	ImGui::PushID(propName);
+	// DragFloat/Checkbox ItemAdd the label as well; without AllowOverlap the
+	// value widget wins hover and the name never starts a payload.
+	ImGui::PushItemFlag(ImGuiItemFlags_AllowOverlap, true);
+	const ImVec2 restore = window->DC.CursorPos;
+	const ImVec2 restoreMax = window->DC.CursorMaxPos;
+	ImGui::SetCursorScreenPos(hit.Min);
+	ImGui::InvisibleButton("##scene_prop_drag", hit.GetSize(), ImGuiButtonFlags_AllowOverlap);
+	window->DC.CursorPos = restore;
+	window->DC.CursorMaxPos = restoreMax;
+	ImGui::PopItemFlag();
+	const bool hovered = ImGui::IsItemHovered();
+	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+		RigScenePropPayload payload;
+		payload.entity = entityId;
+		payload.propType = propType;
+		std::snprintf(payload.name, sizeof(payload.name), "%s", propName);
+		ImGui::SetDragDropPayload(kRigScenePropPayload, &payload, sizeof(payload));
+		ImGui::Text("Patch → %s", propName);
+		ImGui::TextDisabled("Drop on Node Editor");
+		ImGui::TextDisabled("Alt+drop adds an LFO");
+		ImGui::EndDragDropSource();
+	} else if (hovered) {
+		ImGui::SetTooltip("Drag to Node Editor to patch");
+	}
+	if (hasLabel) {
+		const ImVec2 c(frame.Max.x + style.ItemInnerSpacing.x * 0.5f,
+					   (frame.Min.y + frame.Max.y) * 0.5f);
+		const ImU32 col =
+			ImGui::GetColorU32(hovered ? ImGuiCol_CheckMark : ImGuiCol_TextDisabled);
+		auto* dl = ImGui::GetWindowDrawList();
+		dl->AddCircleFilled(c, 3.25f, col);
+		dl->AddCircle(c, 3.25f, ImGui::GetColorU32(ImGuiCol_Border), 0, 1.f);
+	}
+	ImGui::PopID();
+	ImGui::PopID();
+}
 
 PropValue readPropValue(const sProp& prop) {
 	switch (prop.type) {

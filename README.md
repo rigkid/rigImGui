@@ -15,7 +15,11 @@ Also: [sample_menubar](examples/sample_menubar/), [example_filebrowser](examples
 
 It fulfills UI via `IMui` — part of a **SUDE–ECS–UI fulfillment**, not SUDE alone. Show/headless hosts may omit it and remain SUDE or SUDE–ECS.
 
-Vendored under `third_party/` (Dear ImGui docking, IconFontCppHeaders, ImGuizmo, implot, implot3d, imgui-filebrowser) so a clean RigKit clone builds without nested submodule init. Upstream URLs stay in history / package docs; this tree is the distribution source of truth.
+Dear ImGui docking is a submodule of [GitBruno/imgui](https://github.com/GitBruno/imgui) (`features/font-kerning-fn-v1.92.1`) — v1.92.1 plus optional `ImFont::KerningFn` ([ocornut/imgui#9516](https://github.com/ocornut/imgui/pull/9516)). After that PR merges, retarget `third_party/imgui` to `ocornut/imgui` `@ docking`. Other `third_party/` trees stay vendored.
+
+```bash
+git submodule update --init --recursive
+```
 
 The pack extends RigKit with a complete UI system built on Dear ImGui. It provides:
 

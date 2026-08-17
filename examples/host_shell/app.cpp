@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <glm/glm.hpp>
+#include <spdlog/spdlog.h>
 
 #include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"

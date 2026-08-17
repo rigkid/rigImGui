@@ -37,7 +37,9 @@ void applyBaseMetrics() {
 	style.WindowBorderSize = 1.0f;
 	style.ChildBorderSize = 1.0f;
 	style.PopupBorderSize = 1.0f;
-	style.FrameBorderSize = 0.0f;
+	// Frame border keeps InputText / Combo visible when FrameBg is close to
+	// WindowBg or PopupBg (file dialogs, dark theme).
+	style.FrameBorderSize = 1.0f;
 	style.TabBorderSize = 0.0f;
 
 	style.WindowRounding = 5.0f;
@@ -71,7 +73,7 @@ void applyDarkColors() {
 	c[ImGuiCol_TextDisabled] = muted;
 	c[ImGuiCol_WindowBg] = bg;
 	c[ImGuiCol_ChildBg] = ImVec4(bg.x, bg.y, bg.z, 0.00f);
-	c[ImGuiCol_PopupBg] = bg2;
+	c[ImGuiCol_PopupBg] = bg;
 	c[ImGuiCol_Border] = ImVec4(0.28f, 0.30f, 0.34f, 0.70f);
 	c[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
 	c[ImGuiCol_FrameBg] = bg2;
@@ -200,7 +202,7 @@ void applyDraculaColors() {
 	c[ImGuiCol_TextDisabled] = ImVec4(0.55f, 0.55f, 0.60f, 1.00f);
 	c[ImGuiCol_WindowBg] = bg;
 	c[ImGuiCol_ChildBg] = ImVec4(bg.x, bg.y, bg.z, 0.00f);
-	c[ImGuiCol_PopupBg] = bg2;
+	c[ImGuiCol_PopupBg] = bg;
 	c[ImGuiCol_Border] = ImVec4(0.35f, 0.36f, 0.45f, 0.60f);
 	c[ImGuiCol_FrameBg] = bg2;
 	c[ImGuiCol_FrameBgHovered] = ImVec4(0.30f, 0.30f, 0.40f, 1.00f);
@@ -338,7 +340,6 @@ void applyStyleExtras(ImGuiTheme theme) {
 		break;
 	case ImGuiTheme::Dark:
 	default:
-		style.FrameBorderSize = 0.0f;
 		break;
 	}
 }
@@ -696,6 +697,39 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 	(void)fontsSearchDir;
 #endif
 	return loadedBody;
+}
+
+std::string resolveBodyFontPath(const std::string& fontsSearchDir, const std::string& bodyFontPath) {
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	auto existsFile = [&](const fs::path& p) -> std::string {
+		if (fs::is_regular_file(p, ec)) {
+			return fs::weakly_canonical(p, ec).string();
+		}
+		return {};
+	};
+
+	if (!bodyFontPath.empty()) {
+		fs::path custom(bodyFontPath);
+		if (custom.is_absolute()) {
+			if (auto s = existsFile(custom); !s.empty()) {
+				return s;
+			}
+		} else {
+			if (auto s = existsFile(fs::path(fontsSearchDir) / custom); !s.empty()) {
+				return s;
+			}
+			if (auto s = existsFile(custom); !s.empty()) {
+				return s;
+			}
+		}
+	}
+
+	const auto roboto = findFontFile(fontsSearchDir, "Roboto-Regular.ttf");
+	if (!roboto.empty()) {
+		return roboto.string();
+	}
+	return {};
 }
 
 } // namespace ImGuiStyleKit

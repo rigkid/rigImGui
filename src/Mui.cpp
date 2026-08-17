@@ -17,6 +17,7 @@
 #include "SceneWindow.h"
 #include "ShortcutsPanel.h"
 #include "ThemePanel.h"
+#include "TtfKern.h"
 #include "UiDpi.h"
 #include "ViewportWindow.h"
 #include "WindowManagerPanel.h"
@@ -151,6 +152,8 @@ void Mui::initImGui() {
 	registerVisibilitySettingsHandler();
 
 	m_imguiReady = true;
+	loadChromeKernTable();
+	bindChromeKerning();
 	spdlog::info("[rigImGui] ImGui context ready (dpi scale {:.2f})", m_dpiScale);
 }
 
@@ -313,7 +316,9 @@ void Mui::renderModals() {
 			ImGui::TextUnformatted(it->message.c_str());
 			ImGui::PopTextWrapPos();
 			ImGui::Separator();
-			if (ImGui::Button("OK", ImVec2(120, 0))) {
+			const float okW = 120.f;
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - okW);
+			if (ImGui::Button("OK", ImVec2(okW, 0))) {
 				if (it->onOk) {
 					it->onOk();
 				}
@@ -404,7 +409,9 @@ void Mui::renderAbout() {
 			}
 		}
 		ImGui::EndChild();
-		if (ImGui::Button("OK", ImVec2(120.f, 0.f))) {
+		const float okW = 120.f;
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - okW);
+		if (ImGui::Button("OK", ImVec2(okW, 0.f))) {
 			open = false;
 			ImGui::CloseCurrentPopup();
 		}
@@ -457,6 +464,17 @@ void Mui::render() {
 		const float dt = m_engine->getDeltaTime();
 		tickNotifications(dt);
 		m_progress.tickFrame(dt);
+		if (dt > 0.f) {
+			m_fpsAccum += dt;
+			++m_fpsFrames;
+			if (m_fpsAccum >= 0.5f) {
+				m_fpsShown = static_cast<float>(m_fpsFrames) / m_fpsAccum;
+				m_fpsAccum = 0.f;
+				m_fpsFrames = 0;
+			} else if (m_fpsShown <= 0.f) {
+				m_fpsShown = static_cast<float>(m_fpsFrames) / m_fpsAccum;
+			}
+		}
 	}
 
 	if (m_menuBar) {
@@ -471,6 +489,11 @@ void Mui::render() {
 		if (!centralViewRect(gx, gy, gw, gh)) {
 			gw = static_cast<float>(m_engine->getWindowWidth());
 			gh = static_cast<float>(m_engine->getWindowHeight());
+		} else {
+			// ImGuizmo wants ImGui screen space; centralViewRect is window-client.
+			const ImGuiViewport* vp = ImGui::GetMainViewport();
+			gx += vp ? vp->Pos.x : 0.f;
+			gy += vp ? vp->Pos.y : 0.f;
 		}
 		m_gizmoDrawer(gx, gy, gw, gh, m_gizmoOp);
 	}
@@ -524,11 +547,14 @@ bool Mui::centralViewRect(float& outX, float& outY, float& outW, float& outH) co
 		outW = outH = 0.f;
 		return false;
 	}
-	outX = m_centralX;
-	outY = m_centralY;
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
+	const float originX = vp ? vp->Pos.x : 0.f;
+	const float originY = vp ? vp->Pos.y : 0.f;
+	outX = m_centralX - originX;
+	outY = m_centralY - originY;
 	outW = m_centralW;
 	outH = m_centralH;
-	return true;
+	return outW > 1.f && outH > 1.f;
 }
 
 void Mui::applyDpiStyle() {
@@ -638,6 +664,8 @@ void Mui::applyUiPrefs() {
 		m_uiPrefs.fontFile != m_appliedFontFile || m_uiPrefs.fontSize != m_appliedFontSize;
 	if (fontChanged) {
 		reloadFonts();
+	} else {
+		bindChromeKerning();
 	}
 	syncProgressFromPrefs();
 	syncFpsChromeFromPrefs();
@@ -671,7 +699,80 @@ bool Mui::reloadFonts() {
 		m_appliedFontFile = m_uiPrefs.fontFile;
 		m_appliedFontSize = m_uiPrefs.fontSize;
 	}
+	loadChromeKernTable();
+	bindChromeKerning();
 	return ok;
+}
+
+void Mui::loadChromeKernTable() {
+	const std::string ttf =
+		ImGuiStyleKit::resolveBodyFontPath(AppPaths::getFontsDir(), m_uiPrefs.fontFile);
+	if (!ttf.empty() && m_ttfKern.loadFromFile(ttf)) {
+		spdlog::info("[rigImGui] Chrome kern table: {} pairs from {}", m_ttfKern.pairCount(), ttf);
+		return;
+	}
+	m_ttfKern.clear();
+}
+
+void Mui::setChromeKerning(bool enabled) {
+	m_uiPrefs.chromeKerning = enabled;
+	if (m_imguiReady) {
+		bindChromeKerning();
+	}
+}
+
+void Mui::setChromeKernFn(ChromeKernFn fn, void* user) {
+	m_chromeKernFn = fn;
+	m_chromeKernUser = user;
+	if (m_imguiReady) {
+		bindChromeKerning();
+	}
+}
+
+namespace {
+
+float chromeKernFromTtf(ImFont* font, ImWchar left, ImWchar right, float size, void* user) {
+	(void)font;
+	return static_cast<TtfKern*>(user)->pairPx(left, right, size);
+}
+
+} // namespace
+
+void Mui::bindChromeKerning() {
+	if (!m_imguiReady) {
+		return;
+	}
+	ImGuiIO& io = ImGui::GetIO();
+	ImFont* font = io.FontDefault;
+	if (!font && io.Fonts && io.Fonts->Fonts.Size > 0) {
+		font = io.Fonts->Fonts[0];
+	}
+	if (!font) {
+		return;
+	}
+	if (!m_uiPrefs.chromeKerning) {
+		font->KerningFn = nullptr;
+		font->KerningUserData = nullptr;
+		return;
+	}
+	if (m_chromeKernFn) {
+		font->KerningFn = [](ImFont*, ImWchar left, ImWchar right, float size, void* user) -> float {
+			auto* self = static_cast<Mui*>(user);
+			if (!self || !self->m_chromeKernFn) {
+				return 0.f;
+			}
+			return self->m_chromeKernFn(left, right, size, self->m_chromeKernUser);
+		};
+		font->KerningUserData = this;
+		return;
+	}
+	if (m_ttfKern.pairCount() > 0) {
+		font->KerningFn = chromeKernFromTtf;
+		font->KerningUserData = &m_ttfKern;
+		return;
+	}
+	font->KerningFn = nullptr;
+	font->KerningUserData = nullptr;
 }
 
 void Mui::registerFontAtlasHook(std::function<void(ImFontAtlas& atlas)> hook) {
@@ -1412,15 +1513,11 @@ void Mui::ensureDefaultStatusSlots() {
 }
 
 std::string Mui::fpsStatusText() const {
-	if (!m_engine) {
-		return "FPS --";
-	}
-	const float dt = m_engine->getDeltaTime();
-	if (dt <= 0.f) {
+	if (m_fpsShown <= 0.f) {
 		return "FPS --";
 	}
 	char buf[32];
-	std::snprintf(buf, sizeof(buf), "FPS %.0f", 1.f / dt);
+	std::snprintf(buf, sizeof(buf), "FPS %.0f", static_cast<double>(m_fpsShown));
 	return buf;
 }
 
@@ -1515,9 +1612,8 @@ void Mui::renderStatusBar() {
 		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |
 		ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing;
 
-	// Match main-menu File label indent (MenuBarOffset ~ ItemSpacing + FramePadding).
 	const ImGuiStyle &style = ImGui::GetStyle();
-	const float padX = style.ItemSpacing.x + style.FramePadding.x;
+	const float padX = chromeBarPadX();
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(padX, 2.f));
@@ -1554,17 +1650,32 @@ void Mui::renderStatusBar() {
 		drawProgressInStatusBar(leftDrawn);
 
 		float right = 0.f;
-		for (const auto &slot : m_statusBar.slots()) {
-			right += (slot.width > 0.f) ? slot.width : 72.f;
+		for (size_t i = 0; i < m_statusBar.slots().size(); ++i) {
+			const auto &slot = m_statusBar.slots()[i];
+			if (slot.width > 0.f) {
+				right += slot.width;
+			} else if (slot.text && !slot.draw) {
+				right += ImGui::CalcTextSize(slot.text().c_str()).x;
+			} else {
+				right += 72.f;
+			}
+			if (i + 1 < m_statusBar.slots().size()) {
+				right += style.ItemSpacing.x;
+			}
 		}
 		if (right > 0.f) {
-			ImGui::SameLine();
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - right - padX);
+			ImGui::SameLine(0.f, 0.f);
+			// ContentRegionMax already subtracts WindowPadding (padX).
+			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - right);
 		}
 		for (size_t i = 0; i < m_statusBar.slots().size(); ++i) {
 			const auto &slot = m_statusBar.slots()[i];
-			const std::string text = slot.text ? slot.text() : std::string{};
-			ImGui::TextUnformatted(text.c_str());
+			if (slot.draw) {
+				slot.draw();
+			} else {
+				const std::string text = slot.text ? slot.text() : std::string{};
+				ImGui::TextUnformatted(text.c_str());
+			}
 			if (i + 1 < m_statusBar.slots().size()) {
 				ImGui::SameLine();
 			}
