@@ -15,7 +15,7 @@ class MSettings;
 class PropertiesWindow : public IWindow {
   public:
 	using ExtraDrawer = std::function<void(MEcs& ecs, entt::entity entity)>;
-	/** @brief Optional — when set, Edit shows "Open in Code Editor" for `CCode`. */
+	/** @brief Optional — when set, the inline editor shows "Open in Code Editor". */
 	using OpenCodeEditorFn = std::function<void(uint32_t entity)>;
 	/**
 	 * @brief Optional highlighted light editor (e.g. from rigCodeEditor).
@@ -67,7 +67,7 @@ class PropertiesWindow : public IWindow {
 	void saveCodeEditHeight();
 	MSettings* settings() const;
 	void renderAllComponentProperties();
-	/** @brief Collapsible Preview / Edit for entities with `CCode`. */
+	/** @brief Inline code editor for entities with `CCode`. */
 	void renderCodeEditSection(MEcs& ecs, entt::entity entity);
 };
 

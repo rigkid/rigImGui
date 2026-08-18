@@ -1,10 +1,36 @@
 #include "PresetBar.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <imgui.h>
+#include <string>
+#include <unordered_map>
 
 namespace rigkit {
 namespace PresetBar {
+namespace {
+
+float comboWidthForNames(const std::vector<std::string>& names, const std::string& preview) {
+	float w = ImGui::CalcTextSize(preview.c_str()).x;
+	for (const auto& n : names) {
+		w = std::max(w, ImGui::CalcTextSize(n.c_str()).x);
+	}
+	w = std::max(w, ImGui::CalcTextSize("(none)").x);
+	const float pad = ImGui::GetStyle().FramePadding.x * 2.f + ImGui::GetFrameHeight();
+	return std::clamp(w + pad, 180.f, 360.f);
+}
+
+struct SaveDraft {
+	char buf[128] = {};
+};
+
+SaveDraft& draftFor(const char* strId) {
+	static std::unordered_map<std::string, SaveDraft> drafts;
+	return drafts[strId];
+}
+
+} // namespace
 
 Result draw(const char* strId, const char* label, const std::vector<std::string>& names,
 			std::string& name, bool dirty, const char* hint) {
@@ -27,7 +53,7 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 	ImGui::AlignTextToFramePadding();
 	ImGui::TextUnformatted(label);
 	ImGui::SameLine();
-	ImGui::SetNextItemWidth(160.f);
+	ImGui::SetNextItemWidth(comboWidthForNames(names, preview));
 	if (ImGui::BeginCombo("##preset", preview.c_str())) {
 		for (int i = 0; i < static_cast<int>(names.size()); ++i) {
 			const auto& n = names[static_cast<size_t>(i)];
@@ -35,6 +61,7 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 			if (ImGui::Selectable(n.c_str(), selected)) {
 				r.action = Action::Load;
 				r.name = n;
+				name = n;
 			}
 			if (selected) {
 				ImGui::SetItemDefaultFocus();
@@ -47,21 +74,9 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 	}
 
 	ImGui::SameLine();
-	char buf[128];
-	std::snprintf(buf, sizeof(buf), "%s", name.c_str());
-	ImGui::SetNextItemWidth(120.f);
-	if (ImGui::InputTextWithHint("##name", "Name", buf, sizeof(buf))) {
-		name = buf;
-		r.nameEdited = true;
-	}
-
-	ImGui::SameLine();
-	ImGui::BeginDisabled(name.empty());
 	if (ImGui::Button("Save")) {
-		r.action = Action::Save;
-		r.name = name;
+		ImGui::OpenPopup("##save_preset_name");
 	}
-	ImGui::EndDisabled();
 
 	ImGui::SameLine();
 	ImGui::BeginDisabled(currentIdx < 0);
@@ -70,6 +85,33 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 		r.name = name;
 	}
 	ImGui::EndDisabled();
+
+	if (ImGui::BeginPopupModal("##save_preset_name", nullptr,
+							   ImGuiWindowFlags_AlwaysAutoResize)) {
+		SaveDraft& draft = draftFor(strId);
+		if (ImGui::IsWindowAppearing()) {
+			std::snprintf(draft.buf, sizeof(draft.buf), "%s", name.c_str());
+		}
+		ImGui::TextUnformatted("Preset name");
+		ImGui::SetNextItemWidth(280.f);
+		const bool enter = ImGui::InputText("##save_name", draft.buf, sizeof(draft.buf),
+											ImGuiInputTextFlags_EnterReturnsTrue);
+		const bool canSave = draft.buf[0] != '\0';
+		ImGui::BeginDisabled(!canSave);
+		if ((ImGui::Button("OK", ImVec2(120.f, 0.f)) || (enter && canSave))) {
+			name = draft.buf;
+			r.action = Action::Save;
+			r.name = name;
+			r.nameEdited = true;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(120.f, 0.f))) {
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
 
 	if (hint && hint[0] != '\0') {
 		ImGui::TextDisabled("%s", hint);

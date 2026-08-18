@@ -28,7 +28,6 @@ constexpr float kEntityListGrip = 6.0f;
 constexpr const char* kEntityListHeightKey = "properties.entityListHeight";
 constexpr const char* kEntityListOpenKey = "properties.entityListOpen";
 constexpr const char* kCodeEditHeightKey = "properties.codeEditHeight";
-constexpr int kCodePreviewMaxChars = 4000;
 constexpr float kCodeEditMinHeight = 80.f;
 constexpr float kCodeEditDefaultHeight = 220.f;
 constexpr float kCodeEditGrip = 6.0f;
@@ -332,42 +331,23 @@ void PropertiesWindow::renderCodeEditSection(MEcs& ecs, entt::entity entity) {
 		std::max(kCodeEditMinHeight, ImGui::GetContentRegionAvail().y - kCodeEditGrip - 8.f);
 	m_codeEditHeight = std::clamp(m_codeEditHeight, kCodeEditMinHeight, maxHeight);
 
-	// Collapsed = skip widget work (preview string / TextEditor).
-	if (ImGui::CollapsingHeader("Preview")) {
-		std::string preview = code.text;
-		const bool truncated = static_cast<int>(preview.size()) > kCodePreviewMaxChars;
-		if (truncated) {
-			preview.resize(static_cast<size_t>(kCodePreviewMaxChars));
-			preview += "\n…";
-		}
-		ImGui::BeginChild("code_preview", ImVec2(-1.f, m_codeEditHeight), true);
-		ImGui::TextUnformatted(preview.empty() ? "(empty)" : preview.c_str());
-		ImGui::EndChild();
-		renderCodeEditHeightGrip();
-		if (truncated) {
-			ImGui::TextDisabled("Preview truncated — open Edit or the Code Editor for the full buffer");
+	bool changed = false;
+	if (m_codeLightEditDraw) {
+		changed = m_codeLightEditDraw(entityId, code.text, code.language, m_codeEditHeight,
+									  readOnly);
+	} else {
+		ImGui::PushID("code_light_edit");
+		changed = inputTextMultilineString("##body", code.text, ImVec2(-1.f, m_codeEditHeight),
+										   readOnly);
+		ImGui::PopID();
+	}
+	if (changed && !readOnly) {
+		code.dirty = true;
+		if (m_onPropertyChanged) {
+			m_onPropertyChanged(entityId, "Code", {});
 		}
 	}
-
-	if (!readOnly && ImGui::CollapsingHeader("Edit")) {
-		bool changed = false;
-		if (m_codeLightEditDraw) {
-			changed = m_codeLightEditDraw(entityId, code.text, code.language, m_codeEditHeight,
-										  false);
-		} else {
-			ImGui::PushID("code_light_edit");
-			changed = inputTextMultilineString("##body", code.text, ImVec2(-1.f, m_codeEditHeight),
-											   false);
-			ImGui::PopID();
-		}
-		if (changed) {
-			code.dirty = true;
-			if (m_onPropertyChanged) {
-				m_onPropertyChanged(entityId, "Code", {});
-			}
-		}
-		renderCodeEditHeightGrip();
-	}
+	renderCodeEditHeightGrip();
 }
 
 void PropertiesWindow::renderAllComponentProperties() {

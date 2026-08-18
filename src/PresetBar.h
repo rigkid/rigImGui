@@ -15,12 +15,13 @@ struct Result {
 };
 
 /**
- * @brief Combo + name + Save + Delete for named disk presets.
- * @details Combo pick is Load. Save uses @p name (disabled when empty).
- * Delete uses @p name when that stem is in @p names. Dirty marks the
- * combo preview with *. Same row everywhere — callers only do I/O.
- * @param label Left-side caption ("Preset").
- * @param name Current / save-as stem; InputText writes back here.
+ * @brief Names dropdown + Save + Delete for named disk presets.
+ * @details Combo pick is Load. Save opens a name popup (pre-filled with
+ * @p name); confirm sets Action::Save. Delete uses the current @p name when
+ * that stem is in @p names. Dirty marks the combo preview with *. Same row
+ * everywhere — callers only do I/O. No inline name field.
+ * @param label Left-side caption ("Preset" / "Snippet").
+ * @param name Current stem; updated on Load and on confirmed Save.
  * @param hint Optional disabled line under the row.
  */
 Result draw(const char* strId, const char* label, const std::vector<std::string>& names,
