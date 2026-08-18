@@ -40,7 +40,8 @@ void writePropValue(const sProp& prop, const PropValue& value);
 /**
  * @brief Edit `sProp` fields with ImGui. Returns true if any value changed.
  * @param headerName CollapsingHeader label; null = draw widgets only.
- * @param entityId When non-zero, each row is a drag source (`RIG_SCENE_PROP`) for the Node Editor.
+ * @param entityId When non-zero, each row gets a patch pin (`RIG_SCENE_PROP`)
+ * for the Node Editor — the automatic path for any app using Properties.
  * @param onCommit When set, fires once per finished edit (a whole drag = one commit)
  * with before/after values — the seam for undo records.
  */
@@ -48,11 +49,30 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 				 const PropCommitFn& onCommit = {});
 
 /**
- * @brief Make the last ImGui widget's label a Node Editor drag source.
- * @details Dragging the value still edits it. Drag the label (or Alt-drag an
- * unlabeled control) to drop a `ref.*` onto the Node Editor. `propName` is the
- * `GetProperties()` / drive-slot name `applyRefWrites` will match.
+ * @brief Default entity for `offerScenePropDrag(name, type)` (nested; last Begin wins).
+ * @details Custom panels: `PropDragSource src(entityId);` then widget +
+ * `offerScenePropDrag("Width", EPT_INT);`. Properties / `RenderProps` do this
+ * for you.
+ */
+void BeginPropDragSource(uint32_t entityId);
+void EndPropDragSource();
+uint32_t currentPropDragEntity();
+
+/**
+ * @brief Patch pin after the last ImGui widget — drop on the Node Editor to bind a `ref.*`.
+ * @details Own layout item (SameLine), so it never fights DragFloat. `propName`
+ * is the `GetProperties()` / drive-slot name `applyRefWrites` matches.
+ * `entityId == 0` uses `BeginPropDragSource`.
  */
 void offerScenePropDrag(uint32_t entityId, const char* propName, int propType);
+void offerScenePropDrag(const char* propName, int propType);
+
+/** @brief RAII `BeginPropDragSource` / `EndPropDragSource`. */
+struct PropDragSource {
+	explicit PropDragSource(uint32_t entityId) { BeginPropDragSource(entityId); }
+	~PropDragSource() { EndPropDragSource(); }
+	PropDragSource(const PropDragSource&) = delete;
+	PropDragSource& operator=(const PropDragSource&) = delete;
+};
 
 } // namespace rigkit

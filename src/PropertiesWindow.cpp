@@ -5,7 +5,6 @@
 #include "CDriveHint.h"
 #include "CTransform.h"
 #include "PropEditors.h"
-#include "SceneDragPayload.h"
 #include "UiDpi.h"
 #include "core/IMui.h"
 #include "core/RigKitEngine.h"
@@ -387,7 +386,7 @@ void PropertiesWindow::renderAllComponentProperties() {
 		const auto& hint = ecs->getComponent<ecs::CDriveHint>(entity);
 		ImGui::TextColored(ImVec4(0.45f, 0.85f, 1.f, 1.f), "Graph drive");
 		ImGui::TextWrapped("%s", hint.label.c_str());
-		ImGui::TextDisabled("Drag a property row into the Node Editor to make a Ref.");
+		ImGui::TextDisabled("Drag a field's patch pin into the Node Editor to make a Ref.");
 		ImGui::Separator();
 	}
 
@@ -405,15 +404,7 @@ void PropertiesWindow::renderAllComponentProperties() {
 			}
 			auto& cam = ecs->getComponent<ecs::CCamera>(entity);
 			ImGui::Checkbox("Active", &cam.active);
-			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-				RigScenePropPayload payload;
-				payload.entity = entityId;
-				payload.propType = EPT_BOOL;
-				std::snprintf(payload.name, sizeof(payload.name), "Active");
-				ImGui::SetDragDropPayload(kRigScenePropPayload, &payload, sizeof(payload));
-				ImGui::Text("Ref → Active");
-				ImGui::EndDragDropSource();
-			}
+			offerScenePropDrag(entityId, "Active", EPT_BOOL);
 			ImGui::SameLine();
 			if (ImGui::SmallButton("Reset")) {
 				cam.resetToDefaults();

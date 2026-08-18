@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <string>
+#include <vector>
 
 namespace rigkit {
 namespace {
@@ -32,6 +33,24 @@ struct ActivePropEdit {
 	PropValue before;
 };
 ActivePropEdit g_activeEdit;
+std::vector<uint32_t> g_propDragStack;
+
+bool canPatchPropType(int propType) {
+	switch (propType) {
+	case EPT_BOOL:
+	case EPT_INT:
+	case EPT_ENUM:
+	case EPT_UINT:
+	case EPT_FLOAT:
+	case EPT_DOUBLE:
+	case EPT_VEC2:
+	case EPT_VEC4:
+	case EPT_COLOR:
+		return true;
+	default:
+		return false;
+	}
+}
 
 void offerPropDrag(uint32_t entityId, const sProp& prop) {
 	if (!prop.data) {
@@ -42,44 +61,49 @@ void offerPropDrag(uint32_t entityId, const sProp& prop) {
 
 } // namespace
 
-void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
-	if (entityId == 0 || !propName || propName[0] == '\0') {
-		return;
-	}
-	ImGuiContext& g = *GImGui;
-	if (g.LastItemData.ID == 0) {
-		return;
-	}
-	const ImRect total = g.LastItemData.Rect;
-	const ImRect frame = g.LastItemData.NavRect;
-	const ImGuiStyle& style = ImGui::GetStyle();
-	const bool hasLabel = total.Max.x > frame.Max.x + 1.f;
-	ImRect hit = total;
-	if (hasLabel) {
-		// Label sits to the right of the frame (ImGui default). Drag the name,
-		// not the value — DragInt/DragFloat already own left-drag for editing.
-		hit.Min.x = frame.Max.x;
-	} else if (!g.IO.KeyAlt) {
-		return;
-	}
+void BeginPropDragSource(uint32_t entityId) {
+	g_propDragStack.push_back(entityId);
+}
 
+void EndPropDragSource() {
+	if (!g_propDragStack.empty()) {
+		g_propDragStack.pop_back();
+	}
+}
+
+uint32_t currentPropDragEntity() {
+	return g_propDragStack.empty() ? 0 : g_propDragStack.back();
+}
+
+void offerScenePropDrag(const char* propName, int propType) {
+	offerScenePropDrag(currentPropDragEntity(), propName, propType);
+}
+
+void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
+	if (entityId == 0) {
+		entityId = currentPropDragEntity();
+	}
+	if (entityId == 0 || !propName || propName[0] == '\0' || !canPatchPropType(propType)) {
+		return;
+	}
 	ImGuiWindow* window = ImGui::GetCurrentWindow();
 	if (!window || window->SkipItems) {
 		return;
 	}
+
+	ImGui::SameLine(0.f, ImGui::GetStyle().ItemInnerSpacing.x);
 	ImGui::PushID(static_cast<int>(entityId));
 	ImGui::PushID(propName);
-	// DragFloat/Checkbox ItemAdd the label as well; without AllowOverlap the
-	// value widget wins hover and the name never starts a payload.
-	ImGui::PushItemFlag(ImGuiItemFlags_AllowOverlap, true);
-	const ImVec2 restore = window->DC.CursorPos;
-	const ImVec2 restoreMax = window->DC.CursorMaxPos;
-	ImGui::SetCursorScreenPos(hit.Min);
-	ImGui::InvisibleButton("##scene_prop_drag", hit.GetSize(), ImGuiButtonFlags_AllowOverlap);
-	window->DC.CursorPos = restore;
-	window->DC.CursorMaxPos = restoreMax;
-	ImGui::PopItemFlag();
+	const float h = ImGui::GetFrameHeight();
+	ImGui::InvisibleButton("##prop_pin", ImVec2(h * 0.85f, h));
 	const bool hovered = ImGui::IsItemHovered();
+	const ImVec2 a = ImGui::GetItemRectMin();
+	const ImVec2 b = ImGui::GetItemRectMax();
+	const ImVec2 c((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
+	auto* dl = ImGui::GetWindowDrawList();
+	dl->AddCircleFilled(c, h * 0.18f,
+						ImGui::GetColorU32(hovered ? ImGuiCol_CheckMark : ImGuiCol_TextDisabled));
+	dl->AddCircle(c, h * 0.18f, ImGui::GetColorU32(ImGuiCol_Border), 0, 1.f);
 	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
 		RigScenePropPayload payload;
 		payload.entity = entityId;
@@ -92,15 +116,6 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
 		ImGui::EndDragDropSource();
 	} else if (hovered) {
 		ImGui::SetTooltip("Drag to Node Editor to patch");
-	}
-	if (hasLabel) {
-		const ImVec2 c(frame.Max.x + style.ItemInnerSpacing.x * 0.5f,
-					   (frame.Min.y + frame.Max.y) * 0.5f);
-		const ImU32 col =
-			ImGui::GetColorU32(hovered ? ImGuiCol_CheckMark : ImGuiCol_TextDisabled);
-		auto* dl = ImGui::GetWindowDrawList();
-		dl->AddCircleFilled(c, 3.25f, col);
-		dl->AddCircle(c, 3.25f, ImGui::GetColorU32(ImGuiCol_Border), 0, 1.f);
 	}
 	ImGui::PopID();
 	ImGui::PopID();
@@ -198,6 +213,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 	// Scope widget IDs per component so equal labels (e.g. "Inset (mm)" on both
 	// CropmarkSettings and BorderSettings) do not collide in the same window.
 	ImGui::PushID(headerName ? headerName : "props");
+	PropDragSource patchSrc(entityId);
 
 	bool anyChanged = false;
 	for (auto& prop : props) {
