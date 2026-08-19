@@ -47,10 +47,5 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir = {},
 std::string resolveBodyFontPath(const std::string& fontsSearchDir = {},
 								const std::string& bodyFontPath = {});
 
-/// @deprecated Prefer loadFonts()
-inline void loadDefaultFonts(ImGuiIO& io, const std::string& fontsSearchDir = {}) {
-	loadFonts(io, fontsSearchDir, {}, 16.0f);
-}
-
 } // namespace ImGuiStyleKit
 } // namespace rigkit

@@ -11,16 +11,6 @@ namespace rigkit {
 namespace PresetBar {
 namespace {
 
-float comboWidthForNames(const std::vector<std::string>& names, const std::string& preview) {
-	float w = ImGui::CalcTextSize(preview.c_str()).x;
-	for (const auto& n : names) {
-		w = std::max(w, ImGui::CalcTextSize(n.c_str()).x);
-	}
-	w = std::max(w, ImGui::CalcTextSize("(none)").x);
-	const float pad = ImGui::GetStyle().FramePadding.x * 2.f + ImGui::GetFrameHeight();
-	return std::clamp(w + pad, 180.f, 360.f);
-}
-
 struct SaveDraft {
 	char buf[128] = {};
 };
@@ -53,7 +43,12 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 	ImGui::AlignTextToFramePadding();
 	ImGui::TextUnformatted(label);
 	ImGui::SameLine();
-	ImGui::SetNextItemWidth(comboWidthForNames(names, preview));
+	const ImGuiStyle& st = ImGui::GetStyle();
+	const float saveW = ImGui::CalcTextSize("Save").x + st.FramePadding.x * 2.f;
+	const float deleteW = ImGui::CalcTextSize("Delete").x + st.FramePadding.x * 2.f;
+	const float spacing = st.ItemSpacing.x;
+	ImGui::SetNextItemWidth(
+		std::max(48.f, ImGui::GetContentRegionAvail().x - saveW - deleteW - spacing * 2.f));
 	if (ImGui::BeginCombo("##preset", preview.c_str())) {
 		for (int i = 0; i < static_cast<int>(names.size()); ++i) {
 			const auto& n = names[static_cast<size_t>(i)];
@@ -73,14 +68,14 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 		ImGui::SetTooltip("Differs from the named preset — Save to overwrite.");
 	}
 
-	ImGui::SameLine();
-	if (ImGui::Button("Save")) {
+	ImGui::SameLine(0.f, spacing);
+	if (ImGui::Button("Save", ImVec2(saveW, 0.f))) {
 		ImGui::OpenPopup("##save_preset_name");
 	}
 
-	ImGui::SameLine();
+	ImGui::SameLine(0.f, spacing);
 	ImGui::BeginDisabled(currentIdx < 0);
-	if (ImGui::Button("Delete")) {
+	if (ImGui::Button("Delete", ImVec2(deleteW, 0.f))) {
 		r.action = Action::Delete;
 		r.name = name;
 	}
