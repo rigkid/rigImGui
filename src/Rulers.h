@@ -25,6 +25,14 @@ inline constexpr const char* const kRulerUnitNames[] = {"Px", "Mm", "Cm", "In"};
  */
 float rulerPixPerDisplayUnit(RulerUnit unit, float contentZoomAbs, float dpiScale);
 
+/**
+ * @brief Screen pixels per display unit when 1 world unit is 1 cm (CAD / 3D).
+ * @param pixelsPerWorldCm How many view pixels a 1 cm world offset covers at the focus.
+ * @details Px falls back to identity screen pixels. `pixelsPerWorldCm <= 0` uses the
+ * paper mapping (`rulerPixPerDisplayUnit` at zoom 1).
+ */
+float rulerPixPerWorldCm(RulerUnit unit, float pixelsPerWorldCm, float dpiScale);
+
 const char* rulerUnitLabel(RulerUnit unit);
 
 float rulerStripThickness(float uiScale = 1.f);

@@ -3,11 +3,13 @@
 #include <filesystem>
 #include <imgui.h>
 #include <string>
+#include "CCamera.h"
 #include "MWindow.h"
 #include "Mui.h"
 #include "UiDpi.h"
 #include "core/RigKitEngine.h"
 #include "core/util/UndoStack.h"
+#include "ecs/MEcs.h"
 #include "rendering/U_gladGlfw.h"
 
 namespace rigkit {
@@ -320,6 +322,17 @@ void HostMenuBar::renderEditMenu() {
 		stack->redo();
 	}
 
+	if (m_ui && !m_ui->editActions().empty()) {
+		ImGui::Separator();
+		for (const auto &row : m_ui->editActions()) {
+			const bool enabled = !row.isEnabled || row.isEnabled();
+			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+			if (ImGui::MenuItem(row.label.c_str(), chord, false, enabled) && row.action) {
+				row.action();
+			}
+		}
+	}
+
 	if (m_ui && m_ui->editModeEnabled()) {
 		ImGui::Separator();
 		const bool editMode = m_ui->editMode();
@@ -346,6 +359,51 @@ void HostMenuBar::renderViewMenu() {
 			m_ui->setHandles2DVisible(!handles);
 		}
 		ImGui::Separator();
+	}
+
+	if (m_engine && m_engine->getECSManager()) {
+		auto* ecs = m_engine->getECSManager();
+		ecs::CCamera* cam = nullptr;
+		auto cameras = ecs->view<ecs::CCamera>();
+		for (auto entity : cameras) {
+			auto& c = cameras.get<ecs::CCamera>(entity);
+			if (c.active) {
+				cam = &c;
+				break;
+			}
+		}
+		if (cam && ImGui::BeginMenu("Shade")) {
+			using Shade = ecs::CCamera::Shade;
+			if (ImGui::MenuItem("Solid", nullptr, cam->shade == Shade::Solid)) {
+				cam->shade = Shade::Solid;
+			}
+			if (ImGui::MenuItem("Wireframe", nullptr, cam->shade == Shade::Wireframe)) {
+				cam->shade = Shade::Wireframe;
+			}
+			if (ImGui::MenuItem("Sketch", nullptr, cam->shade == Shade::Sketch)) {
+				cam->shade = Shade::Sketch;
+			}
+			ImGui::EndMenu();
+		}
+	}
+
+	if (m_ui && !m_ui->viewActions().empty()) {
+		ImGui::Separator();
+		for (const auto &row : m_ui->viewActions()) {
+			if (row.submenu) {
+				if (ImGui::BeginMenu(row.label.c_str())) {
+					if (row.action) {
+						row.action();
+					}
+					ImGui::EndMenu();
+				}
+			} else {
+				const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+				if (ImGui::MenuItem(row.label.c_str(), chord) && row.action) {
+					row.action();
+				}
+			}
+		}
 	}
 
 	if (ImGui::BeginMenu("Windows")) {
@@ -384,6 +442,23 @@ void HostMenuBar::renderViewMenu() {
 			}
 			if (ImGui::MenuItem("Dracula", nullptr, current == 4)) {
 				m_ui->setImGuiTheme(ImGuiTheme::Dracula);
+			}
+		}
+		ImGui::EndMenu();
+	}
+
+	if (ImGui::BeginMenu("Chrome")) {
+		const bool isImgui =
+			!m_engine || m_engine->uiChrome() == "imgui" || m_engine->uiChrome().empty();
+		const bool isTui = m_engine && m_engine->uiChrome() == "tui";
+		if (ImGui::MenuItem("ImGui", nullptr, isImgui)) {
+			if (m_engine) {
+				m_engine->requestUiChrome("imgui");
+			}
+		}
+		if (ImGui::MenuItem("ImTui", nullptr, isTui)) {
+			if (m_engine) {
+				m_engine->requestUiChrome("tui");
 			}
 		}
 		ImGui::EndMenu();

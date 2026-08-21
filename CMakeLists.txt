@@ -45,6 +45,8 @@ set(PACK_SOURCES
     src/PropertiesWindow.h
     src/PropEditors.cpp
     src/PropEditors.h
+    src/ImGuiExpr.cpp
+    src/ImGuiExpr.h
     src/PreferencesPanel.cpp
     src/PreferencesPanel.h
     src/ThemePanel.cpp
@@ -76,6 +78,8 @@ set(PACK_SOURCES
     src/Rulers.h
     src/Handle2D.cpp
     src/Handle2D.h
+    src/AnchorPad.cpp
+    src/AnchorPad.h
     src/EntityPick.cpp
     src/EntityPick.h
     src/ReorderDragDrop.cpp

@@ -16,9 +16,9 @@ inline constexpr const char* kRigScenePropPayload = "RIG_SCENE_PROP";
  * `GetProperties()` / drive-slot names so `applyRefWrites` can write the field.
  *
  * Any RigKit app: register `rigNodeEditor`. Properties (`RenderProps(..., entityId)`)
- * emit pins automatically. Custom ImGui:
- * `PropDragSource src(entityId);` widget; `offerScenePropDrag("Width", EPT_INT);`
- * Drop on the Node Editor (empty canvas is fine). Alt+drop adds an LFO on floats.
+ * emit pins automatically. Custom ImGui: `PropDragSource src(entityId);` widget;
+ * `offerScenePropDrag("Width", EPT_INT);` then drag the field name (or Alt-drag
+ * the value) onto the Node Editor. Alt+drop adds an LFO on floats.
  */
 struct RigScenePropPayload {
 	uint32_t entity = 0;

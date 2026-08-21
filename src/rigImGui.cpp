@@ -1,4 +1,5 @@
 #include "rigImGui.h"
+#include <memory>
 #include <spdlog/spdlog.h>
 #include "core/RigKitEngine.h"
 #include "core/pack/PackRegistry.h"
@@ -17,10 +18,17 @@ bool rigImGui::init() {
 		return false;
 	}
 
+	engine->registerUiChrome("imgui", []() { return std::make_unique<Mui>(); });
+
 	if (engine->getUiManager()) {
 		spdlog::info(
 			"[rigImGui] UI manager already present – skipping creation");
 		m_ui = dynamic_cast<Mui *>(engine->getUiManager());
+		return true;
+	}
+
+	if (engine->uiChrome() != "imgui") {
+		spdlog::info("[rigImGui] chrome='{}' — idle until swap", engine->uiChrome());
 		return true;
 	}
 

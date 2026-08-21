@@ -30,7 +30,7 @@ void applyBaseMetrics() {
 	style.ItemSpacing = ImVec2(8.0f, 6.0f);
 	style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
 	style.TouchExtraPadding = ImVec2(0.0f, 0.0f);
-	style.IndentSpacing = 18.0f;
+	style.IndentSpacing = 9.0f; // half an AnchorPad cell (18)
 	style.ScrollbarSize = 14.0f;
 	style.GrabMinSize = 10.0f;
 

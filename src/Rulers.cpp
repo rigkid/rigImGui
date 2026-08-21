@@ -57,6 +57,23 @@ float rulerPixPerDisplayUnit(RulerUnit unit, float contentZoomAbs, float dpiScal
 	}
 }
 
+float rulerPixPerWorldCm(RulerUnit unit, float pixelsPerWorldCm, float dpiScale) {
+	if (pixelsPerWorldCm <= 1e-6f) {
+		return rulerPixPerDisplayUnit(unit, 1.f, dpiScale);
+	}
+	switch (unit) {
+	case RulerUnit::Mm:
+		return pixelsPerWorldCm * 0.1f;
+	case RulerUnit::Cm:
+		return pixelsPerWorldCm;
+	case RulerUnit::In:
+		return pixelsPerWorldCm * 2.54f;
+	case RulerUnit::Px:
+	default:
+		return (dpiScale > 0.1f) ? dpiScale : 1.f;
+	}
+}
+
 const char* rulerUnitLabel(RulerUnit unit) {
 	switch (unit) {
 	case RulerUnit::Mm:

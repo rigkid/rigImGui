@@ -59,9 +59,10 @@ void EndPropDragSource();
 uint32_t currentPropDragEntity();
 
 /**
- * @brief Patch pin after the last ImGui widget — drop on the Node Editor to bind a `ref.*`.
- * @details Own layout item (SameLine), so it never fights DragFloat. `propName`
- * is the `GetProperties()` / drive-slot name `applyRefWrites` matches.
+ * @brief Make the last widget's field name a Node Editor drop source.
+ * @details Overlays the label (right of the value). Drag the name; the number
+ * still edits. Hold Alt to drag from the value itself. `propName` is the
+ * `GetProperties()` / drive-slot name `applyRefWrites` matches.
  * `entityId == 0` uses `BeginPropDragSource`.
  */
 void offerScenePropDrag(uint32_t entityId, const char* propName, int propType);

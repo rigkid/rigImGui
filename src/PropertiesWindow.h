@@ -28,6 +28,9 @@ class PropertiesWindow : public IWindow {
 	PropertiesWindow(const std::string& title = "Properties", ImGuiWindowFlags flags = 0);
 	virtual ~PropertiesWindow() = default;
 
+	/// Empty inspector. Not `0` — EnTT's first entity is often id 0.
+	static constexpr uint32_t kNoEntity = static_cast<uint32_t>(-1);
+
 	void setSelectedEntity(uint32_t entity);
 	uint32_t getSelectedEntity() const;
 
@@ -43,7 +46,7 @@ class PropertiesWindow : public IWindow {
 	void addExtraDrawer(ExtraDrawer drawer);
 
   private:
-	uint32_t m_selectedEntity = 0;
+	uint32_t m_selectedEntity = kNoEntity;
 	float m_entityListHeight = 100.0f;
 	bool m_entityListOpen = true;
 	bool m_entityListStateLoaded = false;

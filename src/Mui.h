@@ -274,6 +274,10 @@ class Mui : public IMui {
 	void registerToolAction(const std::string &id, const std::string &label,
 							const std::string &shortcut, std::function<bool()> isActive,
 							std::function<void()> action) override;
+	void registerEditAction(const std::string &label, const std::string &shortcut,
+							std::function<bool()> isEnabled, std::function<void()> action) override;
+	void registerViewSubmenu(const std::string &label,
+							 std::function<void()> drawContents) override;
 	void setGizmoOp(GizmoOp op) override { m_gizmoOp = op; }
 	GizmoOp gizmoOp() const override { return m_gizmoOp; }
 
@@ -353,9 +357,18 @@ class Mui : public IMui {
 		std::function<void()> action;
 	};
 
+	struct EditMenuAction {
+		std::string label;
+		std::string shortcut;
+		std::function<bool()> isEnabled;
+		std::function<void()> action;
+	};
+
 	const std::vector<FileMenuAction> &fileActions() const { return m_fileActions; }
 	const std::vector<FileMenuAction> &appActions() const { return m_appActions; }
+	const std::vector<FileMenuAction> &viewActions() const { return m_viewActions; }
 	const std::vector<ToolMenuAction> &toolActions() const { return m_toolActions; }
+	const std::vector<EditMenuAction> &editActions() const { return m_editActions; }
 	const std::vector<std::string> &recentFiles() const { return m_recentFiles; }
 	const std::function<void(const std::string &)> &recentFileOpenHandler() const {
 		return m_recentOpenHandler;
@@ -448,7 +461,9 @@ class Mui : public IMui {
 	std::function<void(float, float, float, float, GizmoOp)> m_gizmoDrawer;
 	std::vector<FileMenuAction> m_fileActions;
 	std::vector<FileMenuAction> m_appActions;
+	std::vector<FileMenuAction> m_viewActions;
 	std::vector<ToolMenuAction> m_toolActions;
+	std::vector<EditMenuAction> m_editActions;
 	std::vector<std::pair<std::string, std::function<void()>>> m_exportActions;
 	std::vector<PreferencesDrawer> m_preferencesDrawers;
 	std::vector<std::string> m_recentFiles;

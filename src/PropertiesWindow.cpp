@@ -3,6 +3,7 @@
 #include "CCamera.h"
 #include "CCode.h"
 #include "CDriveHint.h"
+#include "CSelection.h"
 #include "CTransform.h"
 #include "PropEditors.h"
 #include "UiDpi.h"
@@ -105,6 +106,9 @@ PropertiesWindow::PropertiesWindow(const std::string& title, ImGuiWindowFlags fl
 	: IWindow(title, flags) {}
 
 void PropertiesWindow::setSelectedEntity(uint32_t entity) {
+	if (m_selectedEntity == entity) {
+		return;
+	}
 	m_selectedEntity = entity;
 	if (m_onEntitySelected) {
 		m_onEntitySelected(entity);
@@ -146,7 +150,7 @@ void PropertiesWindow::addExtraDrawer(ExtraDrawer drawer) {
 
 void PropertiesWindow::renderContents() {
 	renderEntityList();
-	if (m_selectedEntity != 0 && getEngine()) {
+	if (m_selectedEntity != kNoEntity && getEngine()) {
 		renderAllComponentProperties();
 	}
 }
@@ -182,10 +186,10 @@ void PropertiesWindow::renderEntityList() {
 		char label[256];
 		snprintf(label, sizeof(label), "%s###ent_%u",
 				 name.empty() ? "(unnamed)" : name.c_str(),
-				 (unsigned int)entity);
-		bool isSelected = (entity == static_cast<entt::entity>(m_selectedEntity));
+				 static_cast<unsigned>(entt::to_integral(entity)));
+		bool isSelected = (entt::to_integral(entity) == m_selectedEntity);
 		if (ImGui::Selectable(label, isSelected)) {
-			setSelectedEntity(static_cast<uint32_t>(entity));
+			setSelectedEntity(entt::to_integral(entity));
 		}
 	}
 	ImGui::EndChild();
@@ -358,6 +362,21 @@ void PropertiesWindow::renderAllComponentProperties() {
 		return;
 
 	entt::entity entity = static_cast<entt::entity>(m_selectedEntity);
+	if (!ecs->registry().valid(entity)) {
+		// Id 0 is a real entity (first created). A stale 0 / empty sentinel
+		// should still follow CSelection so the first Scene item can inspect.
+		for (auto e : ecs->view<ecs::CSelection>()) {
+			if (ecs->getComponent<ecs::CSelection>(e).isSelected && ecs->registry().valid(e)) {
+				entity = e;
+				m_selectedEntity = entt::to_integral(e);
+				break;
+			}
+		}
+	}
+	if (!ecs->registry().valid(entity)) {
+		ImGui::TextDisabled("No entity");
+		return;
+	}
 	const uint32_t entityId = m_selectedEntity;
 
 	// When the host bound an undo stack, committed edits become undo records.
@@ -386,7 +405,7 @@ void PropertiesWindow::renderAllComponentProperties() {
 		const auto& hint = ecs->getComponent<ecs::CDriveHint>(entity);
 		ImGui::TextColored(ImVec4(0.45f, 0.85f, 1.f, 1.f), "Graph drive");
 		ImGui::TextWrapped("%s", hint.label.c_str());
-		ImGui::TextDisabled("Drag a field's patch pin into the Node Editor to make a Ref.");
+		ImGui::TextDisabled("Drag a field name into the Node Editor to make a Ref (Alt-drag the value).");
 		ImGui::Separator();
 	}
 

@@ -2,7 +2,10 @@
 
 #include "CRelationship.h"
 #include "CSelection.h"
+#include "MWindow.h"
+#include "PropertiesWindow.h"
 #include "SceneDragPayload.h"
+#include "core/IMui.h"
 #include "core/RigKitEngine.h"
 #include "ecs/MEcs.h"
 #include <cstdio>
@@ -38,6 +41,14 @@ void SceneWindow::selectOnly(entt::entity e) {
 		sel.isSelected = true;
 		sel.selectionIndex = 0;
 		reg.emplace<ecs::CSelection>(e, sel);
+	}
+	if (auto* ui = engine->getUiManager()) {
+		if (auto* wm = ui->getWindowManager()) {
+			if (auto props = wm->getWindow<PropertiesWindow>("Properties")) {
+				props->setSelectedEntity(e == entt::null ? PropertiesWindow::kNoEntity
+														 : entt::to_integral(e));
+			}
+		}
 	}
 }
 
@@ -105,7 +116,7 @@ void SceneWindow::renderContents() {
 		}
 
 		const bool open = ImGui::TreeNodeEx(label, flags);
-		if (ImGui::IsItemClicked()) {
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
 			selectOnly(e);
 		}
 
