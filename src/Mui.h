@@ -218,7 +218,7 @@ class Mui : public IMui {
 				   NotificationType type = NotificationType::Info,
 				   std::function<void()> onOk = nullptr);
 
-	/** @brief Help → About — RigKit blurb + loaded packs (description, license). */
+	/** @brief Help → About — RigKit version, app identity, loaded packs. */
 	void showAbout();
 
 	void setDockPassthroughCentral(bool enabled) override {
@@ -289,6 +289,9 @@ class Mui : public IMui {
 	int chromeKernPairCount() const override { return m_ttfKern.pairCount(); }
 
 	Progress* progress() override { return &m_progress; }
+
+	void setAboutIntro(std::string text) override { m_aboutIntro = std::move(text); }
+	const std::string& aboutIntro() const override { return m_aboutIntro; }
 
 	/**
 	 * @brief Extra Preferences sections (ImGui draw; not MSettings persistence).
@@ -444,6 +447,7 @@ class Mui : public IMui {
 	std::deque<Notification> m_notifications;
 	std::deque<Modal> m_modals;
 	bool m_aboutOpen = false;
+	std::string m_aboutIntro;
 
 	UndoStack *m_undoStack = nullptr;
 	ShortcutManager m_shortcuts;

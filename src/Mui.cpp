@@ -26,6 +26,7 @@
 #include "COrbitDrive.h"
 #include "CTransform.h"
 #include "core/RigKitEngine.h"
+#include "core/RigKitVersion.h"
 #include "ecs/MEcs.h"
 #include "core/pack/IPack.h"
 #include "core/pack/MPack.h"
@@ -369,14 +370,38 @@ void Mui::renderAbout() {
 	bool open = m_aboutOpen;
 	if (ImGui::BeginPopupModal("About", &open, 0)) {
 		ImGui::TextUnformatted("RigKit");
+		ImGui::SameLine();
+		ImGui::TextDisabled("%s", rigkit::version());
 		ImGui::Spacing();
-		ImGui::TextWrapped("Creative coding host for Rig. Author with setup, "
-						   "update, and draw; "
-						   "entity meaning stays plain data. Packs bring "
-						   "systems, UI, and tools. "
-						   "Targets Raspberry Pi. Keeps rebuilds cheap.");
-		ImGui::Spacing();
-		ImGui::TextDisabled("MIT Rigkid Contributors");
+		const std::string &intro = aboutIntro();
+		if (!intro.empty()) {
+			ImGui::TextWrapped("%s", intro.c_str());
+		} else {
+			ImGui::TextWrapped("Creative coding host for Rig.");
+			ImGui::Spacing();
+			ImGui::TextDisabled("MIT Rigkid Contributors");
+			if (m_engine && m_engine->getApp()) {
+				const IApp *app = m_engine->getApp();
+				const auto &appName = app->getAppName();
+				if (!appName.empty()) {
+					ImGui::Separator();
+					ImGui::TextUnformatted(appName.c_str());
+					const auto &appVer = app->getAppVersion();
+					if (!appVer.empty()) {
+						ImGui::SameLine();
+						ImGui::TextDisabled("%s", appVer.c_str());
+					}
+					const auto &appDesc = app->getAppDescription();
+					if (!appDesc.empty()) {
+						ImGui::TextWrapped("%s", appDesc.c_str());
+					}
+					const auto &appLic = app->getAppLicense();
+					if (!appLic.empty()) {
+						ImGui::TextDisabled("%s", appLic.c_str());
+					}
+				}
+			}
+		}
 		ImGui::Separator();
 		ImGui::TextUnformatted("Pack info");
 		const float footer = ImGui::GetFrameHeightWithSpacing();
@@ -394,7 +419,12 @@ void Mui::renderAbout() {
 						continue;
 					}
 					ImGui::PushID(pack->getName().c_str());
-					if (ImGui::CollapsingHeader(pack->getName().c_str())) {
+					std::string header = pack->getName();
+					if (!pack->getVersion().empty()) {
+						header += "  ";
+						header += pack->getVersion();
+					}
+					if (ImGui::CollapsingHeader(header.c_str())) {
 						ImGui::Indent();
 						const auto &desc = pack->getDescription();
 						if (!desc.empty()) {
