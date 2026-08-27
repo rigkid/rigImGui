@@ -540,15 +540,19 @@ void Mui::render() {
 	renderAllWindows();
 	if (m_gizmoDrawer && m_engine) {
 		float gx = 0.f, gy = 0.f, gw = 0.f, gh = 0.f;
-		if (!centralViewRect(gx, gy, gw, gh)) {
-			gw = static_cast<float>(m_engine->getWindowWidth());
-			gh = static_cast<float>(m_engine->getWindowHeight());
-		} else {
-			// ImGuizmo wants ImGui screen space; centralViewRect is
-			// window-client.
-			const ImGuiViewport *vp = ImGui::GetMainViewport();
+		const ImGuiViewport *vp = ImGui::GetMainViewport();
+		// Bed rect is the GL present only when the central dock shows through.
+		if (m_dockPassthroughCentral && centralViewRect(gx, gy, gw, gh)) {
 			gx += vp ? vp->Pos.x : 0.f;
 			gy += vp ? vp->Pos.y : 0.f;
+		} else if (vp) {
+			gx = vp->Pos.x;
+			gy = vp->Pos.y;
+			gw = vp->Size.x;
+			gh = vp->Size.y;
+		} else {
+			gw = static_cast<float>(m_engine->getWindowWidth());
+			gh = static_cast<float>(m_engine->getWindowHeight());
 		}
 		m_gizmoDrawer(gx, gy, gw, gh, m_gizmoOp);
 	}
@@ -1348,9 +1352,105 @@ void Mui::registerAppSubmenu(const std::string &label,
 }
 
 void Mui::registerViewSubmenu(const std::string &label,
-							 std::function<void()> drawContents) {
+							  std::function<void()> drawContents) {
 	m_viewActions.push_back(
 		FileMenuAction{label, {}, std::move(drawContents), true});
+}
+
+void Mui::registerViewAction(const std::string &label, std::function<void()> action,
+							 const std::string &shortcut) {
+	for (auto &row : m_viewActions) {
+		if (!row.submenu && row.label == label) {
+			row.shortcut = shortcut;
+			row.action = std::move(action);
+			return;
+		}
+	}
+	m_viewActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
+}
+
+namespace {
+
+ImGuiKey keyFromToken(std::string token) {
+	for (char &c : token) {
+		if (c >= 'a' && c <= 'z') {
+			c = static_cast<char>(c - 'a' + 'A');
+		}
+	}
+	if (token.size() == 1 && token[0] >= 'A' && token[0] <= 'Z') {
+		return static_cast<ImGuiKey>(ImGuiKey_A + (token[0] - 'A'));
+	}
+	if (token.size() == 1 && token[0] >= '0' && token[0] <= '9') {
+		return static_cast<ImGuiKey>(ImGuiKey_0 + (token[0] - '0'));
+	}
+	if (token.size() >= 2 && (token[0] == 'F' || token[0] == 'f')) {
+		int n = 0;
+		for (size_t i = 1; i < token.size(); ++i) {
+			if (token[i] < '0' || token[i] > '9') {
+				return ImGuiKey_None;
+			}
+			n = n * 10 + (token[i] - '0');
+		}
+		if (n >= 1 && n <= 12) {
+			return static_cast<ImGuiKey>(ImGuiKey_F1 + (n - 1));
+		}
+	}
+	return ImGuiKey_None;
+}
+
+bool parseMenuChord(const std::string &text, ImGuiKey &key, bool &ctrl, bool &shift,
+					bool &alt) {
+	ctrl = false;
+	shift = false;
+	alt = false;
+	key = ImGuiKey_None;
+	if (text.empty()) {
+		return false;
+	}
+	std::string token;
+	auto flush = [&]() {
+		if (token.empty()) {
+			return;
+		}
+		std::string lower = token;
+		for (char &c : lower) {
+			if (c >= 'A' && c <= 'Z') {
+				c = static_cast<char>(c - 'A' + 'a');
+			}
+		}
+		if (lower == "ctrl" || lower == "control" || lower == "ctr") {
+			ctrl = true;
+		} else if (lower == "shift") {
+			shift = true;
+		} else if (lower == "alt") {
+			alt = true;
+		} else {
+			key = keyFromToken(token);
+		}
+		token.clear();
+	};
+	for (char c : text) {
+		if (c == '+' || c == '-' || c == ' ') {
+			flush();
+		} else {
+			token.push_back(c);
+		}
+	}
+	flush();
+	return key != ImGuiKey_None;
+}
+
+} // namespace
+
+void Mui::registerShortcut(const std::string &id, const std::string &label,
+						   const std::string &chord, std::function<void()> action) {
+	installDefaultShortcuts();
+	ImGuiKey key = ImGuiKey_None;
+	bool ctrl = false;
+	bool shift = false;
+	bool alt = false;
+	parseMenuChord(chord, key, ctrl, shift, alt);
+	m_shortcuts.bind({id, label, key, ctrl, shift, alt, std::move(action)});
 }
 
 void Mui::loadRecentFilesFromSettings() {

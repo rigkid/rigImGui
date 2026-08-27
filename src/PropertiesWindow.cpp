@@ -149,6 +149,10 @@ void PropertiesWindow::addExtraDrawer(ExtraDrawer drawer) {
 	}
 }
 
+void PropertiesWindow::setAfterComponentDraw(AfterComponentFn fn) {
+	m_afterComponent = std::move(fn);
+}
+
 void PropertiesWindow::renderContents() {
 	renderEntityList();
 	if (m_selectedEntity != kNoEntity && getEngine()) {
@@ -416,6 +420,30 @@ void PropertiesWindow::renderAllComponentProperties() {
 		}
 		if (info.name == "DriveHint") {
 			continue; // shown above
+		}
+
+		if (info.name == "PlotLayer") {
+			if (!ImGui::CollapsingHeader("PlotLayer", ImGuiTreeNodeFlags_DefaultOpen)) {
+				continue;
+			}
+			auto props = ecs->registeredProperties(info, entity);
+			std::vector<sProp> rest;
+			rest.reserve(props.size());
+			for (auto& p : props) {
+				if (p.name == "Tool Preset") {
+					continue;
+				}
+				rest.push_back(p);
+			}
+			const bool changed =
+				RenderProps(nullptr, rest, entityId, makeCommit("PlotLayer"));
+			if (m_afterComponent) {
+				m_afterComponent("PlotLayer", *ecs, entity);
+			}
+			if (changed && m_onPropertyChanged) {
+				m_onPropertyChanged(entityId, "PlotLayer", {});
+			}
+			continue;
 		}
 
 		if (info.name == "Camera" && ecs->hasComponent<ecs::CCamera>(entity)) {

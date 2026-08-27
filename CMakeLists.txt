@@ -8,6 +8,14 @@ set(_rigComponent_src "${_rigComponent_dir}/src")
 if(NOT EXISTS "${_rigComponent_src}/CRelationship.h")
 	message(FATAL_ERROR "rigImGui host shell requires packs/rigComponent next to rigImGui")
 endif()
+# OrthoViewWindow presents through SMeshPresent3D. Optional sibling — 2D apps
+# omit it; only TUs that call openOrthoView need the window at link.
+set(_rigRender3D_src "")
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../rigRender3D/src/SMeshPresent3D.h")
+	set(_rigRender3D_src "${CMAKE_CURRENT_LIST_DIR}/../rigRender3D/src")
+elseif(DEFINED RIGKIT_ROOT AND EXISTS "${RIGKIT_ROOT}/packs/rigRender3D/src/SMeshPresent3D.h")
+	set(_rigRender3D_src "${RIGKIT_ROOT}/packs/rigRender3D/src")
+endif()
 if(NOT TARGET rigComponent)
 	add_subdirectory("${_rigComponent_dir}" "${CMAKE_BINARY_DIR}/packs/rigComponent")
 endif()
@@ -110,6 +118,10 @@ target_include_directories(${PACK_NAME} PUBLIC
     "${_rigComponent_src}"
     "${_stb_write_dir}"
 )
+if(_rigRender3D_src)
+	target_sources(${PACK_NAME} PRIVATE src/OrthoViewWindow.cpp src/OrthoViewWindow.h)
+	target_include_directories(${PACK_NAME} PUBLIC "${_rigRender3D_src}")
+endif()
 
 file(GLOB DEP_SOURCES
     "third_party/imgui/*.cpp"

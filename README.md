@@ -32,7 +32,7 @@ The pack extends RigKit with a complete UI system built on Dear ImGui. It provid
 - **ECS Integration**: Seamless integration with RigKit's Entity-Component-System
 - **Engine Access**: Windows can access all RigKit managers through the engine
 
-Apps wire 3D gizmos with `Mui::setGizmoDrawer` (see `example-lowpoly`). Undo history stays outside UI - `IMui::setUndoStack`.
+Apps wire 3D gizmos with `Mui::setGizmoDrawer` (see `example-lowpoly`). Undo history stays outside UI - `IMui::setUndoStack`. Ortho camera panels: `registerOrthoViewMenu` / `openOrthoView` (`OrthoViewWindow`).
 
 ## Core Components
 
@@ -83,6 +83,21 @@ Built-in host panels are created on demand - ask for the ones you need:
 | `Shortcuts` | Shortcut list + click-to-remap (persists under settings key `shortcuts`) |
 | `Theme` | Quick theme / JSON / font accents (full Style Editor is Preferences) |
 | `Preferences` | File > Preferences... |
+
+### Ortho camera windows
+
+Instantiable Top / Left / Right / Bottom panels (`COrthoView` + inactive `CCamera`). Any author app that links **rigRender3D** can register them — they do not live in an example:
+
+```cpp
+#include "OrthoViewWindow.h"
+
+if (auto* mui = dynamic_cast<rigkit::Mui*>(m_engine->getUiManager())) {
+	rigkit::registerOrthoViewMenu(*mui); // View > Camera > Top / Bottom / Left / Right
+	// or one shot: rigkit::openOrthoView(*mui, rigkit::ecs::COrthoView::Face::Top);
+}
+```
+
+Do not add **rigRender3D** to `rigImGui` `pack.json` — only apps that call these functions pull the window at link.
 
 #### Example Usage
 

@@ -283,9 +283,9 @@ class Mui : public IMui {
 	void registerViewSubmenu(const std::string &label,
 							 std::function<void()> drawContents) override;
 	void registerViewAction(const std::string &label, std::function<void()> action,
-							const std::string &shortcut = {}) override {
-		m_viewActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
-	}
+							const std::string &shortcut = {}) override;
+	void registerShortcut(const std::string &id, const std::string &label,
+						  const std::string &chord, std::function<void()> action) override;
 	void setGizmoOp(GizmoOp op) override { m_gizmoOp = op; }
 	GizmoOp gizmoOp() const override { return m_gizmoOp; }
 

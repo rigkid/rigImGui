@@ -46,6 +46,14 @@ class PropertiesWindow : public IWindow {
 	/// Pack-owned inspectors (e.g. selected node graph params).
 	void addExtraDrawer(ExtraDrawer drawer);
 
+	/**
+	 * @brief Called after a component header's stock props, while that header is open.
+	 * @details Use this to replace a string field with a catalog combo (PlotLayer tool).
+	 */
+	using AfterComponentFn =
+		std::function<void(const std::string& component, MEcs& ecs, entt::entity entity)>;
+	void setAfterComponentDraw(AfterComponentFn fn);
+
   private:
 	uint32_t m_selectedEntity = kNoEntity;
 	float m_entityListHeight = 100.0f;
@@ -54,6 +62,7 @@ class PropertiesWindow : public IWindow {
 	float m_codeEditHeight = 220.0f;
 	bool m_codeEditHeightLoaded = false;
 	std::vector<ExtraDrawer> m_extraDrawers;
+	AfterComponentFn m_afterComponent;
 
 	std::function<void(uint32_t)> m_onEntitySelected;
 	std::function<void(uint32_t, const std::string&, const std::string&)> m_onPropertyChanged;
