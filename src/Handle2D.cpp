@@ -3,6 +3,7 @@
 #include "CSelection.h"
 #include "CTransform.h"
 #include "PrimitiveBounds.h"
+
 #include <imgui.h>
 
 namespace rigkit {

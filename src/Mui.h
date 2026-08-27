@@ -6,7 +6,12 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector> // UiPrefs::GetProperties
+#include <vector>
+
+#include "core/IMui.h"
+#include "core/json.h"
+#include "core/util/Progress.h"
+#include "ecs/PropertyReflection.h"
 #include "FileDialogs.h"
 #include "HostMenuBar.h"
 #include "ImGuiStyleKit.h"
@@ -15,10 +20,6 @@
 #include "ShortcutManager.h"
 #include "StatusBar.h"
 #include "TtfKern.h"
-#include "core/IMui.h"
-#include "core/json.h"
-#include "core/util/Progress.h"
-#include "ecs/PropertyReflection.h"
 
 struct GLFWwindow;
 struct ImFontAtlas;
@@ -66,8 +67,9 @@ enum class HostPanel {
 
 /// Pack-owned preference POD (registered on MSettings as "rigImGui.ui" / label "Interface").
 struct UiPrefs {
-	int theme = 0; // ImGuiTheme as int (0=Dark … 4=Dracula)
-	std::string themeFile; // empty = built-in; else path under data/user/themes or absolute
+	int theme = 0; // ImGuiTheme as int (0=Dark, 1=Light)
+	std::string themeFile; // empty = base only; else color-scheme JSON
+						   // (user/themes or data/themes)
 	std::string fontFile;  // empty = Roboto; else TTF under data/fonts or absolute
 	float fontSize = 16.0f;
 	bool chromeKerning = true; ///< Pair kerning on chrome labels (TTF `kern` or setChromeKernFn)
@@ -86,7 +88,8 @@ struct UiPrefs {
 
 	std::vector<sProp> GetProperties() {
 		static constexpr const char* kThemeNames[] = {
-			"Dark", "Light", "Classic", "Corporate", "Dracula",
+			"Dark",
+			"Light",
 		};
 		static constexpr const char* kFpsDisplayNames[] = {
 			"Status Bar",
@@ -278,6 +281,10 @@ class Mui : public IMui {
 							std::function<bool()> isEnabled, std::function<void()> action) override;
 	void registerViewSubmenu(const std::string &label,
 							 std::function<void()> drawContents) override;
+	void registerViewAction(const std::string &label, std::function<void()> action,
+							const std::string &shortcut = {}) override {
+		m_viewActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
+	}
 	void setGizmoOp(GizmoOp op) override { m_gizmoOp = op; }
 	GizmoOp gizmoOp() const override { return m_gizmoOp; }
 

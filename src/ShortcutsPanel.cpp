@@ -1,5 +1,7 @@
 #include "ShortcutsPanel.h"
+
 #include "ShortcutManager.h"
+
 #include <imgui.h>
 #include <string>
 

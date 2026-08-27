@@ -1,7 +1,8 @@
 #pragma once
 
-#include <imgui.h>
 #include "IWindow.h"
+
+#include <imgui.h>
 
 namespace rigkit {
 
@@ -18,7 +19,6 @@ class ThemePanel : public IWindow {
 	void renderThemeFileControls();
 	void renderFontControls();
 	void renderStyleEditor();
-	void renderRandomThemeButton();
 };
 
 } // namespace rigkit

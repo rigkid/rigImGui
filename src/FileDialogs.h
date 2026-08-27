@@ -4,12 +4,14 @@
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
-#include <imgui.h>
-#include <imfilebrowser.h>
 #include <string>
 #include <vector>
 
+#include <imgui.h>
+#include <imfilebrowser.h>
+
 #include "core/util/AppPaths.h"
+
 #include "UiDpi.h"
 
 namespace rigkit {

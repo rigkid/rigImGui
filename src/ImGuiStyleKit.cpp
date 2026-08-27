@@ -1,15 +1,16 @@
 #include "ImGuiStyleKit.h"
 
+#include "core/util/AppPaths.h"
+#include "fontRobotoRegular.h"
 #include "imgui.h"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <spdlog/spdlog.h>
 #include <unordered_map>
 #include <vector>
-
-// Embedded body font (may be a stub — see fonts/fontRobotoRegular.h).
-#include "fontRobotoRegular.h"
 
 #if __has_include("IconsFontAwesome5.h")
 #include "IconsFontAwesome5.h"
@@ -188,98 +189,6 @@ void applyLightColors() {
 	c[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.22f, 0.35f);
 }
 
-void applyDraculaColors() {
-	ImGuiStyle& style = ImGui::GetStyle();
-	ImVec4* c = style.Colors;
-	const ImVec4 bg(0.16f, 0.16f, 0.21f, 1.00f);
-	const ImVec4 bg2(0.20f, 0.20f, 0.27f, 1.00f);
-	const ImVec4 fg(0.97f, 0.97f, 0.95f, 1.00f);
-	const ImVec4 purple(0.74f, 0.58f, 0.98f, 1.00f);
-	const ImVec4 pink(1.00f, 0.47f, 0.78f, 1.00f);
-	const ImVec4 cyan(0.55f, 0.90f, 0.94f, 1.00f);
-
-	c[ImGuiCol_Text] = fg;
-	c[ImGuiCol_TextDisabled] = ImVec4(0.55f, 0.55f, 0.60f, 1.00f);
-	c[ImGuiCol_WindowBg] = bg;
-	c[ImGuiCol_ChildBg] = ImVec4(bg.x, bg.y, bg.z, 0.00f);
-	c[ImGuiCol_PopupBg] = bg;
-	c[ImGuiCol_Border] = ImVec4(0.35f, 0.36f, 0.45f, 0.60f);
-	c[ImGuiCol_FrameBg] = bg2;
-	c[ImGuiCol_FrameBgHovered] = ImVec4(0.30f, 0.30f, 0.40f, 1.00f);
-	c[ImGuiCol_FrameBgActive] = ImVec4(0.35f, 0.35f, 0.48f, 1.00f);
-	c[ImGuiCol_TitleBg] = ImVec4(0.12f, 0.12f, 0.16f, 1.00f);
-	c[ImGuiCol_TitleBgActive] = ImVec4(0.18f, 0.16f, 0.28f, 1.00f);
-	c[ImGuiCol_TitleBgCollapsed] = bg;
-	c[ImGuiCol_MenuBarBg] = ImVec4(0.14f, 0.14f, 0.18f, 1.00f);
-	c[ImGuiCol_ScrollbarBg] = bg;
-	c[ImGuiCol_ScrollbarGrab] = ImVec4(0.40f, 0.40f, 0.50f, 1.00f);
-	c[ImGuiCol_CheckMark] = purple;
-	c[ImGuiCol_SliderGrab] = purple;
-	c[ImGuiCol_SliderGrabActive] = pink;
-	c[ImGuiCol_Button] = ImVec4(0.35f, 0.28f, 0.55f, 1.00f);
-	c[ImGuiCol_ButtonHovered] = ImVec4(0.45f, 0.35f, 0.70f, 1.00f);
-	c[ImGuiCol_ButtonActive] = pink;
-	c[ImGuiCol_Header] = ImVec4(0.35f, 0.28f, 0.55f, 0.70f);
-	c[ImGuiCol_HeaderHovered] = ImVec4(0.45f, 0.35f, 0.70f, 0.85f);
-	c[ImGuiCol_HeaderActive] = purple;
-	c[ImGuiCol_Separator] = ImVec4(0.40f, 0.40f, 0.50f, 0.60f);
-	c[ImGuiCol_Tab] = bg2;
-	c[ImGuiCol_TabHovered] = ImVec4(0.45f, 0.35f, 0.70f, 0.85f);
-	c[ImGuiCol_TabActive] = ImVec4(0.35f, 0.28f, 0.55f, 1.00f);
-	c[ImGuiCol_TabUnfocused] = bg;
-	c[ImGuiCol_TabUnfocusedActive] = bg2;
-	c[ImGuiCol_DockingPreview] = ImVec4(purple.x, purple.y, purple.z, 0.40f);
-	c[ImGuiCol_PlotLines] = cyan;
-	c[ImGuiCol_PlotHistogram] = purple;
-	c[ImGuiCol_TextSelectedBg] = ImVec4(0.45f, 0.35f, 0.70f, 0.45f);
-	c[ImGuiCol_NavHighlight] = cyan;
-}
-
-void applyCorporateColors() {
-	ImGuiStyle& style = ImGui::GetStyle();
-	ImVec4* c = style.Colors;
-	const ImVec4 bg(0.93f, 0.94f, 0.96f, 1.00f);
-	const ImVec4 panel(1.00f, 1.00f, 1.00f, 1.00f);
-	const ImVec4 text(0.12f, 0.14f, 0.18f, 1.00f);
-	const ImVec4 accent(0.12f, 0.35f, 0.65f, 1.00f);
-	const ImVec4 accentHi(0.18f, 0.45f, 0.80f, 1.00f);
-
-	c[ImGuiCol_Text] = text;
-	c[ImGuiCol_TextDisabled] = ImVec4(0.45f, 0.48f, 0.52f, 1.00f);
-	c[ImGuiCol_WindowBg] = panel;
-	c[ImGuiCol_ChildBg] = ImVec4(bg.x, bg.y, bg.z, 0.00f);
-	c[ImGuiCol_PopupBg] = panel;
-	c[ImGuiCol_Border] = ImVec4(0.75f, 0.78f, 0.82f, 1.00f);
-	c[ImGuiCol_FrameBg] = bg;
-	c[ImGuiCol_FrameBgHovered] = ImVec4(0.88f, 0.90f, 0.94f, 1.00f);
-	c[ImGuiCol_FrameBgActive] = ImVec4(0.82f, 0.86f, 0.92f, 1.00f);
-	c[ImGuiCol_TitleBg] = ImVec4(0.88f, 0.90f, 0.93f, 1.00f);
-	c[ImGuiCol_TitleBgActive] = accent;
-	c[ImGuiCol_TitleBgCollapsed] = bg;
-	c[ImGuiCol_MenuBarBg] = ImVec4(0.90f, 0.92f, 0.95f, 1.00f);
-	c[ImGuiCol_ScrollbarBg] = bg;
-	c[ImGuiCol_ScrollbarGrab] = ImVec4(0.65f, 0.70f, 0.78f, 1.00f);
-	c[ImGuiCol_CheckMark] = accent;
-	c[ImGuiCol_SliderGrab] = accent;
-	c[ImGuiCol_SliderGrabActive] = accentHi;
-	c[ImGuiCol_Button] = ImVec4(0.82f, 0.86f, 0.92f, 1.00f);
-	c[ImGuiCol_ButtonHovered] = ImVec4(0.72f, 0.80f, 0.92f, 1.00f);
-	c[ImGuiCol_ButtonActive] = accentHi;
-	c[ImGuiCol_Header] = ImVec4(0.78f, 0.84f, 0.92f, 1.00f);
-	c[ImGuiCol_HeaderHovered] = ImVec4(0.70f, 0.78f, 0.90f, 1.00f);
-	c[ImGuiCol_HeaderActive] = accent;
-	c[ImGuiCol_Separator] = ImVec4(0.75f, 0.78f, 0.82f, 1.00f);
-	c[ImGuiCol_Tab] = bg;
-	c[ImGuiCol_TabHovered] = ImVec4(0.72f, 0.80f, 0.92f, 1.00f);
-	c[ImGuiCol_TabActive] = panel;
-	c[ImGuiCol_TabUnfocused] = bg;
-	c[ImGuiCol_TabUnfocusedActive] = panel;
-	c[ImGuiCol_DockingPreview] = ImVec4(accent.x, accent.y, accent.z, 0.35f);
-	c[ImGuiCol_TextSelectedBg] = ImVec4(0.18f, 0.45f, 0.80f, 0.35f);
-	c[ImGuiCol_NavHighlight] = accent;
-	c[ImGuiCol_TitleBgActive] = accent;
-}
-
 std::filesystem::path findFontFile(const std::string& fontsSearchDir, const char* fileName) {
 	namespace fs = std::filesystem;
 	std::vector<fs::path> candidates;
@@ -297,77 +206,174 @@ std::filesystem::path findFontFile(const std::string& fontsSearchDir, const char
 	return {};
 }
 
+std::vector<std::filesystem::path> themeSearchDirs() {
+	namespace fs = std::filesystem;
+	std::vector<fs::path> dirs;
+	dirs.emplace_back(AppPaths::getThemesDir());
+	dirs.emplace_back(AppPaths::joinPath(AppPaths::getDataDir(), "themes"));
+	dirs.emplace_back("packs/rigImGui/themes");
+	return dirs;
+}
+
+bool isThemeJson(const std::filesystem::path& p) {
+	auto e = p.extension().string();
+	for (char& c : e) {
+		c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	}
+	return e == ".json";
+}
+
+void fillThemeMeta(ThemeFile& t, const json& j) {
+	auto take = [&](const char* key, std::string& dst) {
+		if (j.contains(key) && j[key].is_string()) {
+			dst = j[key].get<std::string>();
+		}
+	};
+	take("name", t.name);
+	take("credit", t.credit);
+	take("source", t.source);
+	take("license", t.license);
+}
+
+ThemeFile makeThemeFile(const std::filesystem::path& p, bool shipped) {
+	namespace fs = std::filesystem;
+	ThemeFile t;
+	t.fileName = p.filename().string();
+	std::error_code ec;
+	t.path = fs::weakly_canonical(p, ec).string();
+	if (t.path.empty()) {
+		t.path = p.lexically_normal().string();
+	}
+	t.name = p.stem().string();
+	t.shipped = shipped;
+	std::ifstream in(p);
+	if (in.is_open()) {
+		try {
+			json j;
+			in >> j;
+			if (j.is_object()) {
+				fillThemeMeta(t, j);
+			}
+		} catch (const std::exception&) {
+		}
+	}
+	if (t.name.empty()) {
+		t.name = t.fileName;
+	}
+	return t;
+}
+
 } // namespace
 
 void applyStyleExtras(ImGuiTheme theme) {
 	applyBaseMetrics();
-	ImGuiStyle& style = ImGui::GetStyle();
-
-	switch (theme) {
-	case ImGuiTheme::Corporate:
-		style.WindowRounding = 2.0f;
-		style.ChildRounding = 2.0f;
-		style.FrameRounding = 2.0f;
-		style.PopupRounding = 2.0f;
-		style.TabRounding = 2.0f;
-		style.FrameBorderSize = 1.0f;
-		style.WindowPadding = ImVec2(10.0f, 10.0f);
-		style.FramePadding = ImVec2(8.0f, 4.0f);
-		style.ItemSpacing = ImVec2(8.0f, 5.0f);
-		break;
-	case ImGuiTheme::Dracula:
-		style.WindowRounding = 6.0f;
-		style.ChildRounding = 5.0f;
-		style.FrameRounding = 4.0f;
-		style.PopupRounding = 5.0f;
-		style.TabRounding = 4.0f;
-		style.WindowPadding = ImVec2(12.0f, 12.0f);
-		style.FramePadding = ImVec2(9.0f, 5.0f);
-		break;
-	case ImGuiTheme::Light:
+	if (theme == ImGuiTheme::Light) {
+		ImGuiStyle& style = ImGui::GetStyle();
 		style.FrameBorderSize = 1.0f;
 		style.WindowRounding = 4.0f;
-		break;
-	case ImGuiTheme::Classic:
-		style.WindowRounding = 0.0f;
-		style.ChildRounding = 0.0f;
-		style.FrameRounding = 0.0f;
-		style.PopupRounding = 0.0f;
-		style.ScrollbarRounding = 0.0f;
-		style.GrabRounding = 0.0f;
-		style.TabRounding = 0.0f;
-		style.FrameBorderSize = 1.0f;
-		break;
-	case ImGuiTheme::Dark:
-	default:
-		break;
 	}
 }
 
 void applyTheme(ImGuiTheme theme) {
-	switch (theme) {
-	case ImGuiTheme::Light:
+	if (theme == ImGuiTheme::Light) {
 		ImGui::StyleColorsLight();
 		applyLightColors();
-		break;
-	case ImGuiTheme::Classic:
-		ImGui::StyleColorsClassic();
-		break;
-	case ImGuiTheme::Corporate:
-		ImGui::StyleColorsLight();
-		applyCorporateColors();
-		break;
-	case ImGuiTheme::Dracula:
-		ImGui::StyleColorsDark();
-		applyDraculaColors();
-		break;
-	case ImGuiTheme::Dark:
-	default:
+	} else {
 		ImGui::StyleColorsDark();
 		applyDarkColors();
-		break;
 	}
 	applyStyleExtras(theme);
+}
+
+void migrateLegacyTheme(int& theme, std::string& themeFile) {
+	if (themeFile == "corporate.json") {
+		themeFile.clear();
+	}
+	if (theme < 2) {
+		return;
+	}
+	if (themeFile.empty()) {
+		if (theme == 5) {
+			themeFile = "enemy-mouse.json";
+		} else if (theme == 3 || theme == 4) {
+			themeFile = "dracula.json";
+		}
+	}
+	theme = 0;
+}
+
+std::vector<ThemeFile> listThemeFiles() {
+	namespace fs = std::filesystem;
+	std::unordered_map<std::string, ThemeFile> byName;
+	const auto dirs = themeSearchDirs();
+	for (int i = static_cast<int>(dirs.size()) - 1; i >= 0; --i) {
+		const bool shipped = (i != 0);
+		std::error_code ec;
+		if (!fs::is_directory(dirs[static_cast<size_t>(i)], ec)) {
+			continue;
+		}
+		for (const auto& ent : fs::directory_iterator(dirs[static_cast<size_t>(i)], ec)) {
+			if (!ent.is_regular_file(ec) || !isThemeJson(ent.path())) {
+				continue;
+			}
+			ThemeFile t = makeThemeFile(ent.path(), shipped);
+			byName[t.fileName] = std::move(t);
+		}
+	}
+	std::vector<ThemeFile> out;
+	out.reserve(byName.size());
+	for (auto& kv : byName) {
+		out.push_back(std::move(kv.second));
+	}
+	std::sort(out.begin(), out.end(), [](const ThemeFile& a, const ThemeFile& b) {
+		return a.name < b.name;
+	});
+	return out;
+}
+
+std::string resolveThemePath(const std::string& pathOrName) {
+	namespace fs = std::filesystem;
+	if (pathOrName.empty()) {
+		return {};
+	}
+	fs::path p(pathOrName);
+	std::error_code ec;
+	if (p.is_absolute()) {
+		if (fs::is_regular_file(p, ec)) {
+			return fs::weakly_canonical(p, ec).string();
+		}
+		return p.lexically_normal().string();
+	}
+	for (const auto& dir : themeSearchDirs()) {
+		const fs::path cand = dir / p;
+		if (fs::is_regular_file(cand, ec)) {
+			return fs::weakly_canonical(cand, ec).string();
+		}
+	}
+	return (fs::path(AppPaths::getThemesDir()) / p).lexically_normal().string();
+}
+
+std::string themePathForSave(const std::string& pathOrName) {
+	namespace fs = std::filesystem;
+	const std::string name = pathOrName.empty() ? "custom.json" : pathOrName;
+	fs::path p(name);
+	if (p.is_absolute()) {
+		return p.lexically_normal().string();
+	}
+	return (fs::path(AppPaths::getThemesDir()) / p).lexically_normal().string();
+}
+
+const ThemeFile* findThemeFile(const std::vector<ThemeFile>& files, const std::string& pathOrName) {
+	if (pathOrName.empty()) {
+		return nullptr;
+	}
+	const std::string resolved = resolveThemePath(pathOrName);
+	for (const auto& f : files) {
+		if (f.fileName == pathOrName || f.path == pathOrName || f.path == resolved) {
+			return &f;
+		}
+	}
+	return nullptr;
 }
 
 json styleToJson(const ImGuiStyle& style, int baseTheme) {

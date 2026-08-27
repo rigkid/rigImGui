@@ -1,10 +1,11 @@
 #pragma once
 
+#include "IWindow.h"
+
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "IWindow.h"
 
 // Forward declarations
 namespace rigkit {

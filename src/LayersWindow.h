@@ -2,6 +2,8 @@
 
 #include "IWindow.h"
 
+#include <string>
+
 namespace rigkit {
 
 /** @brief Lists entities with CLayer; reorder + select. */

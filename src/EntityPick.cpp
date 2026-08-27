@@ -4,6 +4,7 @@
 #include "CSelection.h"
 #include "CTransform.h"
 #include "PrimitiveBounds.h"
+
 #include <algorithm>
 #include <cmath>
 

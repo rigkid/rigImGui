@@ -1,18 +1,19 @@
 #include "PreferencesPanel.h"
 
-#include <algorithm>
-#include <cstdio>
-#include <string>
-#include <vector>
-
-#include <imgui.h>
-#include "FontPicker.h"
-#include "Mui.h"
-#include "PropEditors.h"
-#include "UiDpi.h"
 #include "core/RigKitEngine.h"
 #include "core/util/AppPaths.h"
 #include "core/util/MSettings.h"
+#include "FontPicker.h"
+#include "Mui.h"
+#include "ThemePicker.h"
+#include "PropEditors.h"
+#include "UiDpi.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <imgui.h>
+#include <string>
+#include <vector>
 
 namespace rigkit {
 namespace {
@@ -149,16 +150,23 @@ void PreferencesPanel::renderContents() {
 					std::vector<sProp> rest;
 					std::string* fontFile = nullptr;
 					float* fontSize = nullptr;
+					std::string* themeFile = nullptr;
 					for (auto& p : props) {
 						if (p.name == "Font File" && p.type == EPT_STRING) {
 							fontFile = static_cast<std::string*>(p.data);
 						} else if (p.name == "Font Size" && p.type == EPT_FLOAT) {
 							fontSize = static_cast<float*>(p.data);
+						} else if (p.name == "Theme File" && p.type == EPT_STRING) {
+							themeFile = static_cast<std::string*>(p.data);
 						} else {
 							rest.push_back(p);
 						}
 					}
 					bool changed = false;
+					if (themeFile && ThemePicker::draw("prefScheme", *themeFile)) {
+						changed = true;
+						mui->setImGuiTheme(mui->getImGuiTheme());
+					}
 					if (fontFile) {
 						changed |= FontPicker::draw("uiFont", *fontFile, fontSize, mui);
 					}

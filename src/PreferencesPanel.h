@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
+#include "IWindow.h"
 
 #include <imgui.h>
-#include "IWindow.h"
+#include <string>
 
 namespace rigkit {
 

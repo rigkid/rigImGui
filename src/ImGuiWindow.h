@@ -1,7 +1,8 @@
 #pragma once
 
-#include <functional>
 #include "IWindow.h"
+
+#include <functional>
 
 namespace rigkit {
 

@@ -1,4 +1,5 @@
 #include "ShortcutManager.h"
+
 #include <algorithm>
 
 namespace rigkit {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ecs/MEcs.h"
+
 #include <entt/entt.hpp>
 
 namespace rigkit {

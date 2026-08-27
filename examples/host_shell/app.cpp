@@ -1,14 +1,7 @@
 #include "app.h"
 
-#include <string>
-#include <vector>
-
-#include <glm/glm.hpp>
-#include <spdlog/spdlog.h>
-
-#include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"
-#include "imgui_internal.h"
+#include "core/RigKitEngine.h"
 #include "packs/rigComponent/src/CLight.h"
 #include "packs/rigComponent/src/CMesh.h"
 #include "packs/rigComponent/src/CTransform.h"
@@ -20,6 +13,12 @@
 #include "packs/rigImGui/src/rigImGui.h"
 #include "packs/rigRender3D/src/rigRender3D.h"
 #include "packs/rigSystems/src/rigSystems.h"
+#include "imgui_internal.h"
+
+#include <glm/glm.hpp>
+#include <spdlog/spdlog.h>
+#include <string>
+#include <vector>
 
 namespace {
 

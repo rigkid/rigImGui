@@ -1,6 +1,12 @@
 #pragma once
 
+/**
+ * @file
+ * @brief Dark/Light bases, color-scheme JSON, and UI font loading for rigImGui.
+ */
+
 #include <string>
+#include <vector>
 #include "core/json.h"
 
 struct ImGuiIO;
@@ -8,10 +14,10 @@ struct ImGuiStyle;
 
 namespace rigkit {
 
-/// Built-in rigImGui themes.
-enum class ImGuiTheme { Dark = 0, Light, Classic, Corporate, Dracula };
+/// Built-in bases. Named palettes are JSON color schemes, not more enum values.
+enum class ImGuiTheme { Dark = 0, Light };
 
-inline constexpr int kImGuiThemeCount = 5;
+inline constexpr int kImGuiThemeCount = 2;
 
 inline ImGuiTheme clampImGuiTheme(int theme) {
 	if (theme < 0 || theme >= kImGuiThemeCount) {
@@ -20,30 +26,40 @@ inline ImGuiTheme clampImGuiTheme(int theme) {
 	return static_cast<ImGuiTheme>(theme);
 }
 
+/// One JSON color scheme from shipped or user themes folders.
+struct ThemeFile {
+	std::string fileName;
+	std::string path;
+	std::string name;
+	std::string credit;
+	std::string source;
+	std::string license;
+	bool shipped = false;
+};
+
 /// Themes, fonts, and style extras for rigImGui.
-/// Lives in rigImGui (not a separate pack) so default UI stays one pack.
 namespace ImGuiStyleKit {
 
 void applyTheme(ImGuiTheme theme);
 void applyStyleExtras(ImGuiTheme theme);
 
-/// Serialize current ImGui style (full ShowStyleEditor surface) to JSON.
-/// Portable theme save/load workflow.
+/// Map leftover prefs ints onto Dark/Light and a scheme filename.
+void migrateLegacyTheme(int& theme, std::string& themeFile);
+
+std::vector<ThemeFile> listThemeFiles();
+std::string resolveThemePath(const std::string& pathOrName);
+std::string themePathForSave(const std::string& pathOrName);
+const ThemeFile* findThemeFile(const std::vector<ThemeFile>& files, const std::string& pathOrName);
+
 json styleToJson(const ImGuiStyle& style, int baseTheme = 0);
-/// Apply JSON onto a style object (missing keys leave values unchanged).
 bool jsonToStyle(const json& j, ImGuiStyle& style, int* outBaseTheme = nullptr);
 
-/// Write / read style JSON files (creates parent dirs on save).
 bool saveStyleToFile(const std::string& path, const ImGuiStyle& style, int baseTheme = 0);
 bool loadStyleFromFile(const std::string& path, ImGuiStyle& style, int* outBaseTheme = nullptr);
 
-/// Load UI fonts. Empty bodyFontPath → Roboto (or ImGui default). Merges Font Awesome when present.
-/// @param bodyFontPath Absolute path, or filename relative to fontsSearchDir.
-/// @param sizePixels Body font size (clamped to a sane range).
 bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir = {},
 			   const std::string& bodyFontPath = {}, float sizePixels = 16.0f);
 
-/// Absolute TTF path `loadFonts` would open, or empty when only the ImGui default remains.
 std::string resolveBodyFontPath(const std::string& fontsSearchDir = {},
 								const std::string& bodyFontPath = {});
 

@@ -1,16 +1,18 @@
 #include "HostMenuBar.h"
 
-#include <filesystem>
-#include <imgui.h>
-#include <string>
-#include "CCamera.h"
-#include "MWindow.h"
-#include "Mui.h"
-#include "UiDpi.h"
 #include "core/RigKitEngine.h"
 #include "core/util/UndoStack.h"
 #include "ecs/MEcs.h"
 #include "rendering/U_gladGlfw.h"
+#include "CCamera.h"
+#include "ImGuiStyleKit.h"
+#include "Mui.h"
+#include "MWindow.h"
+#include "UiDpi.h"
+
+#include <filesystem>
+#include <imgui.h>
+#include <string>
 
 namespace rigkit {
 
@@ -434,14 +436,18 @@ void HostMenuBar::renderViewMenu() {
 			if (ImGui::MenuItem("Light", nullptr, current == 1)) {
 				m_ui->setImGuiTheme(ImGuiTheme::Light);
 			}
-			if (ImGui::MenuItem("Classic", nullptr, current == 2)) {
-				m_ui->setImGuiTheme(ImGuiTheme::Classic);
+			ImGui::Separator();
+			const std::string& scheme = m_ui->uiPrefs().themeFile;
+			if (ImGui::MenuItem("None", nullptr, scheme.empty())) {
+				m_ui->uiPrefs().themeFile.clear();
+				m_ui->setImGuiTheme(m_ui->getImGuiTheme());
 			}
-			if (ImGui::MenuItem("Corporate", nullptr, current == 3)) {
-				m_ui->setImGuiTheme(ImGuiTheme::Corporate);
-			}
-			if (ImGui::MenuItem("Dracula", nullptr, current == 4)) {
-				m_ui->setImGuiTheme(ImGuiTheme::Dracula);
+			for (const auto& f : ImGuiStyleKit::listThemeFiles()) {
+				const bool sel = scheme == f.fileName || scheme == f.path;
+				if (ImGui::MenuItem(f.name.c_str(), nullptr, sel)) {
+					m_ui->uiPrefs().themeFile = f.fileName;
+					m_ui->setImGuiTheme(m_ui->getImGuiTheme());
+				}
 			}
 		}
 		ImGui::EndMenu();

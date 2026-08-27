@@ -1,10 +1,12 @@
 #include "app.h"
 
-#include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"
-#include "imgui_internal.h"
+#include "core/RigKitEngine.h"
 #include "packs/rigImGui/src/Mui.h"
 #include "packs/rigImGui/src/rigImGui.h"
+#include "imgui_internal.h"
+
+#include <spdlog/spdlog.h>
 
 SampleMenubarApp::SampleMenubarApp() {
 	window().width = 880;

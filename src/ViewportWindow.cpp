@@ -1,10 +1,11 @@
 #include "ViewportWindow.h"
 
+#include "core/RigKitEngine.h"
+#include "core/util/MSettings.h"
 #include "Mui.h"
 #include "Rulers.h"
 #include "UiDpi.h"
-#include "core/RigKitEngine.h"
-#include "core/util/MSettings.h"
+
 #include <imgui.h>
 
 namespace rigkit {

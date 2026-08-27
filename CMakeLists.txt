@@ -2,10 +2,14 @@
 file(READ "${CMAKE_CURRENT_LIST_DIR}/pack.json" PACK_JSON)
 string(JSON PACK_NAME GET "${PACK_JSON}" name)
 
-# Scene / Layers / handles need component headers (data only).
-set(_rigComponent_src "${CMAKE_CURRENT_LIST_DIR}/../rigComponent/src")
+# Scene / Layers / handles need component headers and PrimitiveBounds.
+set(_rigComponent_dir "${CMAKE_CURRENT_LIST_DIR}/../rigComponent")
+set(_rigComponent_src "${_rigComponent_dir}/src")
 if(NOT EXISTS "${_rigComponent_src}/CRelationship.h")
 	message(FATAL_ERROR "rigImGui host shell requires packs/rigComponent next to rigImGui")
+endif()
+if(NOT TARGET rigComponent)
+	add_subdirectory("${_rigComponent_dir}" "${CMAKE_BINARY_DIR}/packs/rigComponent")
 endif()
 
 # stb_image_write for File→Export PNG (from host GLFW deps).
@@ -51,6 +55,8 @@ set(PACK_SOURCES
     src/PreferencesPanel.h
     src/ThemePanel.cpp
     src/ThemePanel.h
+    src/ThemePicker.cpp
+    src/ThemePicker.h
     src/TtfKern.cpp
     src/TtfKern.h
     src/ShortcutManager.cpp
@@ -89,7 +95,7 @@ set(PACK_SOURCES
 )
 
 add_library(${PACK_NAME} STATIC ${PACK_SOURCES})
-target_link_libraries(${PACK_NAME} PUBLIC rigkit glfw)
+target_link_libraries(${PACK_NAME} PUBLIC rigkit glfw rigComponent)
 if(WIN32)
 	target_link_libraries(${PACK_NAME} PRIVATE Psapi)
 endif()

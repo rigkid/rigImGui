@@ -1,16 +1,16 @@
 #include "app.h"
 
-#include <cmath>
-
-#include <imgui.h>
-#include <ImGuizmo.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"
+#include "core/RigKitEngine.h"
 #include "packs/rigImGui/src/Mui.h"
 #include "packs/rigImGui/src/rigImGui.h"
+
+#include <cmath>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <imgui.h>
+#include <ImGuizmo.h>
+#include <spdlog/spdlog.h>
 
 ImGuizmoApp::ImGuizmoApp() {
 	window().width = 880;

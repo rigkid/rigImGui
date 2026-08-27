@@ -1,12 +1,13 @@
 #include "ExportPng.h"
 
+#include "core/util/AppPaths.h"
+#include "rendering/U_gladGlfw.h"
+
 #include <algorithm>
 #include <filesystem>
 #include <spdlog/spdlog.h>
 #include <string>
 #include <vector>
-#include "core/util/AppPaths.h"
-#include "rendering/U_gladGlfw.h"
 
 // Keep symbols private — other packs may already compile stb_image_write.
 #define STB_IMAGE_WRITE_STATIC

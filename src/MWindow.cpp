@@ -1,4 +1,5 @@
 #include "MWindow.h"
+
 #include <spdlog/spdlog.h>
 
 namespace rigkit {

@@ -1,4 +1,5 @@
 #include "ImGuiWindow.h"
+
 #include <imgui.h>
 
 namespace rigkit {

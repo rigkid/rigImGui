@@ -1,9 +1,10 @@
 #include "LayersWindow.h"
 
-#include "CLayer.h"
-#include "CSelection.h"
 #include "core/RigKitEngine.h"
 #include "ecs/MEcs.h"
+#include "CLayer.h"
+#include "CSelection.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <imgui.h>

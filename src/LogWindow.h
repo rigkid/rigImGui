@@ -1,11 +1,13 @@
 #pragma once
 
+#include "IWindow.h"
+
 #include <imgui.h>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
-#include "IWindow.h"
+
 namespace spdlog {
 class logger;
 namespace sinks {

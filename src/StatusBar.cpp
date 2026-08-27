@@ -1,4 +1,5 @@
 #include "StatusBar.h"
+
 #include <algorithm>
 
 namespace rigkit {

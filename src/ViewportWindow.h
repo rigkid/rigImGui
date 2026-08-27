@@ -1,7 +1,7 @@
 #pragma once
 
-#include "IWindow.h"
 #include "core/util/View2D.h"
+#include "IWindow.h"
 
 namespace rigkit {
 

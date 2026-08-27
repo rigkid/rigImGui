@@ -1,14 +1,25 @@
 #include "Mui.h"
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <spdlog/spdlog.h>
+#include "core/pack/IPack.h"
+#include "core/pack/MPack.h"
+#include "core/RigKitEngine.h"
+#include "core/RigKitVersion.h"
+#include "core/util/AppPaths.h"
+#include "core/util/MSettings.h"
+#include "core/util/UndoStack.h"
+#include "ecs/MEcs.h"
+#include "ecs/systems/SEvent.h"
+#include "rendering/U_gladGlfw.h"
+#include "CCamera.h"
+#include "COrbitDrive.h"
+#include "CTransform.h"
 #include "DebugPanel.h"
 #include "ExportPng.h"
 #include "Handle2D.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_internal.h"
 #include "ImGuiStyleKit.h"
 #include "LayersWindow.h"
 #include "LogWindow.h"
@@ -22,36 +33,31 @@
 #include "UiDpi.h"
 #include "ViewportWindow.h"
 #include "WindowManagerPanel.h"
-#include "CCamera.h"
-#include "COrbitDrive.h"
-#include "CTransform.h"
-#include "core/RigKitEngine.h"
-#include "core/RigKitVersion.h"
-#include "ecs/MEcs.h"
-#include "core/pack/IPack.h"
-#include "core/pack/MPack.h"
-#include "core/util/AppPaths.h"
-#include "core/util/MSettings.h"
-#include "core/util/UndoStack.h"
-#include "ecs/systems/SEvent.h"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include "imgui_internal.h"
-#include "rendering/U_gladGlfw.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <spdlog/spdlog.h>
 
 namespace {
 
-std::string resolveThemePath(const std::string &path) {
-	if (path.empty()) {
-		return {};
-	}
+std::string themeNameForPrefs(const std::string &resolved) {
 	namespace fs = std::filesystem;
-	fs::path p(path);
-	if (p.is_absolute()) {
-		return p.lexically_normal().string();
+	const std::string dirs[] = {
+		AppPaths::getThemesDir(),
+		AppPaths::joinPath(AppPaths::getDataDir(), "themes"),
+	};
+	for (const auto &dir : dirs) {
+		std::error_code ec;
+		const fs::path rel = fs::relative(fs::path(resolved), fs::path(dir), ec);
+		const std::string relStr = rel.generic_string();
+		if (!ec && !relStr.empty() && relStr.find("..") == std::string::npos) {
+			return relStr;
+		}
 	}
-	return (fs::path(AppPaths::getThemesDir()) / p).lexically_normal().string();
+	return resolved;
 }
 
 } // namespace
@@ -628,6 +634,14 @@ void Mui::setImGuiTheme(ImGuiTheme theme) {
 	m_currentTheme = theme;
 	m_uiPrefs.theme = static_cast<int>(theme);
 	ImGuiStyleKit::applyTheme(theme);
+	if (!m_uiPrefs.themeFile.empty()) {
+		const std::string resolved =
+			ImGuiStyleKit::resolveThemePath(m_uiPrefs.themeFile);
+		if (!resolved.empty()) {
+			ImGuiStyleKit::loadStyleFromFile(resolved, ImGui::GetStyle(),
+											 nullptr);
+		}
+	}
 	applyDpiStyle();
 	if (changed && m_engine) {
 		if (auto *settings = m_engine->getSettingsManager()) {
@@ -638,21 +652,11 @@ void Mui::setImGuiTheme(ImGuiTheme theme) {
 
 bool Mui::saveCurrentTheme(const std::string &path, bool notify) {
 	const std::string resolved =
-		resolveThemePath(path.empty() ? "custom.json" : path);
+		ImGuiStyleKit::themePathForSave(path.empty() ? "custom.json" : path);
 	const bool ok = ImGuiStyleKit::saveStyleToFile(
 		resolved, ImGui::GetStyle(), static_cast<int>(m_currentTheme));
 	if (ok) {
-		// Store relative name when under themes dir for portable prefs.
-		namespace fs = std::filesystem;
-		const fs::path themes(AppPaths::getThemesDir());
-		const fs::path full(resolved);
-		std::error_code ec;
-		const fs::path rel = fs::relative(full, themes, ec);
-		const std::string relStr = rel.generic_string();
-		m_uiPrefs.themeFile =
-			(!ec && !relStr.empty() && relStr.find("..") == std::string::npos)
-				? relStr
-				: resolved;
+		m_uiPrefs.themeFile = themeNameForPrefs(resolved);
 		if (m_engine) {
 			if (auto *settings = m_engine->getSettingsManager()) {
 				settings->markDirty();
@@ -670,7 +674,8 @@ bool Mui::saveCurrentTheme(const std::string &path, bool notify) {
 
 bool Mui::loadTheme(const std::string &path, bool notify) {
 	const std::string resolved =
-		resolveThemePath(path.empty() ? m_uiPrefs.themeFile : path);
+		ImGuiStyleKit::resolveThemePath(path.empty() ? m_uiPrefs.themeFile
+													 : path);
 	if (resolved.empty()) {
 		if (notify) {
 			showNotification("No style file specified",
@@ -688,16 +693,7 @@ bool Mui::loadTheme(const std::string &path, bool notify) {
 	}
 	m_currentTheme = clampImGuiTheme(baseTheme);
 	m_uiPrefs.theme = static_cast<int>(m_currentTheme);
-	namespace fs = std::filesystem;
-	const fs::path themes(AppPaths::getThemesDir());
-	const fs::path full(resolved);
-	std::error_code ec;
-	const fs::path rel = fs::relative(full, themes, ec);
-	const std::string relStr = rel.generic_string();
-	m_uiPrefs.themeFile =
-		(!ec && !relStr.empty() && relStr.find("..") == std::string::npos)
-			? relStr
-			: resolved;
+	m_uiPrefs.themeFile = themeNameForPrefs(resolved);
 	// Themes are saved from the live style (already DPI-baked). Mark scale so
 	// applyDpiStyle does not multiply padding again.
 	style._MainScale = (m_dpiScale > 0.01f) ? m_dpiScale : 1.f;
@@ -718,10 +714,8 @@ void Mui::applyUiPrefs() {
 	// Theme path: applyTheme (unscaled metrics) → ScaleAllSizes once.
 	// Do not ScaleAllSizes again in reloadFonts — that compounds padding on
 	// high DPI.
+	ImGuiStyleKit::migrateLegacyTheme(m_uiPrefs.theme, m_uiPrefs.themeFile);
 	setImGuiTheme(clampImGuiTheme(m_uiPrefs.theme));
-	if (!m_uiPrefs.themeFile.empty()) {
-		loadTheme(m_uiPrefs.themeFile, false);
-	}
 	const bool fontChanged = m_uiPrefs.fontFile != m_appliedFontFile ||
 							 m_uiPrefs.fontSize != m_appliedFontSize;
 	if (fontChanged) {

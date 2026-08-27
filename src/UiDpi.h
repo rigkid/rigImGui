@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-
 #include <imgui.h>
 
 namespace rigkit {

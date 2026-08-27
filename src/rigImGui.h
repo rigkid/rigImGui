@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Mui.h"
 #include "core/pack/IPack.h"
+#include "Mui.h"
 
 namespace rigkit {
 class rigImGui : public rigkit::IPack {

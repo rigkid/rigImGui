@@ -1,5 +1,11 @@
 #include "PropertiesWindow.h"
-#include <imgui.h>
+
+#include "core/IMui.h"
+#include "core/RigKitEngine.h"
+#include "core/util/MSettings.h"
+#include "core/util/UndoStack.h"
+#include "ecs/MEcs.h"
+#include "ecs/PropertyReflection.h"
 #include "CCamera.h"
 #include "CCode.h"
 #include "CDriveHint.h"
@@ -7,16 +13,11 @@
 #include "CTransform.h"
 #include "PropEditors.h"
 #include "UiDpi.h"
-#include "core/IMui.h"
-#include "core/RigKitEngine.h"
-#include "core/util/MSettings.h"
-#include "core/util/UndoStack.h"
-#include "ecs/MEcs.h"
-#include "ecs/PropertyReflection.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <imgui.h>
 #include <string>
 #include <vector>
 

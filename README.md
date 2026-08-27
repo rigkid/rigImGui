@@ -56,10 +56,10 @@ The main UI system that orchestrates everything:
 - Window manager coordination
 
 ### `ImGuiStyleKit` - Themes and fonts
-- Metrics, borders, rounding, and full palettes
-- Built-in themes: Dark (default charcoal/teal), Light, Classic, Corporate, Dracula
-- **Custom theme JSON** — Theme panel Save/Load under `<exeDir>/data/user/themes/` (colors + metrics)
-- **Theme panel** — quick built-in switch + a few live colors/metrics (not a full style tree)
+- Metrics, borders, rounding, and Dark / Light bases
+- Built-in bases: Dark (default charcoal/teal) and Light. Named palettes are JSON in `themes/`
+- **Color-scheme JSON** — shipped `themes/` plus user saves under `<userData>/user/themes/`
+- **Theme panel** — Dark / Light + scheme combo with credits (full Style Editor is Preferences)
 - **Full Style Editor** — Preferences → Interface → `ImGui::ShowStyleEditor()` (Dear ImGui stock)
 - **Custom font** — Theme panel / Preferences: TTF path (under `data/fonts` or absolute) + size; Apply Font reloads atlas
 - Prefs (`rigImGui.ui`): Theme, Theme File, Font File, Font Size — File → Preferences…
@@ -225,9 +225,6 @@ auto windowNames = uiManager->getAllWindowNames();
 // Set theme
 uiManager->setImGuiTheme(rigkit::ImGuiTheme::Dark);
 uiManager->setImGuiTheme(rigkit::ImGuiTheme::Light);
-uiManager->setImGuiTheme(rigkit::ImGuiTheme::Classic);
-uiManager->setImGuiTheme(rigkit::ImGuiTheme::Corporate);
-uiManager->setImGuiTheme(rigkit::ImGuiTheme::Dracula);
 ```
 
 ### Custom Themes

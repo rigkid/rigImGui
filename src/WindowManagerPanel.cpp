@@ -1,4 +1,5 @@
 #include "WindowManagerPanel.h"
+
 #include <imgui.h>
 
 namespace rigkit {

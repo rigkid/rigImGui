@@ -1,9 +1,11 @@
 #include "app.h"
 
-#include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"
+#include "core/RigKitEngine.h"
 #include "packs/rigImGui/src/Mui.h"
 #include "packs/rigImGui/src/rigImGui.h"
+
+#include <spdlog/spdlog.h>
 
 void FileBrowserApp::DemoWindow::renderContents() {
 	if (ImGui::Button("Open Dialog")) {

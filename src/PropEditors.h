@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ecs/PropertyReflection.h"
+
 #include <cstdint>
 #include <functional>
 #include <glm/vec2.hpp>
@@ -8,7 +10,6 @@
 #include <string>
 #include <variant>
 #include <vector>
-#include "ecs/PropertyReflection.h"
 
 namespace rigkit {
 

@@ -1,4 +1,5 @@
 #include "LogWindow.h"
+
 #include <chrono>
 #include <imgui.h>
 #include <iomanip>

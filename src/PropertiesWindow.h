@@ -5,8 +5,9 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "IWindow.h"
+
 #include "ecs/MEcs.h"
+#include "IWindow.h"
 
 namespace rigkit {
 

@@ -1,13 +1,14 @@
 #include "SceneWindow.h"
 
+#include "core/IMui.h"
+#include "core/RigKitEngine.h"
+#include "ecs/MEcs.h"
 #include "CRelationship.h"
 #include "CSelection.h"
 #include "MWindow.h"
 #include "PropertiesWindow.h"
 #include "SceneDragPayload.h"
-#include "core/IMui.h"
-#include "core/RigKitEngine.h"
-#include "ecs/MEcs.h"
+
 #include <cstdio>
 #include <functional>
 #include <imgui.h>

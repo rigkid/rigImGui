@@ -1,16 +1,17 @@
 #include "ThemePanel.h"
-#include <cstdio>
-#include <cstdlib>
-#include <imgui.h>
-#include <spdlog/spdlog.h>
-#include <string>
-#include "FontPicker.h"
-#include "ImGuiStyleKit.h"
-#include "Mui.h"
+
 #include "core/IMui.h"
 #include "core/RigKitEngine.h"
 #include "core/util/AppPaths.h"
 #include "core/util/MSettings.h"
+#include "FontPicker.h"
+#include "ImGuiStyleKit.h"
+#include "Mui.h"
+#include "ThemePicker.h"
+
+#include <cstdio>
+#include <imgui.h>
+#include <string>
 
 #if __has_include("IconsFontAwesome5.h")
 #include "IconsFontAwesome5.h"
@@ -32,12 +33,10 @@ void ThemePanel::renderContents() {
 	renderFontControls();
 	ImGui::Separator();
 	renderStyleEditor();
-	ImGui::Separator();
-	renderRandomThemeButton();
 }
 
 void ThemePanel::renderThemeControls() {
-	ImGui::TextUnformatted("Built-in themes");
+	ImGui::TextUnformatted("Base");
 	Mui* ui = nullptr;
 	if (getEngine() && getEngine()->getUiManager()) {
 		ui = dynamic_cast<Mui*>(getEngine()->getUiManager());
@@ -47,41 +46,27 @@ void ThemePanel::renderThemeControls() {
 
 	if (ImGui::Button(TP_ICON(ICON_FA_MOON) " Dark")) {
 		if (ui) {
-			ui->uiPrefs().themeFile.clear();
 			ui->setImGuiTheme(ImGuiTheme::Dark);
 		}
 	}
 	ImGui::SameLine();
 	if (ImGui::Button(TP_ICON(ICON_FA_SUN) " Light")) {
 		if (ui) {
-			ui->uiPrefs().themeFile.clear();
 			ui->setImGuiTheme(ImGuiTheme::Light);
 		}
 	}
-	ImGui::SameLine();
-	if (ImGui::Button(TP_ICON(ICON_FA_PAINT_BRUSH) " Classic")) {
-		if (ui) {
-			ui->uiPrefs().themeFile.clear();
-			ui->setImGuiTheme(ImGuiTheme::Classic);
-		}
-	}
 
-	if (ImGui::Button("Corporate")) {
-		if (ui) {
-			ui->uiPrefs().themeFile.clear();
-			ui->setImGuiTheme(ImGuiTheme::Corporate);
-		}
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Dracula")) {
-		if (ui) {
-			ui->uiPrefs().themeFile.clear();
-			ui->setImGuiTheme(ImGuiTheme::Dracula);
+	if (ui && ThemePicker::draw("themeScheme", ui->uiPrefs().themeFile)) {
+		ui->setImGuiTheme(ui->getImGuiTheme());
+		if (auto* engine = getEngine()) {
+			if (auto* settings = engine->getSettingsManager()) {
+				settings->markDirty();
+			}
 		}
 	}
 
 	if (current >= 0) {
-		ImGui::TextDisabled("Current built-in id: %d", current);
+		ImGui::TextDisabled("Base: %s", current == 1 ? "Light" : "Dark");
 	}
 }
 
@@ -95,8 +80,7 @@ void ThemePanel::renderThemeFileControls() {
 	}
 
 	ImGui::TextUnformatted("Style snapshot");
-	ImGui::TextWrapped("Saved under %s (relative names preferred). "
-					   "Save / load themes as portable JSON.",
+	ImGui::TextWrapped("Save writes under %s. Shipped schemes live in data/themes.",
 					   AppPaths::getThemesDir().c_str());
 
 	char nameBuf[256];
@@ -118,7 +102,7 @@ void ThemePanel::renderThemeFileControls() {
 		ui->loadTheme(themeFile.empty() ? "custom.json" : themeFile);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Clear File")) {
+	if (ImGui::Button("Clear Scheme")) {
 		themeFile.clear();
 		ui->setImGuiTheme(ui->getImGuiTheme());
 	}
@@ -153,22 +137,6 @@ void ThemePanel::renderFontControls() {
 void ThemePanel::renderStyleEditor() {
 	ImGui::TextUnformatted("Live style (Save Style to keep)");
 	ImGui::ShowStyleEditor();
-}
-
-void ThemePanel::renderRandomThemeButton() {
-	if (ImGui::Button(TP_ICON(ICON_FA_PALETTE) " Random Theme (play)")) {
-		auto& style = ImGui::GetStyle();
-		auto& colors = style.Colors;
-		auto randomColor = []() {
-			return ImVec4(static_cast<float>(rand()) / RAND_MAX,
-						  static_cast<float>(rand()) / RAND_MAX,
-						  static_cast<float>(rand()) / RAND_MAX, 1.0f);
-		};
-		colors[ImGuiCol_Button] = randomColor();
-		colors[ImGuiCol_Header] = randomColor();
-		colors[ImGuiCol_CheckMark] = randomColor();
-		spdlog::info("[ThemePanel] Applied playful random accents");
-	}
 }
 
 } // namespace rigkit

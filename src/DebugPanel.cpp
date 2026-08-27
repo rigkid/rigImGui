@@ -1,12 +1,14 @@
 #include "DebugPanel.h"
-#include <imgui.h>
-#include <spdlog/spdlog.h>
-#include <cstdio>
-#include <string>
+
 #include "core/IMui.h"
 #include "core/RigKitEngine.h"
 #include "core/util/Progress.h"
 #include "ecs/MEcs.h"
+
+#include <cstdio>
+#include <imgui.h>
+#include <spdlog/spdlog.h>
+#include <string>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX

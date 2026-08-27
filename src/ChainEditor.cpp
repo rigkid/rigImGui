@@ -1,6 +1,9 @@
 #include "ChainEditor.h"
-#include <imgui.h>
+
+#include "ReorderDragDrop.h"
+
 #include <algorithm>
+#include <imgui.h>
 
 #if __has_include("IconsFontAwesome5.h")
 #include "IconsFontAwesome5.h"
