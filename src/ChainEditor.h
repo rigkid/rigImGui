@@ -8,7 +8,7 @@ namespace rigkit {
 
 /**
  * @brief Generic re-orderable chain of collapsing-header rows.
- * @details Domain-agnostic — the host supplies data and behaviour via callbacks.
+ * @details Domain-agnostic - the host supplies data and behaviour via callbacks.
  * Typical use: prepare pipeline, image/draw filters, generators.
  */
 class ChainEditor {

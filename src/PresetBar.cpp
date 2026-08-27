@@ -65,7 +65,7 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 		ImGui::EndCombo();
 	}
 	if (ImGui::IsItemHovered() && dirty && !name.empty()) {
-		ImGui::SetTooltip("Differs from the named preset — Save to overwrite.");
+		ImGui::SetTooltip("Differs from the named preset - Save to overwrite.");
 	}
 
 	ImGui::SameLine(0.f, spacing);

@@ -24,7 +24,7 @@ bool rigImGui::init() {
 
 	if (engine->getUiManager()) {
 		spdlog::info(
-			"[rigImGui] UI manager already present – skipping creation");
+			"[rigImGui] UI manager already present - skipping creation");
 		m_ui = dynamic_cast<Mui *>(engine->getUiManager());
 		return true;
 	}

@@ -262,7 +262,7 @@ void HostMenuBar::renderFileMenu() {
 		}
 	}
 	if (ImGui::BeginMenu("Export")) {
-		if (ImGui::MenuItem("PNG (framebuffer)…")) {
+		if (ImGui::MenuItem("PNG (framebuffer)...")) {
 			if (m_ui) {
 				m_ui->requestExportPng();
 			}

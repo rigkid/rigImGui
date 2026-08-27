@@ -7,7 +7,7 @@ namespace rigkit {
 class Mui;
 class RigKitEngine;
 
-/// Lean rigImGui host menu — App / File / Edit / View / Tools / Help.
+/// Lean rigImGui host menu - App / File / Edit / View / Tools / Help.
 class HostMenuBar {
   public:
 	explicit HostMenuBar(Mui *ui);

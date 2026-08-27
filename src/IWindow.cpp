@@ -20,7 +20,7 @@ bool IWindow::isVisible() const {
 void IWindow::setVisible(bool visible) {
 	m_isVisible = visible;
 	if (visible) {
-		// Begin(..., &m_isOpen) leaves m_isOpen false after the X button —
+		// Begin(..., &m_isOpen) leaves m_isOpen false after the X button  - 
 		// reopen must restore it or showWindow is a no-op visually.
 		m_isOpen = true;
 		m_focusOnShow = true;

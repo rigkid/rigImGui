@@ -133,10 +133,10 @@ void Mui::initImGui() {
 		io.IniFilename = m_iniPath.c_str();
 	}
 
-	// Backends first — newer ImGui sets RendererHasTextures before atlas work.
+	// Backends first - newer ImGui sets RendererHasTextures before atlas work.
 	ImGui_ImplGlfw_InitForOpenGL(m_window, true);
 #if defined(RIGKIT_GLES)
-	// Pi native GLES2 or desktop ANGLE — GLSL ES 1.00.
+	// Pi native GLES2 or desktop ANGLE - GLSL ES 1.00.
 	ImGui_ImplOpenGL3_Init("#version 100");
 #else
 	ImGui_ImplOpenGL3_Init("#version 130");
@@ -185,11 +185,11 @@ void Mui::shutdownImGui() {
 
 void Mui::handleInput() {
 	// Named Kit shortcuts use ImGui key state, which is only valid after
-	// NewFrame — see render(). GLFW still feeds ImGui via callbacks.
+	// NewFrame - see render(). GLFW still feeds ImGui via callbacks.
 }
 
 void Mui::setupDockspace() {
-	// Host menu is BeginMainMenuBar() — do not also reserve a window MenuBar
+	// Host menu is BeginMainMenuBar() - do not also reserve a window MenuBar
 	// here (that left an empty strip under the real menu on every app).
 	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
@@ -246,7 +246,7 @@ void Mui::setupDockspace() {
 }
 
 void Mui::renderAllWindows() {
-	// Opted in + outside Edit Mode → skip panels (clean canvas). Visibility
+	// Opted in + outside Edit Mode to skip panels (clean canvas). Visibility
 	// flags untouched.
 	if (editModeEnabled() && !m_editMode) {
 		return;
@@ -330,7 +330,7 @@ void Mui::renderModals() {
 		bool open = it->open;
 		if (ImGui::BeginPopupModal(it->title.c_str(), &open,
 								   ImGuiWindowFlags_AlwaysAutoResize)) {
-			// Explicit wrap width — TextWrapped + AlwaysAutoResize otherwise
+			// Explicit wrap width - TextWrapped + AlwaysAutoResize otherwise
 			// stays tiny.
 			ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 400.f);
 			ImGui::TextUnformatted(it->message.c_str());
@@ -617,7 +617,7 @@ bool Mui::centralViewRect(float &outX, float &outY, float &outW,
 void Mui::applyDpiStyle() {
 	// ScaleAllSizes is multiplicative and lossy. Prefer a relative step from
 	// style._MainScale so applyTheme (colors-only) + applyUiPrefs does not
-	// compound WindowPadding on high-DPI (e.g. 2.25x → 5x).
+	// compound WindowPadding on high-DPI (e.g. 2.25x to 5x).
 	ImGuiStyle &style = ImGui::GetStyle();
 	style.FontScaleDpi = m_dpiScale;
 	const float cur = (style._MainScale > 0.01f) ? style._MainScale : 1.f;
@@ -711,8 +711,8 @@ bool Mui::loadTheme(const std::string &path, bool notify) {
 }
 
 void Mui::applyUiPrefs() {
-	// Theme path: applyTheme (unscaled metrics) → ScaleAllSizes once.
-	// Do not ScaleAllSizes again in reloadFonts — that compounds padding on
+	// Theme path: applyTheme (unscaled metrics) to ScaleAllSizes once.
+	// Do not ScaleAllSizes again in reloadFonts - that compounds padding on
 	// high DPI.
 	ImGuiStyleKit::migrateLegacyTheme(m_uiPrefs.theme, m_uiPrefs.themeFile);
 	setImGuiTheme(clampImGuiTheme(m_uiPrefs.theme));
@@ -849,7 +849,7 @@ void Mui::registerFontAtlasHook(std::function<void(ImFontAtlas &atlas)> hook) {
 namespace {
 // Workspace names become filenames; keep them portable. "imgui" is the
 // session autosave; "Standard" is the seeded default (deletable only by
-// wiping the file on disk — deleteWorkspace refuses it).
+// wiping the file on disk - deleteWorkspace refuses it).
 bool workspaceNameValid(const std::string &name) {
 	if (name.empty() || name == "imgui") {
 		return false;
@@ -974,7 +974,7 @@ void Mui::queueStartupWorkspace() {
 		persistCurrentWorkspace();
 		return;
 	}
-	// No named snapshot yet — leave dock builders to seed Standard.ini.
+	// No named snapshot yet - leave dock builders to seed Standard.ini.
 }
 
 void Mui::applyPendingWindowVisibility() {
@@ -1045,7 +1045,7 @@ bool Mui::loadWorkspace(const std::string &name, bool notify) {
 		}
 		return false;
 	}
-	// Swapping dock state mid-frame corrupts the open draw pass — defer to
+	// Swapping dock state mid-frame corrupts the open draw pass - defer to
 	// the frame boundary in render(), same as font reloads.
 	m_pendingWorkspaceLoad = path.string();
 	m_currentWorkspace = name;
@@ -1203,7 +1203,7 @@ void Mui::addAllHostPanels() {
 	}
 
 	// Sketch defaults: visible Log / Windows / Properties / Scene / Layers;
-	// others created but hidden (opt-in via View → Windows).
+	// others created but hidden (opt-in via View to Windows).
 	const struct {
 		HostPanel panel;
 		bool visible;
@@ -1237,7 +1237,7 @@ void Mui::setFirstRunHostDockLayout(
 			return; // DockSpace not created yet
 		}
 		if (node->IsSplitNode()) {
-			// Restored from ini — leave user layout alone; still seed Standard.
+			// Restored from ini - leave user layout alone; still seed Standard.
 			setDockLayoutBuilder(nullptr);
 			return;
 		}
@@ -1266,7 +1266,7 @@ void Mui::setFirstRunHostDockLayout(
 			ImGui::DockBuilderDockWindow(title.c_str(), right);
 		}
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Log), bottom);
-		// Leave `center` empty — GL clear / install present (or Viewport if
+		// Leave `center` empty - GL clear / install present (or Viewport if
 		// shown).
 		ImGui::DockBuilderFinish(dockspaceId);
 		setDockLayoutBuilder(nullptr);

@@ -625,12 +625,12 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 	bool loadedBody = false;
 	namespace fs = std::filesystem;
 
-	// Basic Latin + Latin-1, plus common UI punctuation (—, …, →) that otherwise
+	// Basic Latin + Latin-1, plus common UI punctuation ( - , ...,  to ) that otherwise
 	// shows as missing-glyph diamonds / question marks with default ranges.
 	static const ImWchar kBodyGlyphRanges[] = {
 		0x0020, 0x00FF, // Basic Latin + Latin-1 Supplement
 		0x2010, 0x2027, // hyphen / en-dash / em-dash / ellipsis
-		0x2190, 0x2193, // ← ↑ → ↓
+		0x2190, 0x2193, //  from  ↑ to ↓
 		0,
 	};
 
@@ -657,7 +657,7 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 			}
 		}
 		if (!loadedBody) {
-			spdlog::warn("[rigImGui] Custom font not found: {} — falling back to Roboto",
+			spdlog::warn("[rigImGui] Custom font not found: {} - falling back to Roboto",
 						 bodyFontPath);
 		}
 	}
@@ -681,7 +681,7 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 
 	if (!loadedBody) {
 		io.Fonts->AddFontDefault();
-		spdlog::warn("[rigImGui] No body TTF — using ImGui default font");
+		spdlog::warn("[rigImGui] No body TTF - using ImGui default font");
 	}
 
 #if RIGIMGUI_HAS_ICON_HEADERS
@@ -696,7 +696,7 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 		spdlog::info("[rigImGui] Merged Font Awesome from {}", faPath.string());
 	} else {
 		spdlog::warn(
-			"[rigImGui] No {} — IconFont headers present but glyphs inactive",
+			"[rigImGui] No {} - IconFont headers present but glyphs inactive",
 			FONT_ICON_FILE_NAME_FAS);
 	}
 #else

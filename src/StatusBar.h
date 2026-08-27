@@ -7,7 +7,7 @@
 namespace rigkit {
 
 /**
- * @brief Bottom status strip slots — data/callbacks only until drawn by Mui.
+ * @brief Bottom status strip slots - data/callbacks only until drawn by Mui.
  */
 struct StatusSlot {
 	std::string id;

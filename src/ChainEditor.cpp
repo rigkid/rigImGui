@@ -45,7 +45,7 @@ void ChainEditor::draw() {
 			const bool open = m_onRemove ? ImGui::CollapsingHeader(label.c_str(), &visible, flags)
 										 : ImGui::CollapsingHeader(label.c_str(), flags);
 			// Close button sets visible=false but may still report open=true for
-			// this frame — do not draw/edit the step that is about to be removed.
+			// this frame - do not draw/edit the step that is about to be removed.
 			const bool closing = m_onRemove && !visible;
 			if (closing) {
 				removeIdx = i;

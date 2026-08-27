@@ -76,7 +76,7 @@ struct UiPrefs {
 	bool chromeKerning = true; ///< Pair kerning on chrome labels (TTF `kern` or setChromeKernFn)
 	bool confirmQuit = false;
 	float notificationSeconds = 3.0f;
-	float notificationWidth = 320.f; ///< logical px; clamped 160–600, scaled by DPI
+	float notificationWidth = 320.f; ///< logical px; clamped 160-600, scaled by DPI
 	int rulerUnit = static_cast<int>(RulerUnit::Mm); // default mm for plotter hosts
 	float rulerThickness = 18.f;
 	bool rulerMinorTicks = true;
@@ -120,7 +120,7 @@ struct UiPrefs {
 	}
 };
 
-/// rigImGui IMui fulfillment — default RigKit UI pack.
+/// rigImGui IMui fulfillment - default RigKit UI pack.
 /// Themes/fonts/style extras: ImGuiStyleKit.
 class Mui : public IMui {
   public:
@@ -192,7 +192,7 @@ class Mui : public IMui {
 
 	/**
 	 * @brief Create (if needed) and show one built-in host panel.
-	 * @details Idempotent. Does not install a dock layout — call
+	 * @details Idempotent. Does not install a dock layout - call
 	 * setFirstRunHostDockLayout / setDockLayoutBuilder separately when needed.
 	 */
 	void addHostPanel(HostPanel panel);
@@ -206,7 +206,7 @@ class Mui : public IMui {
 	 */
 	void addAllHostPanels();
 
-	/// Ensure Preferences exists and show it (File → Preferences…).
+	/// Ensure Preferences exists and show it (File to Preferences...).
 	void showPreferences();
 
 	/**
@@ -222,7 +222,7 @@ class Mui : public IMui {
 				   NotificationType type = NotificationType::Info,
 				   std::function<void()> onOk = nullptr);
 
-	/** @brief Help → About — RigKit version, app identity, loaded packs. */
+	/** @brief Help to About - RigKit version, app identity, loaded packs. */
 	void showAbout();
 
 	void setDockPassthroughCentral(bool enabled) override {
@@ -253,7 +253,7 @@ class Mui : public IMui {
 	void setEditMode(bool enabled) override;
 	bool editMode() const override { return m_editMode; }
 
-	/// Reads the engine's opt-in flag — Mui keeps no copy.
+	/// Reads the engine's opt-in flag - Mui keeps no copy.
 	bool editModeEnabled() const;
 
 	void openFileDialog(const std::string &title, std::vector<std::string> filters,
@@ -304,7 +304,7 @@ class Mui : public IMui {
 	/**
 	 * @brief Extra Preferences sections (ImGui draw; not MSettings persistence).
 	 * @details Use for project-scoped UI (e.g. plot Document/Canvas) that should
-	 * appear under App → Preferences without writing rigkit_settings.json.
+	 * appear under App to Preferences without writing rigkit_settings.json.
 	 */
 	void registerPreferencesDrawer(const std::string &id, const std::string &label,
 								   std::function<void()> draw);

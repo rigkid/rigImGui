@@ -109,7 +109,7 @@ bool draw(const char* strId, std::string& path, float* sizePx, IMui* ui,
 
 	ImGui::SameLine();
 	if (ui) {
-		if (ImGui::Button("Browse…")) {
+		if (ImGui::Button("Browse...")) {
 			ui->openFileDialog("Choose Font", {".ttf", ".otf", ".ttc"},
 							   [onBrowse, &path](const std::string& picked) {
 								   if (onBrowse) {
@@ -121,7 +121,7 @@ bool draw(const char* strId, std::string& path, float* sizePx, IMui* ui,
 		}
 	} else {
 		ImGui::BeginDisabled();
-		ImGui::Button("Browse…");
+		ImGui::Button("Browse...");
 		ImGui::EndDisabled();
 	}
 

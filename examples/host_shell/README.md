@@ -2,7 +2,7 @@
 
 ![preview](img/preview.png)
 
-Example for **rigImGui** — Dark author shell with Scene, Layers, Windows, Properties,
+Example for **rigImGui** - Dark author shell with Scene, Layers, Windows, Properties,
 Widgets, and Log around a central 3D bed (camera, ground grid, demo boxes).
 Open **View > Theme** for accents; Preferences holds the full Style Editor.
 

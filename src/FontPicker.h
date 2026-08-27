@@ -20,7 +20,7 @@ std::vector<std::string> listInstalledFonts();
 std::string resolveFontPath(const std::string& pathOrName);
 
 /**
- * @brief Draw combo of installed fonts + Browse… (+ optional size).
+ * @brief Draw combo of installed fonts + Browse... (+ optional size).
  * @param sizePx Null to hide size control.
  * @param ui Used for Browse (openFileDialog). May be null (Browse disabled).
  * @param onBrowse Optional; when set, Browse uses this instead of writing `path`
@@ -31,7 +31,7 @@ bool draw(const char* strId, std::string& path, float* sizePx, IMui* ui,
 		  std::function<void(std::string)> onBrowse = nullptr);
 
 /**
- * @brief Bake a standalone glyph atlas (ImGui atlas builder → GL texture).
+ * @brief Bake a standalone glyph atlas (ImGui atlas builder to GL texture).
  * @details Does not touch the live UI font. Caller owns `outTexture` (glDeleteTextures).
  * `outUVs` is 4 floats per character in `codepoints` (u0,v0,u1,v1).
  */

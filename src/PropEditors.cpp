@@ -252,7 +252,7 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
 	const bool hasLabel = total.Max.x > frame.Max.x + 1.f;
 	ImRect hit;
 	if (g.IO.KeyAlt) {
-		// Alt+drag the value itself — DragFloat otherwise owns left-drag.
+		// Alt+drag the value itself - DragFloat otherwise owns left-drag.
 		hit = total;
 	} else if (hasLabel) {
 		// Field name (right of the frame). Drag that, not the number.
@@ -298,7 +298,7 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
 		payload.propType = propType;
 		std::snprintf(payload.name, sizeof(payload.name), "%s", propName);
 		ImGui::SetDragDropPayload(kRigScenePropPayload, &payload, sizeof(payload));
-		ImGui::Text("Patch → %s", propName);
+		ImGui::Text("Patch to %s", propName);
 		ImGui::TextDisabled("Drop on Node Editor");
 		ImGui::TextDisabled("Alt+drop adds an LFO");
 		ImGui::EndDragDropSource();
@@ -422,7 +422,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 		if (entityId != 0 && canPatchPropType(static_cast<int>(prop.type))) {
 			ImGui::SetNextItemAllowOverlap();
 		}
-		// Read before the widget runs — on the activation frame this is still
+		// Read before the widget runs - on the activation frame this is still
 		// the pre-edit value, even for same-frame edits like checkbox clicks.
 		const PropValue pre = onCommit ? readPropValue(prop) : PropValue{};
 		switch (prop.type) {
@@ -435,7 +435,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 			break;
 		case EPT_ENUM: {
 			if (!prop.enumNames || prop.enumCount <= 0) {
-				// A control that lies is worse than one that looks broken —
+				// A control that lies is worse than one that looks broken  - 
 				// show the misconfiguration instead of a raw draggable int.
 				ImGui::TextDisabled("%s (enum missing names)", prop.name.c_str());
 				break;

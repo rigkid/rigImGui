@@ -2,8 +2,8 @@
   "name": "example_ImGuizmo",
   "version": "0.1.0",
   "license": "MIT",
-  "description": "rigImGui — ImGuizmo translate overlay",
-  "window": { "width": 880, "height": 560, "title": "rigImGui — example_ImGuizmo" },
+  "description": "rigImGui - ImGuizmo translate overlay",
+  "window": { "width": 880, "height": 560, "title": "rigImGui - example_ImGuizmo" },
   "dependencies": [
     {
       "name": "rigImGui",

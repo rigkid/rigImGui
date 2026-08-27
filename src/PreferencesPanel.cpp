@@ -93,7 +93,7 @@ void PreferencesPanel::renderContents() {
 		m_selectedId = categories.front().id;
 	}
 
-	// Saved imgui.ini sizes from a larger host can still overrun — clamp each frame.
+	// Saved imgui.ini sizes from a larger host can still overrun - clamp each frame.
 	{
 		const ImGuiViewport* vp = ImGui::GetMainViewport();
 		if (vp) {

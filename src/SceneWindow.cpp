@@ -149,7 +149,7 @@ void SceneWindow::renderContents() {
 		drawNode(e);
 	}
 
-	// Drop on empty space → reparent to root.
+	// Drop on empty space to reparent to root.
 	ImGui::Dummy(ImVec2(0, 8));
 	if (ImGui::BeginDragDropTarget()) {
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kRigSceneEntityPayload)) {

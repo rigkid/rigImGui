@@ -25,7 +25,7 @@ std::string shortcutChordLabel(const ShortcutChord& c) {
 void ShortcutManager::clear() {
 	m_bindings.clear();
 	m_defaults.clear();
-	// Keep overrides — they re-apply when bindings return.
+	// Keep overrides - they re-apply when bindings return.
 }
 
 void ShortcutManager::bind(ShortcutBinding binding) {

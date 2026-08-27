@@ -19,7 +19,7 @@ struct Result {
  * @details Combo pick is Load. Save opens a name popup (pre-filled with
  * @p name); confirm sets Action::Save. Delete uses the current @p name when
  * that stem is in @p names. Dirty marks the combo preview with *. Same row
- * everywhere — callers only do I/O. No inline name field.
+ * everywhere - callers only do I/O. No inline name field.
  * @param label Left-side caption ("Preset" / "Snippet").
  * @param name Current stem; updated on Load and on confirmed Save.
  * @param hint Optional disabled line under the row.

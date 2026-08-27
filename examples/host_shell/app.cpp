@@ -118,7 +118,7 @@ void HostShellApp::setup() {
 					{0.f, 0.5f, 0.f});
 	}
 
-	// Directional light shines along local -Z — aim it at the stage.
+	// Directional light shines along local -Z - aim it at the stage.
 	const auto light =
 		rig::makeLight({0.f, 0.f, 0.f}, rigkit::ecs::CLight::Type::Directional, "key-light");
 	if (light != entt::null) {

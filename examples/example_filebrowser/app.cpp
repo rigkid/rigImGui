@@ -14,14 +14,14 @@ void FileBrowserApp::DemoWindow::renderContents() {
 	if (!m_app->lastPath().empty()) {
 		ImGui::TextWrapped("Last: %s", m_app->lastPath().c_str());
 	} else {
-		ImGui::TextUnformatted("Pick a file — dialog opens on launch.");
+		ImGui::TextUnformatted("Pick a file - dialog opens on launch.");
 	}
 }
 
 FileBrowserApp::FileBrowserApp() {
 	window().width = 900;
 	window().height = 580;
-	window().title = "rigImGui — example_filebrowser";
+	window().title = "rigImGui - example_filebrowser";
 	settings().appName = "example_filebrowser";
 }
 
@@ -36,7 +36,7 @@ void FileBrowserApp::openDialog() {
 }
 
 void FileBrowserApp::setup() {
-	spdlog::info("example_filebrowser — Mui openFileDialog");
+	spdlog::info("example_filebrowser - Mui openFileDialog");
 	m_engine->setClearColor(0.10f, 0.10f, 0.12f, 1.0f);
 
 	auto* packs = m_engine->getPackManager();

@@ -4,15 +4,15 @@
 
 namespace rigkit {
 
-/// Scene hierarchy drag (`SceneWindow` → reparent / Node Editor entity ref).
+/// Scene hierarchy drag (`SceneWindow` to reparent / Node Editor entity ref).
 inline constexpr const char* kRigSceneEntityPayload = "RIG_SCENE_ENTITY";
 
-/// Field patch pin → Node Editor bound `ref.*` (`offerScenePropDrag` / `RenderProps`).
+/// Field patch pin to Node Editor bound `ref.*` (`offerScenePropDrag` / `RenderProps`).
 inline constexpr const char* kRigScenePropPayload = "RIG_SCENE_PROP";
 
 /**
  * @brief Payload for `kRigScenePropPayload`.
- * @details `propType` is a `propTypes` value (`EPT_FLOAT`, …). `name` must match
+ * @details `propType` is a `propTypes` value (`EPT_FLOAT`, ...). `name` must match
  * `GetProperties()` / drive-slot names so `applyRefWrites` can write the field.
  *
  * Any RigKit app: register `rigNodeEditor`. Properties (`RenderProps(..., entityId)`)

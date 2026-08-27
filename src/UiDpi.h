@@ -8,7 +8,7 @@ namespace rigkit {
 
 /**
  * @brief Live ImGui content scale after Mui::applyDpiStyle.
- * @details Reads style.FontScaleDpi — no stored mirror. Valid inside an ImGui
+ * @details Reads style.FontScaleDpi - no stored mirror. Valid inside an ImGui
  * frame; returns 1 when there is no context or the scale is unset/tiny.
  */
 inline float uiDpi() {
@@ -19,12 +19,12 @@ inline float uiDpi() {
 	return (dpi < 0.5f) ? 1.f : dpi;
 }
 
-/** @brief Design (1x) size → ImGui/Display units. */
+/** @brief Design (1x) size to ImGui/Display units. */
 inline float uiPx(float design) {
 	return design * uiDpi();
 }
 
-/** @brief Design width/height → ImGui/Display ImVec2. */
+/** @brief Design width/height to ImGui/Display ImVec2. */
 inline ImVec2 uiSize(float designW, float designH) {
 	const float dpi = uiDpi();
 	return ImVec2(designW * dpi, designH * dpi);
@@ -53,8 +53,8 @@ inline ImVec2 uiClampToWork(ImVec2 size, float padDesign = 40.f) {
 
 /**
  * @brief Size for an InvisibleButton hit box, never zero on either axis.
- * @details A docked panel measures zero while a layout settles — restoring a
- * layout saved on a wider screen is enough to do it — and InvisibleButton
+ * @details A docked panel measures zero while a layout settles - restoring a
+ * layout saved on a wider screen is enough to do it - and InvisibleButton
  * asserts on a zero dimension. One pixel keeps the hit box alive until the
  * panel has room again.
  */
@@ -64,7 +64,7 @@ inline ImVec2 uiHitSize(ImVec2 size) {
 	return size;
 }
 
-/** @brief Design size → int window size, clamped to the work area. */
+/** @brief Design size to int window size, clamped to the work area. */
 inline void uiWindowSize(int designW, int designH, int& outW, int& outH,
 						 float padDesign = 40.f) {
 	const ImVec2 clamped =

@@ -11,12 +11,12 @@
 SampleMenubarApp::SampleMenubarApp() {
 	window().width = 880;
 	window().height = 560;
-	window().title = "rigImGui — sample_menubar";
+	window().title = "rigImGui - sample_menubar";
 	settings().appName = "sample_menubar";
 }
 
 void SampleMenubarApp::setup() {
-	spdlog::info("sample_menubar — host menu bar + Log");
+	spdlog::info("sample_menubar - host menu bar + Log");
 	m_engine->setClearColor(0.12f, 0.12f, 0.14f, 1.0f);
 
 	auto* packs = m_engine->getPackManager();

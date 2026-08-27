@@ -44,7 +44,7 @@ int inputTextResizeCallback(ImGuiInputTextCallbackData* data) {
 
 bool inputTextMultilineString(const char* label, std::string& str, const ImVec2& size,
 							  bool readOnly) {
-	// ImGui writes through data() and grows via CallbackResize — keep spare capacity.
+	// ImGui writes through data() and grows via CallbackResize - keep spare capacity.
 	if (str.capacity() <= str.size()) {
 		str.reserve(str.size() + 256);
 	}
@@ -71,7 +71,7 @@ int countLines(const std::string& text) {
 
 /**
  * @brief Undo/redo apply for one inspector property.
- * @details Re-resolves the field through registered properties each time —
+ * @details Re-resolves the field through registered properties each time  - 
  * records hold no raw field pointers, so component storage may move freely.
  */
 void applyPropValue(MEcs& ecs, uint32_t entityId, const std::string& component, uint32_t propId,

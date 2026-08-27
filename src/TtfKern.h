@@ -9,7 +9,7 @@ namespace rigkit {
 /**
  * @brief Legacy TTF `kern` format-0 pairs, keyed by Unicode.
  * @details ImGui atlas text has advance only. This table supplies pair extras
- * at draw time. GPOS / class kerning is not read — bind
+ * at draw time. GPOS / class kerning is not read - bind
  * `IMui::setChromeKernFn` (VarFont `GetGposPairExtraPx`) for that.
  */
 class TtfKern {

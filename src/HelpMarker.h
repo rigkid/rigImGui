@@ -7,7 +7,7 @@ namespace rigkit {
 /**
  * @brief Disabled "(?)" after a field; hover shows wrapped help.
  * @details Same pattern as imgui_demo HelpMarker. Call after the widget
- * (usually with SameLine). No emoji — plain "(?)".
+ * (usually with SameLine). No emoji - plain "(?)".
  */
 inline void HelpMarker(const char* desc) {
 	ImGui::TextDisabled("(?)");

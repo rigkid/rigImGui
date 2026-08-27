@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-// Keep symbols private — other packs may already compile stb_image_write.
+// Keep symbols private - other packs may already compile stb_image_write.
 #define STB_IMAGE_WRITE_STATIC
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"

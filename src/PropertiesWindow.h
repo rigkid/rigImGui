@@ -16,7 +16,7 @@ class MSettings;
 class PropertiesWindow : public IWindow {
   public:
 	using ExtraDrawer = std::function<void(MEcs& ecs, entt::entity entity)>;
-	/** @brief Optional — when set, the inline editor shows "Open in Code Editor". */
+	/** @brief Optional - when set, the inline editor shows "Open in Code Editor". */
 	using OpenCodeEditorFn = std::function<void(uint32_t entity)>;
 	/**
 	 * @brief Optional highlighted light editor (e.g. from rigCodeEditor).
@@ -29,7 +29,7 @@ class PropertiesWindow : public IWindow {
 	PropertiesWindow(const std::string& title = "Properties", ImGuiWindowFlags flags = 0);
 	virtual ~PropertiesWindow() = default;
 
-	/// Empty inspector. Not `0` — EnTT's first entity is often id 0.
+	/// Empty inspector. Not `0` - EnTT's first entity is often id 0.
 	static constexpr uint32_t kNoEntity = static_cast<uint32_t>(-1);
 
 	void setSelectedEntity(uint32_t entity);

@@ -12,7 +12,7 @@ if(NOT TARGET rigComponent)
 	add_subdirectory("${_rigComponent_dir}" "${CMAKE_BINARY_DIR}/packs/rigComponent")
 endif()
 
-# stb_image_write for File→Export PNG (from host GLFW deps).
+# stb_image_write for File to Export PNG (from host GLFW deps).
 set(_stb_write_dir "")
 if(DEFINED RIGKIT_ROOT AND EXISTS "${RIGKIT_ROOT}/third_party/glfw/deps/stb_image_write.h")
 	set(_stb_write_dir "${RIGKIT_ROOT}/third_party/glfw/deps")
@@ -23,7 +23,7 @@ if(_stb_write_dir STREQUAL "")
 	message(FATAL_ERROR "rigImGui Export PNG needs third_party/glfw/deps/stb_image_write.h")
 endif()
 
-# rigImGui host shell — themes/fonts via ImGuiStyleKit
+# rigImGui host shell - themes/fonts via ImGuiStyleKit
 set(PACK_SOURCES
     src/rigImGui.cpp
     src/rigImGui.h

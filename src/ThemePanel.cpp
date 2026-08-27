@@ -124,7 +124,7 @@ void ThemePanel::renderFontControls() {
 		if (ui->reloadFonts()) {
 			ui->showNotification("Font applied", NotificationType::Success);
 		} else {
-			ui->showNotification("Font apply failed — check path", NotificationType::Error);
+			ui->showNotification("Font apply failed - check path", NotificationType::Error);
 		}
 		if (auto* engine = getEngine()) {
 			if (auto* settings = engine->getSettingsManager()) {

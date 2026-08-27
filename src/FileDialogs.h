@@ -16,7 +16,7 @@
 
 namespace rigkit {
 
-/** Design (1x) size of the open/save browser — pass through uiPx at open.
+/** Design (1x) size of the open/save browser - pass through uiPx at open.
  * Room for the quick-access sidebar plus a usable file list. */
 inline constexpr int kFileDialogDesignW = 1100;
 inline constexpr int kFileDialogDesignH = 700;
@@ -24,7 +24,7 @@ inline constexpr int kFileDialogDesignH = 700;
 inline constexpr float kFileDialogQuickAccessDesignW = 160.f;
 
 /**
- * @brief DPI-scaled size for any ImGui::FileBrowser (Place / Open / Save / …).
+ * @brief DPI-scaled size for any ImGui::FileBrowser (Place / Open / Save / ...).
  * @details Centering is handled in imfilebrowser when no explicit SetWindowPos
  * was set. Call before Open() so Appearing size picks up the new layout.
  */
@@ -37,7 +37,7 @@ inline void applyFileBrowserLayout(ImGui::FileBrowser& browser) {
 }
 
 /** @brief App data / User data / Home / Desktop / Documents / Downloads shortcuts (left sidebar).
- * @details Width is not touched here — the sidebar splitter owns it, and this
+ * @details Width is not touched here - the sidebar splitter owns it, and this
  * runs on every open()/save() so resetting would undo the user's drag. */
 inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
 	namespace fs = std::filesystem;
@@ -49,7 +49,7 @@ inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
 		}
 	};
 
-	// The running app's data folder first — it is where app documents live.
+	// The running app's data folder first - it is where app documents live.
 	const std::string data = AppPaths::getDataDir();
 	if (!data.empty()) {
 		addIfDir("App data", fs::path(data));
@@ -75,11 +75,11 @@ inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
 }
 
 /**
- * @brief Apply extension filters and always offer `.*` (all files) in the combo.
- * @details imgui-filebrowser uses `.*` for any extension (not Windows `*.*`).
- * Callers pass preferred types first; `.*` is appended when missing so the
- * directory listing can still show everything. Also installs the quick-access
- * sidebar when filters are applied.
+ * @brief Apply extension filters and always offer an all-files choice in the combo.
+ * @details imgui-filebrowser's any-extension token is not the Windows all-files
+ * glob. Callers pass preferred types first; all-files is appended when missing
+ * so the directory listing can still show everything. Also installs the
+ * quick-access sidebar when filters are applied.
  */
 inline void setFileBrowserFilters(ImGui::FileBrowser& browser,
 								  std::vector<std::string> filters) {
@@ -98,7 +98,7 @@ inline void setFileBrowserFilters(ImGui::FileBrowser& browser,
 }
 
 /**
- * @brief Open/save browsers for Mui — keeps ImGui::FileBrowser out of IMui.
+ * @brief Open/save browsers for Mui - keeps ImGui::FileBrowser out of IMui.
  * @details Opening size uses uiPx (design × FontScaleDpi), clamped to the
  * work area. Undersized imgui.ini crumbs are bumped up on open.
  */
@@ -117,7 +117,8 @@ class FileDialogs {
   private:
 	void applyLayout();
 	/** @brief Append the active type-filter extension when the name lacks it.
-	 * @details Concrete combo only (e.g. `.svg`); `.*` skips. No double suffix. */
+	 * @details Concrete combo only (for example `.svg`); all-files skips.
+	 * No double suffix. */
 	std::string withSaveExtension(std::filesystem::path path) const;
 
 	enum class Mode { None, Open, Save };

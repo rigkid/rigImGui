@@ -42,9 +42,9 @@ void writePropValue(const sProp& prop, const PropValue& value);
  * @brief Edit `sProp` fields with ImGui. Returns true if any value changed.
  * @param headerName CollapsingHeader label; null = draw widgets only.
  * @param entityId When non-zero, each row gets a patch pin (`RIG_SCENE_PROP`)
- * for the Node Editor — the automatic path for any app using Properties.
+ * for the Node Editor - the automatic path for any app using Properties.
  * @param onCommit When set, fires once per finished edit (a whole drag = one commit)
- * with before/after values — the seam for undo records.
+ * with before/after values - the seam for undo records.
  */
 bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t entityId = 0,
 				 const PropCommitFn& onCommit = {});

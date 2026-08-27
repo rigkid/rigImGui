@@ -13,7 +13,7 @@ namespace {
 
 bool isSelectable(MEcs& ecs, entt::entity e) {
 	if (!ecs.hasComponent<ecs::CSelectable>(e)) {
-		return true; // legacy: no flag → selectable
+		return true; // legacy: no flag to selectable
 	}
 	return ecs.getComponent<ecs::CSelectable>(e).enabled;
 }

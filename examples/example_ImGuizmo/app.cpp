@@ -36,7 +36,7 @@ void ImGuizmoApp::setup() {
 		mui->setWindowVisibilityAll(false);
 		mui->setDockPassthroughCentral(true);
 		mui->setGizmoOp(rigkit::IMui::GizmoOp::Translate);
-		// Runs inside Mui::render() after NewFrame — never from IApp::draw().
+		// Runs inside Mui::render() after NewFrame - never from IApp::draw().
 		mui->setGizmoDrawer([this](float x, float y, float w, float h, rigkit::IMui::GizmoOp) {
 			if (w < 1.f || h < 1.f) {
 				return;

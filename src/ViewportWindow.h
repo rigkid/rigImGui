@@ -6,7 +6,7 @@
 namespace rigkit {
 
 /**
- * @brief Secondary 2D viewport panel — pan/zoom over View2D + optional rulers.
+ * @brief Secondary 2D viewport panel - pan/zoom over View2D + optional rulers.
  * @details Apps set content size and optionally a GL texture id to display.
  * Multi-FBO authoring can bind a Canvas texture here; default is empty grid.
  */

@@ -6,7 +6,7 @@
 |-------|---------|------|
 | `Roboto-Regular.ttf` | Apache 2.0 (Google) | Default UI body font |
 | `fa-solid-900.ttf` | Font Awesome Free 5 | IconFont merge |
-| `fontRobotoRegular.h` | — | Tiny stub fallback only |
+| `fontRobotoRegular.h` | - | Tiny stub fallback only |
 
 ## Runtime layout (important)
 

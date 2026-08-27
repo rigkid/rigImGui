@@ -133,7 +133,7 @@ void DebugPanel::renderProgressDemo() {
 
 	ImGui::Separator();
 	ImGui::TextUnformatted("Progress");
-	ImGui::TextDisabled("Fake loaders — status bar or floating (Preferences).");
+	ImGui::TextDisabled("Fake loaders - status bar or floating (Preferences).");
 	ImGui::SetNextItemWidth(160.f);
 	ImGui::SliderFloat("Sim speed", &m_simulationSpeed, 0.1f, 5.f, "%.1fx");
 
@@ -169,8 +169,8 @@ void DebugPanel::renderProgressDemo() {
 		m_progressDemo = ProgressDemo::Indeterminate;
 		m_absolutePos = 0.f;
 		progress->setCancelable(true);
-		progress->begin("Connecting…");
-		progress->tickIndeterminate("Please wait…");
+		progress->begin("Connecting...");
+		progress->tickIndeterminate("Please wait...");
 	}
 	if (indRunning)
 		ImGui::EndDisabled();
@@ -234,7 +234,7 @@ void DebugPanel::tickProgressDemo(float dt) {
 	case ProgressDemo::Indeterminate: {
 		m_absolutePos += dt * speed;
 		if (m_absolutePos < 4.f) {
-			progress->tickIndeterminate("Please wait…");
+			progress->tickIndeterminate("Please wait...");
 		} else {
 			m_progressDemo = ProgressDemo::None;
 			m_absolutePos = 0.f;

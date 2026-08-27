@@ -69,7 +69,7 @@ void ViewportWindow::renderContents() {
 			}
 		}
 		dl->AddText(ImVec2(canvasPos.x + 8.f, canvasPos.y + 8.f), IM_COL32(140, 140, 140, 255),
-					"No texture — call ViewportWindow::setTexture");
+					"No texture - call ViewportWindow::setTexture");
 	}
 
 	Mui* ui = nullptr;
