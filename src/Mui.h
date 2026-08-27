@@ -11,6 +11,7 @@
 #include "core/IMui.h"
 #include "core/json.h"
 #include "core/util/Progress.h"
+#include "core/util/View2D.h"
 #include "ecs/PropertyReflection.h"
 #include "FileDialogs.h"
 #include "HostMenuBar.h"
@@ -349,6 +350,17 @@ class Mui : public IMui {
 	bool handles2DVisible() const { return m_handles2D; }
 	void setHandles2DVisible(bool v) { m_handles2D = v; }
 
+	/**
+	 * @brief Bind the central bed's View2D so host rulers / 2D handles match the sheet.
+	 * @details Pass the live view each frame (or a stable pointer). @p contentUnit is
+	 * the page unit (`"in"`, `"mm"`, `"cm"`, `"px"`). Null view falls back to CAD cm.
+	 */
+	void setContentView(const View2D* view, const char* contentUnit = "px") {
+		m_contentView = view;
+		m_contentUnit = (contentUnit && contentUnit[0]) ? contentUnit : "px";
+	}
+	const View2D* contentView() const { return m_contentView; }
+
 	/** @brief Queue a full-window PNG export after this frame's UI present. */
 	void requestExportPng();
 
@@ -467,6 +479,8 @@ class Mui : public IMui {
 	bool m_defaultStatusReady = false;
 	bool m_rulersVisible = false;
 	bool m_handles2D = true;
+	const View2D* m_contentView = nullptr;
+	std::string m_contentUnit = "px";
 	bool m_exportPngPending = false;
 	GizmoOp m_gizmoOp = GizmoOp::Select;
 	std::function<void(float, float, float, float, GizmoOp)> m_gizmoDrawer;

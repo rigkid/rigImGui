@@ -11,6 +11,8 @@ cmake -S examples/host_shell -B examples/host_shell/build
 cmake --build examples/host_shell/build --target host_shell
 ```
 
+Format first-party `src/` + `examples/` with `./tools/format.sh` (Windows: `tools\format.bat`). Install the pre-commit hook once: `./tools/install-hooks.sh`. From a RigKit host checkout, `./tools/install-hooks.sh` also wires every other pack git repo.
+
 Also: [sample_menubar](examples/sample_menubar/), [example_filebrowser](examples/example_filebrowser/), [example_ImGuizmo](examples/example_ImGuizmo/).
 
 It fulfills UI via `IMui` — part of a **SUDE–ECS–UI fulfillment**, not SUDE alone. Show/headless hosts may omit it and remain SUDE or SUDE–ECS.
@@ -24,7 +26,7 @@ git submodule update --init --recursive
 The pack extends RigKit with a complete UI system built on Dear ImGui. It provides:
 
 - **Window Management**: Create, manage, and organize ImGui windows
-- **Host shell**: Edit menu + undo bind, Edit Mode (opt-in via `enableEditMode(true)`; panels hidden until Ctrl+E), Scene (DnD reparent), Layers (`CLayer`), Viewport (`View2D`), rulers (F2), 2D handles, Tools W·E·R gizmo mode, File→Export PNG, shortcuts panel with remapping (persisted in user settings), status bar, open/save dialogs
+- **Host shell**: Edit menu + undo bind, Edit Mode (opt-in via `enableEditMode(true)`; panels hidden until Ctrl+E), Scene (DnD reparent), Layers (`CLayer`), Viewport (`View2D`), rulers (F2), 2D handles, Tools W·E·R gizmo mode, File > Export PNG, shortcuts panel with remapping (persisted in user settings), status bar, open/save dialogs
 - **Standard Windows**: Pre-built windows for common tasks (debug, properties, logs)
 - **Custom UI**: Easy creation of custom windows and UI components
 - **ECS Integration**: Seamless integration with RigKit's Entity-Component-System
@@ -60,9 +62,9 @@ The main UI system that orchestrates everything:
 - Built-in bases: Dark (default charcoal/teal) and Light. Named palettes are JSON in `themes/`
 - **Color-scheme JSON** — shipped `themes/` plus user saves under `<userData>/user/themes/`
 - **Theme panel** — Dark / Light + scheme combo with credits (full Style Editor is Preferences)
-- **Full Style Editor** — Preferences → Interface → `ImGui::ShowStyleEditor()` (Dear ImGui stock)
+- **Full Style Editor** — Preferences > Interface > `ImGui::ShowStyleEditor()` (Dear ImGui stock)
 - **Custom font** — Theme panel / Preferences: TTF path (under `data/fonts` or absolute) + size; Apply Font reloads atlas
-- Prefs (`rigImGui.ui`): Theme, Theme File, Font File, Font Size — File → Preferences…
+- Prefs (`rigImGui.ui`): Theme, Theme File, Font File, Font Size — File > Preferences…
 - **Roboto** + **Font Awesome 5** shipped under `fonts/` (also copied to repo `assets/fonts/` for `AppPaths`)
 
 ## Standard Windows
@@ -80,7 +82,7 @@ Built-in host panels are created on demand — ask for the ones you need:
 | `Viewport` | GL viewport panel |
 | `Shortcuts` | Shortcut list + click-to-remap (persists under settings key `shortcuts`) |
 | `Theme` | Quick theme / JSON / font accents (full Style Editor is Preferences) |
-| `Preferences` | File → Preferences… |
+| `Preferences` | File > Preferences… |
 
 #### Example Usage
 
@@ -239,7 +241,7 @@ uiManager->loadTheme("themes/my_theme.json");
 
 ## Workspaces
 
-Named dock layouts, Photoshop-style: snapshot the current layout **and window visibility** under a name, switch between snapshots from **App → Workspace**. Each workspace is a `<name>.ini` under `AppPaths::getWorkspacesDir()` (`data/user/workspaces/`) — ImGui dock data plus a `[RigVisibility][Windows]` section. The live session keeps autosaving to `imgui.ini` there.
+Named dock layouts, Photoshop-style: snapshot the current layout **and window visibility** under a name, switch between snapshots from **App > Workspace**. Each workspace is a `<name>.ini` under `AppPaths::getWorkspacesDir()` (`data/user/workspaces/`) — ImGui dock data plus a `[RigVisibility][Windows]` section. The live session keeps autosaving to `imgui.ini` there.
 
 On startup, rigImGui loads the last used named workspace (settings key `workspace`) when that file exists; otherwise it loads **`Standard`**. If `Standard.ini` is missing, a one-shot dock builder (host `setFirstRunHostDockLayout` and/or the app’s `setDockLayoutBuilder`) seeds it from the first settled split, then that file becomes the durable default — not a hardcoded layout forever.
 
@@ -255,7 +257,7 @@ auto names = uiManager->workspaceNames();
 uiManager->deleteWorkspace("old_layout");
 ```
 
-Menu: **App → Workspace** lists saved workspaces (checkmark on the active one), **Save Workspace As...** prompts for a name, **Delete Workspace** confirms before removing (Standard is omitted). Loading a workspace that includes `[RigVisibility]` hides every registered window, then shows only those marked visible — panels not in the snapshot stay hidden.
+Menu: **App > Workspace** lists saved workspaces (checkmark on the active one), **Save Workspace As...** prompts for a name, **Delete Workspace** confirms before removing (Standard is omitted). Loading a workspace that includes `[RigVisibility]` hides every registered window, then shows only those marked visible — panels not in the snapshot stay hidden.
 
 Legacy `.ini` files without `[RigVisibility]` still restore docks; visibility is left unchanged until the next save writes the section.
 

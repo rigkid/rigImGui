@@ -74,6 +74,34 @@ float rulerPixPerWorldCm(RulerUnit unit, float pixelsPerWorldCm, float dpiScale)
 	}
 }
 
+float rulerPixPerContentUnit(RulerUnit display, float zoomAbs, const char* contentUnit,
+							 float dpiScale) {
+	const float zoom = (zoomAbs > 1e-6f) ? zoomAbs : 1.f;
+	const char* u = (contentUnit && contentUnit[0]) ? contentUnit : "px";
+	if (u[0] == 'p' || u[0] == 'P') {
+		return rulerPixPerDisplayUnit(display, zoom, dpiScale);
+	}
+	// zoomAbs is screen px per content unit. Convert that to px per display unit.
+	float contentPerIn = 1.f;
+	if (u[0] == 'm' || u[0] == 'M') {
+		contentPerIn = (u[1] == 'm' || u[1] == 'M') ? 25.4f : 1.f;
+	} else if (u[0] == 'c' || u[0] == 'C') {
+		contentPerIn = 2.54f;
+	}
+	const float pxPerIn = zoom * contentPerIn;
+	switch (display) {
+	case RulerUnit::Mm:
+		return pxPerIn / 25.4f;
+	case RulerUnit::Cm:
+		return pxPerIn / 2.54f;
+	case RulerUnit::In:
+		return pxPerIn;
+	case RulerUnit::Px:
+	default:
+		return 1.f;
+	}
+}
+
 const char* rulerUnitLabel(RulerUnit unit) {
 	switch (unit) {
 	case RulerUnit::Mm:

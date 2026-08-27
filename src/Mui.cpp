@@ -538,7 +538,6 @@ void Mui::render() {
 	setupDockspace();
 	applyPendingWindowVisibility();
 	renderAllWindows();
-	renderMainViewOverlays();
 	if (m_gizmoDrawer && m_engine) {
 		float gx = 0.f, gy = 0.f, gw = 0.f, gh = 0.f;
 		if (!centralViewRect(gx, gy, gw, gh)) {
@@ -553,6 +552,7 @@ void Mui::render() {
 		}
 		m_gizmoDrawer(gx, gy, gw, gh, m_gizmoOp);
 	}
+	renderMainViewOverlays();
 	renderStatusBar();
 	renderProgressFloating();
 	renderNotifications();
@@ -1563,16 +1563,25 @@ void Mui::renderMainViewOverlays() {
 			rulerSize = ImVec2(m_centralW, m_centralH);
 		}
 		const RulerUnit unit = clampRulerUnit(m_uiPrefs.rulerUnit);
-		float worldCm = 0.f;
-		if (m_engine) {
-			worldCm = pixelsPerWorldCmAtFocus(m_engine->getECSManager(), rulerSize.x,
-											  rulerSize.y);
+		float ppu = 0.f;
+		ImVec2 contentOrigin = rulerOrigin;
+		if (m_contentView) {
+			ppu = rulerPixPerContentUnit(unit, m_contentView->zoomAbs, m_contentUnit.c_str(),
+										 m_dpiScale);
+			contentOrigin = ImVec2(m_contentView->ox, m_contentView->oy);
+		} else {
+			float worldCm = 0.f;
+			if (m_engine) {
+				worldCm = pixelsPerWorldCmAtFocus(m_engine->getECSManager(), rulerSize.x,
+												  rulerSize.y);
+			}
+			ppu = rulerPixPerWorldCm(unit, worldCm, m_dpiScale);
 		}
-		const float ppu = rulerPixPerWorldCm(unit, worldCm, m_dpiScale);
 		const ImVec2 mouse = ImGui::GetIO().MousePos;
 		const float thick = rulerStripThickness(m_dpiScale);
-		drawRulersInRegion(ImGui::GetForegroundDrawList(), rulerOrigin, rulerSize, mouse,
-						   ppu, rulerUnitLabel(unit), m_dpiScale, rulerOrigin);
+		ImDrawList* dl = ImGui::GetBackgroundDrawList(const_cast<ImGuiViewport*>(viewport));
+		drawRulersInRegion(dl, rulerOrigin, rulerSize, mouse, ppu, rulerUnitLabel(unit),
+						   m_dpiScale, contentOrigin);
 
 		// Host for strip hits + unit popup (DockSpace already ended). Pass
 		// through clicks outside the bands so docked panels stay interactive.
@@ -1614,10 +1623,15 @@ void Mui::renderMainViewOverlays() {
 	}
 
 	if (m_handles2D && m_engine && m_engine->getECSManager()) {
-		// Identity content mapping for passthrough main view (1 content unit =
-		// 1 px).
-		drawSelectedHandle2D(*m_engine->getECSManager(), origin.x, origin.y,
-							 1.f);
+		float hx = origin.x;
+		float hy = origin.y;
+		float hs = 1.f;
+		if (m_contentView && m_contentView->zoomAbs > 1e-6f) {
+			hx = m_contentView->ox;
+			hy = m_contentView->oy;
+			hs = m_contentView->zoomAbs;
+		}
+		drawSelectedHandle2D(*m_engine->getECSManager(), hx, hy, hs, m_gizmoOp, m_undoStack);
 	}
 }
 

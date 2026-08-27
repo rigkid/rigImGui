@@ -33,6 +33,14 @@ float rulerPixPerDisplayUnit(RulerUnit unit, float contentZoomAbs, float dpiScal
  */
 float rulerPixPerWorldCm(RulerUnit unit, float pixelsPerWorldCm, float dpiScale);
 
+/**
+ * @brief Screen pixels per display unit when content is page / world units.
+ * @param zoomAbs View2D::zoomAbs (screen pixels per content unit).
+ * @param contentUnit `"in"`, `"mm"`, `"cm"`, or `"px"`.
+ */
+float rulerPixPerContentUnit(RulerUnit display, float zoomAbs, const char* contentUnit,
+							 float dpiScale = 1.f);
+
 const char* rulerUnitLabel(RulerUnit unit);
 
 float rulerStripThickness(float uiScale = 1.f);

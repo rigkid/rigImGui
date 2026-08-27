@@ -30,7 +30,7 @@ bool rigImGui::init() {
 	}
 
 	if (engine->uiChrome() != "imgui") {
-		spdlog::info("[rigImGui] chrome='{}' — idle until swap", engine->uiChrome());
+		spdlog::info("[rigImGui] chrome='{}' - idle until swap", engine->uiChrome());
 		return true;
 	}
 
@@ -41,7 +41,7 @@ bool rigImGui::init() {
 	m_ui->init();
 	engine->setUiInitialised(true);
 
-	spdlog::info("[rigImGui] Ready — not required by SUDE");
+	spdlog::info("[rigImGui] Ready - not required by SUDE");
 
 	return true;
 }

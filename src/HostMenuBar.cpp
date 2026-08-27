@@ -453,21 +453,18 @@ void HostMenuBar::renderViewMenu() {
 		ImGui::EndMenu();
 	}
 
-	if (ImGui::BeginMenu("Chrome")) {
-		const bool isImgui =
-			!m_engine || m_engine->uiChrome() == "imgui" || m_engine->uiChrome().empty();
-		const bool isTui = m_engine && m_engine->uiChrome() == "tui";
-		if (ImGui::MenuItem("ImGui", nullptr, isImgui)) {
-			if (m_engine) {
-				m_engine->requestUiChrome("imgui");
+	if (m_engine && m_engine->uiChromes().size() > 1) {
+		if (ImGui::BeginMenu("Chrome")) {
+			const auto chromes = m_engine->uiChromes();
+			for (const auto& id : chromes) {
+				const bool sel = m_engine->uiChrome() == id ||
+								 (id == "imgui" && m_engine->uiChrome().empty());
+				if (ImGui::MenuItem(id.c_str(), nullptr, sel)) {
+					m_engine->requestUiChrome(id);
+				}
 			}
+			ImGui::EndMenu();
 		}
-		if (ImGui::MenuItem("ImTui", nullptr, isTui)) {
-			if (m_engine) {
-				m_engine->requestUiChrome("tui");
-			}
-		}
-		ImGui::EndMenu();
 	}
 
 	ImGui::EndMenu();
