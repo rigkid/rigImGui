@@ -37,8 +37,8 @@ inline void applyFileBrowserLayout(ImGui::FileBrowser& browser) {
 }
 
 /** @brief App data / User data / Home / Desktop / Documents / Downloads shortcuts (left sidebar).
- * @details Width is not touched here - the sidebar splitter owns it, and this
- * runs on every open()/save() so resetting would undo the user's drag. */
+ * @details Call once per browser. AddQuickAccess stats each folder; Desktop /
+ * Documents / Downloads on OneDrive can stall the UI if this runs every Open. */
 inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
 	namespace fs = std::filesystem;
 	browser.ClearQuickAccess();
@@ -78,8 +78,7 @@ inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
  * @brief Apply extension filters and always offer an all-files choice in the combo.
  * @details imgui-filebrowser's any-extension token is not the Windows all-files
  * glob. Callers pass preferred types first; all-files is appended when missing
- * so the directory listing can still show everything. Also installs the
- * quick-access sidebar when filters are applied.
+ * so the directory listing can still show everything.
  */
 inline void setFileBrowserFilters(ImGui::FileBrowser& browser,
 								  std::vector<std::string> filters) {
@@ -94,7 +93,6 @@ inline void setFileBrowserFilters(ImGui::FileBrowser& browser,
 		filters.push_back(".*");
 	}
 	browser.SetTypeFilters(filters);
-	installFileBrowserQuickAccess(browser);
 }
 
 /**
@@ -127,6 +125,8 @@ class FileDialogs {
 	ImGui::FileBrowser m_save;
 	Mode m_mode = Mode::None;
 	Callback m_callback;
+	int m_skipDisplay = 0;	 ///< File menu is still a popup this frame - OpenPopup next tick.
+	bool m_openedOnce = false; ///< True after BeginPopupModal succeeded; then !open means cancel.
 };
 
 } // namespace rigkit

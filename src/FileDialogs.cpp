@@ -48,8 +48,11 @@ void FileDialogs::open(const std::string& title, std::vector<std::string> filter
 	m_callback = std::move(onSelected);
 	m_open.SetTitle(title.empty() ? "Open" : title);
 	setFileBrowserFilters(m_open, std::move(filters));
-	installFileBrowserQuickAccess(m_open);
 	m_open.Open();
+	// HostMenuBar: popups cannot open inside a closing File menu. Skip Display
+	// this frame so shouldOpen_ stays set; next tick OpenPopup is at root.
+	m_skipDisplay = 1;
+	m_openedOnce = false;
 }
 
 void FileDialogs::save(const std::string& title, std::vector<std::string> filters,
@@ -59,8 +62,9 @@ void FileDialogs::save(const std::string& title, std::vector<std::string> filter
 	m_callback = std::move(onSelected);
 	m_save.SetTitle(title.empty() ? "Save" : title);
 	setFileBrowserFilters(m_save, std::move(filters));
-	installFileBrowserQuickAccess(m_save);
 	m_save.Open();
+	m_skipDisplay = 1;
+	m_openedOnce = false;
 }
 
 std::string FileDialogs::withSaveExtension(std::filesystem::path path) const {
@@ -82,6 +86,10 @@ void FileDialogs::tick() {
 	if (m_mode == Mode::None) {
 		return;
 	}
+	if (m_skipDisplay > 0) {
+		--m_skipDisplay;
+		return;
+	}
 
 	ImGui::FileBrowser& browser = (m_mode == Mode::Open) ? m_open : m_save;
 	browser.Display();
@@ -95,12 +103,19 @@ void FileDialogs::tick() {
 		auto cb = std::move(m_callback);
 		m_callback = nullptr;
 		m_mode = Mode::None;
+		m_openedOnce = false;
 		if (cb) {
 			cb(path);
 		}
-	} else if (!browser.IsOpened()) {
+	} else if (browser.IsOpened()) {
+		m_openedOnce = true;
+	} else if (m_openedOnce) {
 		m_callback = nullptr;
 		m_mode = Mode::None;
+		m_openedOnce = false;
+	} else {
+		// Menu ate the first OpenPopup - ask again next frame.
+		browser.Open();
 	}
 }
 
