@@ -258,7 +258,7 @@ uiManager->loadTheme("themes/my_theme.json");
 
 Named dock layouts, Photoshop-style: snapshot the current layout **and window visibility** under a name, switch between snapshots from **App > Workspace**. Each workspace is a `<name>.ini` under `AppPaths::getWorkspacesDir()` (`data/user/workspaces/`) - ImGui dock data plus a `[RigVisibility][Windows]` section. The live session keeps autosaving to `imgui.ini` there.
 
-On startup, rigImGui loads the last used named workspace (settings key `workspace`) when that file exists; otherwise it loads **`Standard`**. If `Standard.ini` is missing, a one-shot dock builder (host `setFirstRunHostDockLayout` and/or the app’s `setDockLayoutBuilder`) seeds it from the first settled split, then that file becomes the durable default - not a hardcoded layout forever.
+On startup, rigImGui restores the session autosave (`imgui.ini`) - you get back exactly the windows and docks you quit with. Named workspaces are explicit presets: they apply only via **App > Workspace** (or `loadWorkspace`), except on the very first launch, where the last used name (settings key `workspace`) or **`Standard`** seeds the session. If `Standard.ini` is missing too, a one-shot dock builder (host `setFirstRunHostDockLayout` and/or the app’s `setDockLayoutBuilder`) seeds it from the first settled split, then that file becomes the durable default - not a hardcoded layout forever. Workspace names match files on disk case-insensitively, so Windows and Pi agree on one file per name.
 
 ```cpp
 // Snapshot the current dock layout + which IWindows are visible

@@ -167,8 +167,10 @@ class Mui : public IMui {
 	 * @brief Save the current dock layout and window visibility as a named workspace.
 	 * @details Workspaces are snapshots stored as `<name>.ini` under
 	 * AppPaths::getWorkspacesDir() (ImGui dock tree plus `[RigVisibility]`).
-	 * The live session keeps autosaving to `imgui.ini`. Active name persists in
-	 * user settings; startup reloads that named workspace (or `Standard`).
+	 * They are explicit presets: startup restores the session autosave
+	 * (`imgui.ini`); a named workspace only seeds the first session, before
+	 * any autosave exists. Names match files on disk case-insensitively so
+	 * Windows and Pi agree on one file per name.
 	 * @param notify When true, show a success/error notification.
 	 * @return False when the name is invalid or the file could not be written.
 	 */
@@ -201,8 +203,8 @@ class Mui : public IMui {
 	/**
 	 * @brief Create every host panel at sketch defaults.
 	 * @details Installs first-run dock layout only when no builder is set and
-	 * `Standard.ini` is missing (seed path). Prefer loading `Standard` / last
-	 * used workspace on startup once that file exists.
+	 * `Standard.ini` is missing (seed path). Later launches restore the
+	 * session autosave instead.
 	 */
 	void addAllHostPanels();
 
@@ -460,7 +462,7 @@ class Mui : public IMui {
 	std::unordered_map<std::string, bool> m_pendingVisibility; ///< From [RigVisibility]
 	bool m_rigVisibilitySectionSeen = false; ///< Set while parsing a RigVisibility block
 	bool m_applyPendingVisibility = false;	 ///< Apply hide-all / show-listed after LoadIni
-	bool m_startupWorkspaceQueued = false;	 ///< First-frame named workspace load
+	bool m_startupWorkspaceQueued = false;	 ///< First-frame session/preset restore ran
 	bool m_standardSeedAttempted = false;	 ///< One-shot Standard.ini creation
 
 	std::deque<Notification> m_notifications;

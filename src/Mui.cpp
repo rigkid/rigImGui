@@ -35,10 +35,12 @@
 #include "WindowManagerPanel.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <spdlog/spdlog.h>
 
 namespace {
@@ -82,8 +84,9 @@ void Mui::setRigKitEngine(RigKitEngine *engine) {
 	if (engine) {
 		m_window = engine->getWindow();
 		loadRecentFilesFromSettings();
-		// Restore the last used workspace name; layout+visibility are loaded
-		// on the first render via queueStartupWorkspace().
+		// Remember the last used workspace name; the first render restores
+		// the session autosave, or falls back to this snapshot when no
+		// session exists yet (queueStartupWorkspace()).
 		if (auto *settings = engine->getSettingsManager()) {
 			const json ws = settings->getValue("workspace");
 			if (ws.is_string()) {
@@ -870,6 +873,47 @@ std::filesystem::path workspaceIniPath(const std::string &name) {
 	return std::filesystem::path(AppPaths::getWorkspacesDir()) /
 		   (name + ".ini");
 }
+
+// Windows filesystems match "bruno" to "Bruno.ini", case-sensitive hosts (Pi)
+// do not. Resolve to the on-disk casing so both agree on one workspace and
+// the menu checkmark matches workspaceNames().
+std::string resolveWorkspaceCase(const std::string &name) {
+	if (name.empty()) {
+		return name;
+	}
+	std::error_code ec;
+	std::filesystem::directory_iterator it(AppPaths::getWorkspacesDir(), ec);
+	if (ec) {
+		return name;
+	}
+	for (const auto &entry : it) {
+		if (!entry.is_regular_file(ec) || entry.path().extension() != ".ini") {
+			continue;
+		}
+		const std::string stem = entry.path().stem().string();
+		if (stem.size() == name.size() &&
+			std::equal(stem.begin(), stem.end(), name.begin(),
+					   [](unsigned char a, unsigned char b) {
+						   return std::tolower(a) == std::tolower(b);
+					   })) {
+			return stem;
+		}
+	}
+	return name;
+}
+
+// True when an ini file holds real state (any `[Section]` header). A missing
+// or comment-only file (the old shipped default) counts as no session.
+bool iniFileHasSections(const std::string &path) {
+	std::ifstream in(path);
+	std::string line;
+	while (std::getline(in, line)) {
+		if (!line.empty() && line[0] == '[') {
+			return true;
+		}
+	}
+	return false;
+}
 } // namespace
 
 void Mui::RigVisibility_ClearAll(ImGuiContext *,
@@ -967,6 +1011,14 @@ bool Mui::workspaceFileExists(const std::string &name) {
 }
 
 void Mui::queueStartupWorkspace() {
+	// The session autosave (imgui.ini) is the source of truth across
+	// restarts - when it holds real state, NewFrame loads it natively and no
+	// snapshot is queued. Named workspaces are explicit presets applied via
+	// loadWorkspace; they only seed the first session.
+	if (!m_iniPath.empty() && iniFileHasSections(m_iniPath)) {
+		return;
+	}
+	m_currentWorkspace = resolveWorkspaceCase(m_currentWorkspace);
 	if (!m_currentWorkspace.empty() && workspaceNameValid(m_currentWorkspace) &&
 		workspaceFileExists(m_currentWorkspace)) {
 		m_pendingWorkspaceLoad = workspaceIniPath(m_currentWorkspace).string();
@@ -978,7 +1030,8 @@ void Mui::queueStartupWorkspace() {
 		persistCurrentWorkspace();
 		return;
 	}
-	// No named snapshot yet - leave dock builders to seed Standard.ini.
+	// No session and no named snapshot - leave dock builders to seed
+	// Standard.ini.
 }
 
 void Mui::applyPendingWindowVisibility() {
@@ -1017,21 +1070,25 @@ bool Mui::saveWorkspace(const std::string &name, bool notify) {
 	if (!m_imguiReady || !workspaceNameValid(name)) {
 		return false;
 	}
-	const std::filesystem::path path = workspaceIniPath(name);
+	// Re-saving under different casing must overwrite the existing file, not
+	// fork a second one on case-sensitive hosts.
+	const std::string resolved = resolveWorkspaceCase(name);
+	const std::filesystem::path path = workspaceIniPath(resolved);
 	std::error_code ec;
 	std::filesystem::create_directories(path.parent_path(), ec);
 	ImGui::SaveIniSettingsToDisk(path.string().c_str());
 	if (!std::filesystem::exists(path, ec)) {
 		if (notify) {
-			showNotification("Could not save workspace: " + name,
+			showNotification("Could not save workspace: " + resolved,
 							 NotificationType::Error);
 		}
 		return false;
 	}
-	m_currentWorkspace = name;
+	m_currentWorkspace = resolved;
 	persistCurrentWorkspace();
 	if (notify) {
-		showNotification("Workspace saved: " + name, NotificationType::Success);
+		showNotification("Workspace saved: " + resolved,
+						 NotificationType::Success);
 	}
 	return true;
 }
@@ -1040,11 +1097,12 @@ bool Mui::loadWorkspace(const std::string &name, bool notify) {
 	if (!workspaceNameValid(name)) {
 		return false;
 	}
-	const std::filesystem::path path = workspaceIniPath(name);
+	const std::string resolved = resolveWorkspaceCase(name);
+	const std::filesystem::path path = workspaceIniPath(resolved);
 	std::error_code ec;
 	if (!std::filesystem::exists(path, ec)) {
 		if (notify) {
-			showNotification("Workspace not found: " + name,
+			showNotification("Workspace not found: " + resolved,
 							 NotificationType::Warning);
 		}
 		return false;
@@ -1052,18 +1110,20 @@ bool Mui::loadWorkspace(const std::string &name, bool notify) {
 	// Swapping dock state mid-frame corrupts the open draw pass - defer to
 	// the frame boundary in render(), same as font reloads.
 	m_pendingWorkspaceLoad = path.string();
-	m_currentWorkspace = name;
+	m_currentWorkspace = resolved;
 	persistCurrentWorkspace();
 	return true;
 }
 
 bool Mui::deleteWorkspace(const std::string &name) {
-	if (!workspaceNameValid(name) || name == kStandardWorkspace) {
+	const std::string resolved = resolveWorkspaceCase(name);
+	if (!workspaceNameValid(resolved) || resolved == kStandardWorkspace) {
 		return false;
 	}
 	std::error_code ec;
-	const bool removed = std::filesystem::remove(workspaceIniPath(name), ec);
-	if (m_currentWorkspace == name) {
+	const bool removed =
+		std::filesystem::remove(workspaceIniPath(resolved), ec);
+	if (m_currentWorkspace == resolved) {
 		m_currentWorkspace.clear();
 		persistCurrentWorkspace();
 	}
