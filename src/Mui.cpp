@@ -157,7 +157,7 @@ void Mui::initImGui() {
 	// Fonts then theme (prefs may re-apply in pack setup after
 	// registerPreferences).
 	ImGuiStyleKit::loadFonts(io, AppPaths::getFontsDir(), m_uiPrefs.fontFile,
-							 m_uiPrefs.fontSize);
+							 m_uiPrefs.fontSize, m_uiPrefs.fontWeight);
 	for (const auto &hook : m_fontAtlasHooks) {
 		if (hook) {
 			hook(*io.Fonts);
@@ -165,6 +165,7 @@ void Mui::initImGui() {
 	}
 	m_appliedFontFile = m_uiPrefs.fontFile;
 	m_appliedFontSize = m_uiPrefs.fontSize;
+	m_appliedFontWeight = m_uiPrefs.fontWeight;
 	setImGuiTheme(m_currentTheme);
 
 	registerVisibilitySettingsHandler();
@@ -724,7 +725,8 @@ void Mui::applyUiPrefs() {
 	ImGuiStyleKit::migrateLegacyTheme(m_uiPrefs.theme, m_uiPrefs.themeFile);
 	setImGuiTheme(clampImGuiTheme(m_uiPrefs.theme));
 	const bool fontChanged = m_uiPrefs.fontFile != m_appliedFontFile ||
-							 m_uiPrefs.fontSize != m_appliedFontSize;
+							 m_uiPrefs.fontSize != m_appliedFontSize ||
+							 m_uiPrefs.fontWeight != m_appliedFontWeight;
 	if (fontChanged) {
 		reloadFonts();
 	} else {
@@ -753,7 +755,8 @@ bool Mui::reloadFonts() {
 	ImGuiIO &io = ImGui::GetIO();
 	io.Fonts->Clear();
 	const bool ok = ImGuiStyleKit::loadFonts(
-		io, AppPaths::getFontsDir(), m_uiPrefs.fontFile, m_uiPrefs.fontSize);
+		io, AppPaths::getFontsDir(), m_uiPrefs.fontFile, m_uiPrefs.fontSize,
+		m_uiPrefs.fontWeight);
 	for (const auto &hook : m_fontAtlasHooks) {
 		if (hook) {
 			hook(*io.Fonts);
@@ -762,6 +765,7 @@ bool Mui::reloadFonts() {
 	if (ok) {
 		m_appliedFontFile = m_uiPrefs.fontFile;
 		m_appliedFontSize = m_uiPrefs.fontSize;
+		m_appliedFontWeight = m_uiPrefs.fontWeight;
 	}
 	loadChromeKernTable();
 	bindChromeKerning();
@@ -1633,6 +1637,20 @@ void Mui::registerEditAction(const std::string &label,
 		label, shortcut, std::move(isEnabled), std::move(action)});
 }
 
+void Mui::registerEditSubmenu(const std::string &label,
+							  std::function<void()> drawContents,
+							  std::function<bool()> isEnabled) {
+	for (auto &row : m_editActions) {
+		if (row.submenu && row.label == label) {
+			row.isEnabled = std::move(isEnabled);
+			row.action = std::move(drawContents);
+			return;
+		}
+	}
+	m_editActions.push_back(EditMenuAction{
+		label, {}, std::move(isEnabled), std::move(drawContents), true});
+}
+
 void Mui::registerPreferencesDrawer(const std::string &id,
 									const std::string &label,
 									std::function<void()> draw) {
@@ -1793,6 +1811,38 @@ void Mui::renderMainViewOverlays() {
 		}
 		drawSelectedHandle2D(*m_engine->getECSManager(), hx, hy, hs, m_gizmoOp, m_undoStack);
 	}
+
+	if (!m_viewportOverlays.empty()) {
+		ImVec2 bed = origin;
+		ImVec2 bedSize = size;
+		if (m_dockPassthroughCentral && m_centralValid) {
+			bed = ImVec2(m_centralX, m_centralY);
+			bedSize = ImVec2(m_centralW, m_centralH);
+		}
+		for (auto &ov : m_viewportOverlays) {
+			if (ov.draw) {
+				ov.draw(bed.x, bed.y, bedSize.x, bedSize.y);
+			}
+		}
+	}
+}
+
+int Mui::addViewportOverlay(std::function<void(float x, float y, float w, float h)> draw) {
+	if (!draw) {
+		return 0;
+	}
+	const int id = m_nextViewportOverlay++;
+	m_viewportOverlays.push_back({id, std::move(draw)});
+	return id;
+}
+
+void Mui::removeViewportOverlay(int id) {
+	if (id == 0) {
+		return;
+	}
+	m_viewportOverlays.erase(std::remove_if(m_viewportOverlays.begin(), m_viewportOverlays.end(),
+											[id](const ViewportOverlay &ov) { return ov.id == id; }),
+							 m_viewportOverlays.end());
 }
 
 void Mui::installDefaultShortcuts() {

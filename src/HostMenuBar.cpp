@@ -328,6 +328,15 @@ void HostMenuBar::renderEditMenu() {
 		ImGui::Separator();
 		for (const auto &row : m_ui->editActions()) {
 			const bool enabled = !row.isEnabled || row.isEnabled();
+			if (row.submenu) {
+				if (ImGui::BeginMenu(row.label.c_str(), enabled)) {
+					if (row.action) {
+						row.action();
+					}
+					ImGui::EndMenu();
+				}
+				continue;
+			}
 			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
 			if (ImGui::MenuItem(row.label.c_str(), chord, false, enabled) && row.action) {
 				row.action();

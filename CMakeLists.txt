@@ -2,6 +2,12 @@
 file(READ "${CMAKE_CURRENT_LIST_DIR}/pack.json" PACK_JSON)
 string(JSON PACK_NAME GET "${PACK_JSON}" name)
 
+# Hosts that already link PDF-Writer's bundled FreeType (Relayout) must not
+# also pull Freetype::Freetype — two FT copies collide at link (FT_Done_Face).
+option(RIGIMGUI_SYSTEM_FREETYPE
+	"Link system FreeType (OFF: headers only; symbols from PDF-Writer bundled FT)"
+	ON)
+
 # Scene / Layers / handles need component headers and PrimitiveBounds.
 set(_rigComponent_dir "${CMAKE_CURRENT_LIST_DIR}/../rigComponent")
 set(_rigComponent_src "${_rigComponent_dir}/src")
@@ -130,4 +136,39 @@ file(GLOB DEP_SOURCES
 )
 target_sources(${PACK_NAME} PRIVATE ${DEP_SOURCES})
 
-message(STATUS "Configured pack: ${PACK_NAME} (rigImGui host shell)")
+find_package(Freetype QUIET)
+if(NOT Freetype_FOUND)
+	find_package(PkgConfig QUIET)
+	if(PkgConfig_FOUND)
+		pkg_check_modules(FREETYPE QUIET IMPORTED_TARGET freetype2)
+	endif()
+endif()
+if(Freetype_FOUND OR TARGET PkgConfig::FREETYPE)
+	target_sources(${PACK_NAME} PRIVATE
+		"${CMAKE_CURRENT_LIST_DIR}/third_party/imgui/misc/freetype/imgui_freetype.cpp")
+	target_include_directories(${PACK_NAME} PUBLIC
+		"${CMAKE_CURRENT_LIST_DIR}/third_party/imgui/misc/freetype")
+	target_compile_definitions(${PACK_NAME} PUBLIC IMGUI_ENABLE_FREETYPE)
+	if(RIGIMGUI_SYSTEM_FREETYPE)
+		if(Freetype_FOUND)
+			target_link_libraries(${PACK_NAME} PUBLIC Freetype::Freetype)
+		else()
+			target_link_libraries(${PACK_NAME} PUBLIC PkgConfig::FREETYPE)
+		endif()
+		message(STATUS "Configured pack: ${PACK_NAME} (rigImGui host shell, FreeType wght)")
+	else()
+		# Compile imgui_freetype against system headers; do not link the DLL
+		# import lib. Relayout resolves FT from PDF-Writer's bundled static lib.
+		if(Freetype_FOUND)
+			get_target_property(_ft_inc Freetype::Freetype INTERFACE_INCLUDE_DIRECTORIES)
+			if(_ft_inc)
+				target_include_directories(${PACK_NAME} PRIVATE ${_ft_inc})
+			endif()
+		elseif(TARGET PkgConfig::FREETYPE)
+			target_include_directories(${PACK_NAME} PRIVATE ${FREETYPE_INCLUDE_DIRS})
+		endif()
+		message(STATUS "Configured pack: ${PACK_NAME} (rigImGui host shell, FreeType headers only)")
+	endif()
+else()
+	message(STATUS "Configured pack: ${PACK_NAME} (rigImGui host shell, no FreeType)")
+endif()

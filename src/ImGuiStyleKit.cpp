@@ -12,6 +12,14 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef IMGUI_ENABLE_FREETYPE
+#include "imgui_freetype.h"
+#include "imgui_internal.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <freetype/ftmm.h>
+#endif
+
 #if __has_include("IconsFontAwesome5.h")
 #include "IconsFontAwesome5.h"
 #define RIGIMGUI_HAS_ICON_HEADERS 1
@@ -188,6 +196,77 @@ void applyLightColors() {
 	c[ImGuiCol_NavHighlight] = accent;
 	c[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.22f, 0.35f);
 }
+
+#ifdef IMGUI_ENABLE_FREETYPE
+float g_uiFontWeight = 400.f;
+ImFontLoader g_weightLoader{};
+bool g_weightLoaderReady = false;
+
+struct FtFaceView {
+	FT_Face FtFace;
+};
+
+struct FtLibView {
+	FT_Library Library;
+};
+
+bool fontSrcInitWght(ImFontAtlas* atlas, ImFontConfig* src) {
+	const ImFontLoader* base = ImGuiFreeType::GetFontLoader();
+	if (!base || !base->FontSrcInit || !base->FontSrcInit(atlas, src)) {
+		return false;
+	}
+	if (src->MergeMode || !src->FontLoaderData || !atlas->FontLoaderData) {
+		return true;
+	}
+	FT_Face ft = static_cast<FtFaceView*>(src->FontLoaderData)->FtFace;
+	FT_Library lib = static_cast<FtLibView*>(atlas->FontLoaderData)->Library;
+	if (!ft || !lib) {
+		return true;
+	}
+	FT_MM_Var* mm = nullptr;
+	if (FT_Get_MM_Var(ft, &mm) != 0 || !mm) {
+		return true;
+	}
+	std::vector<FT_Fixed> coords(mm->num_axis);
+	if (FT_Get_Var_Design_Coordinates(ft, mm->num_axis, coords.data()) != 0) {
+		for (FT_UInt i = 0; i < mm->num_axis; ++i) {
+			coords[i] = mm->axis[i].def;
+		}
+	}
+	bool haveWght = false;
+	for (FT_UInt i = 0; i < mm->num_axis; ++i) {
+		if (mm->axis[i].tag != FT_MAKE_TAG('w', 'g', 'h', 't')) {
+			continue;
+		}
+		float w = g_uiFontWeight;
+		const float mn = static_cast<float>(mm->axis[i].minimum) / 65536.f;
+		const float mx = static_cast<float>(mm->axis[i].maximum) / 65536.f;
+		w = std::clamp(w, mn, mx);
+		coords[i] = static_cast<FT_Fixed>(w * 65536.f);
+		haveWght = true;
+	}
+	if (haveWght) {
+		FT_Set_Var_Design_Coordinates(ft, mm->num_axis, coords.data());
+	}
+	FT_Done_MM_Var(lib, mm);
+	return true;
+}
+
+void bindWeightLoader(ImFontAtlas* atlas, float weight) {
+	g_uiFontWeight = std::clamp(weight, 100.f, 900.f);
+	const ImFontLoader* base = ImGuiFreeType::GetFontLoader();
+	if (!base || !atlas) {
+		return;
+	}
+	if (!g_weightLoaderReady) {
+		g_weightLoader = *base;
+		g_weightLoader.FontSrcInit = fontSrcInitWght;
+		g_weightLoaderReady = true;
+	}
+	atlas->SetFontLoader(&g_weightLoader);
+}
+
+#endif
 
 std::filesystem::path findFontFile(const std::string& fontsSearchDir, const char* fileName) {
 	namespace fs = std::filesystem;
@@ -613,7 +692,7 @@ bool loadStyleFromFile(const std::string& path, ImGuiStyle& style, int* outBaseT
 }
 
 bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string& bodyFontPath,
-			   float sizePixels) {
+			   float sizePixels, float weight) {
 	float uiSize = sizePixels;
 	if (uiSize < 8.0f) {
 		uiSize = 8.0f;
@@ -621,6 +700,13 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 	if (uiSize > 48.0f) {
 		uiSize = 48.0f;
 	}
+	weight = std::clamp(weight, 100.f, 900.f);
+
+#ifdef IMGUI_ENABLE_FREETYPE
+	bindWeightLoader(io.Fonts, weight);
+#else
+	(void)weight;
+#endif
 
 	bool loadedBody = false;
 	namespace fs = std::filesystem;
@@ -657,8 +743,15 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 			}
 		}
 		if (!loadedBody) {
-			spdlog::warn("[rigImGui] Custom font not found: {} - falling back to Roboto",
+			spdlog::warn("[rigImGui] Custom font not found: {} - falling back to default",
 						 bodyFontPath);
+		}
+	}
+
+	if (!loadedBody) {
+		const auto interPath = findFontFile(fontsSearchDir, "InterVariable.ttf");
+		if (!interPath.empty()) {
+			loadedBody = tryAddFile(interPath);
 		}
 	}
 
@@ -731,6 +824,10 @@ std::string resolveBodyFontPath(const std::string& fontsSearchDir, const std::st
 		}
 	}
 
+	const auto inter = findFontFile(fontsSearchDir, "InterVariable.ttf");
+	if (!inter.empty()) {
+		return inter.string();
+	}
 	const auto roboto = findFontFile(fontsSearchDir, "Roboto-Regular.ttf");
 	if (!roboto.empty()) {
 		return roboto.string();

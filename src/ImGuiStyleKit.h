@@ -58,7 +58,8 @@ bool saveStyleToFile(const std::string& path, const ImGuiStyle& style, int baseT
 bool loadStyleFromFile(const std::string& path, ImGuiStyle& style, int* outBaseTheme = nullptr);
 
 bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir = {},
-			   const std::string& bodyFontPath = {}, float sizePixels = 16.0f);
+			   const std::string& bodyFontPath = {}, float sizePixels = 16.0f,
+			   float weight = 400.f);
 
 std::string resolveBodyFontPath(const std::string& fontsSearchDir = {},
 								const std::string& bodyFontPath = {});

@@ -71,8 +71,9 @@ struct UiPrefs {
 	int theme = 0; // ImGuiTheme as int (0=Dark, 1=Light)
 	std::string themeFile; // empty = base only; else color-scheme JSON
 						   // (user/themes or data/themes)
-	std::string fontFile;  // empty = Roboto; else TTF under data/fonts or absolute
+	std::string fontFile;  // empty = Inter Variable (or Roboto); else TTF under data/fonts
 	float fontSize = 16.0f;
+	float fontWeight = 400.f; ///< OpenType wght (100-900). Needs a variable font + FreeType.
 	bool chromeKerning = true; ///< Pair kerning on chrome labels (TTF `kern` or setChromeKernFn)
 	bool confirmQuit = false;
 	float notificationSeconds = 3.0f;
@@ -104,6 +105,7 @@ struct UiPrefs {
 			{1, "Theme File", EPT_STRING, &themeFile},
 			{2, "Font File", EPT_STRING, &fontFile},
 			{3, "Font Size", EPT_FLOAT, &fontSize},
+			{16, "Font Weight", EPT_FLOAT, &fontWeight},
 			{15, "Chrome Kerning", EPT_BOOL, &chromeKerning},
 			{4, "Confirm Quit", EPT_BOOL, &confirmQuit},
 			{5, "Notification Seconds", EPT_FLOAT, &notificationSeconds},
@@ -282,6 +284,8 @@ class Mui : public IMui {
 							std::function<void()> action) override;
 	void registerEditAction(const std::string &label, const std::string &shortcut,
 							std::function<bool()> isEnabled, std::function<void()> action) override;
+	void registerEditSubmenu(const std::string &label, std::function<void()> drawContents,
+							 std::function<bool()> isEnabled = {}) override;
 	void registerViewSubmenu(const std::string &label,
 							 std::function<void()> drawContents) override;
 	void registerViewAction(const std::string &label, std::function<void()> action,
@@ -330,6 +334,14 @@ class Mui : public IMui {
 	 * @details Subtracts main viewport origin so coords match GLFW cursor space.
 	 */
 	bool centralViewRect(float& outX, float& outY, float& outW, float& outH) const override;
+
+	/**
+	 * @brief Draw on the GL bed during UI render (after dock layout).
+	 * @details Callback gets the bed rect in ImGui screen space. Returns a
+	 * non-zero id; 0 is none.
+	 */
+	int addViewportOverlay(std::function<void(float x, float y, float w, float h)> draw);
+	void removeViewportOverlay(int id);
 
 	ShortcutManager &shortcuts() { return m_shortcuts; }
 	const ShortcutManager &shortcuts() const { return m_shortcuts; }
@@ -386,6 +398,7 @@ class Mui : public IMui {
 		std::string shortcut;
 		std::function<bool()> isEnabled;
 		std::function<void()> action;
+		bool submenu = false; ///< When true, @c action draws nested menu contents.
 	};
 
 	const std::vector<FileMenuAction> &fileActions() const { return m_fileActions; }
@@ -486,6 +499,12 @@ class Mui : public IMui {
 	bool m_exportPngPending = false;
 	GizmoOp m_gizmoOp = GizmoOp::Select;
 	std::function<void(float, float, float, float, GizmoOp)> m_gizmoDrawer;
+	struct ViewportOverlay {
+		int id = 0;
+		std::function<void(float, float, float, float)> draw;
+	};
+	std::vector<ViewportOverlay> m_viewportOverlays;
+	int m_nextViewportOverlay = 1;
 	std::vector<FileMenuAction> m_fileActions;
 	std::vector<FileMenuAction> m_appActions;
 	std::vector<FileMenuAction> m_viewActions;
@@ -516,6 +535,7 @@ class Mui : public IMui {
 	UiPrefs m_uiPrefs;
 	std::string m_appliedFontFile;
 	float m_appliedFontSize = -1.f;
+	float m_appliedFontWeight = -1.f;
 	TtfKern m_ttfKern;
 	ChromeKernFn m_chromeKernFn = nullptr;
 	void* m_chromeKernUser = nullptr;

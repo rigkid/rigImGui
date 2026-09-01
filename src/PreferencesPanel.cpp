@@ -150,12 +150,15 @@ void PreferencesPanel::renderContents() {
 					std::vector<sProp> rest;
 					std::string* fontFile = nullptr;
 					float* fontSize = nullptr;
+					float* fontWeight = nullptr;
 					std::string* themeFile = nullptr;
 					for (auto& p : props) {
 						if (p.name == "Font File" && p.type == EPT_STRING) {
 							fontFile = static_cast<std::string*>(p.data);
 						} else if (p.name == "Font Size" && p.type == EPT_FLOAT) {
 							fontSize = static_cast<float*>(p.data);
+						} else if (p.name == "Font Weight" && p.type == EPT_FLOAT) {
+							fontWeight = static_cast<float*>(p.data);
 						} else if (p.name == "Theme File" && p.type == EPT_STRING) {
 							themeFile = static_cast<std::string*>(p.data);
 						} else {
@@ -168,7 +171,8 @@ void PreferencesPanel::renderContents() {
 						mui->setImGuiTheme(mui->getImGuiTheme());
 					}
 					if (fontFile) {
-						changed |= FontPicker::draw("uiFont", *fontFile, fontSize, mui);
+						changed |= FontPicker::draw("uiFont", *fontFile, fontSize, mui, nullptr,
+													fontWeight);
 					}
 					if (RenderProps(nullptr, rest)) {
 						changed = true;

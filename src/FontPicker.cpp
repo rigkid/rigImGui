@@ -69,7 +69,7 @@ std::string resolveFontPath(const std::string& pathOrName) {
 }
 
 bool draw(const char* strId, std::string& path, float* sizePx, IMui* ui,
-		  std::function<void(std::string)> onBrowse) {
+		  std::function<void(std::string)> onBrowse, float* weight) {
 	bool changed = false;
 	ImGui::PushID(strId);
 
@@ -130,6 +130,14 @@ bool draw(const char* strId, std::string& path, float* sizePx, IMui* ui,
 			*sizePx = std::clamp(*sizePx, 8.f, 128.f);
 			changed = true;
 		}
+	}
+
+	if (weight) {
+		if (ImGui::SliderFloat("Font weight", weight, 100.f, 900.f, "%.0f")) {
+			*weight = std::clamp(*weight, 100.f, 900.f);
+			changed = true;
+		}
+		ImGui::TextDisabled("wght axis on a variable font (default Inter Variable).");
 	}
 
 	ImGui::TextDisabled("Fonts folder: %s", AppPaths::getFontsDir().c_str());

@@ -118,7 +118,8 @@ void ThemePanel::renderFontControls() {
 	}
 
 	ImGui::TextUnformatted("UI font");
-	FontPicker::draw("themeFont", ui->uiPrefs().fontFile, &ui->uiPrefs().fontSize, ui);
+	FontPicker::draw("themeFont", ui->uiPrefs().fontFile, &ui->uiPrefs().fontSize, ui, nullptr,
+					 &ui->uiPrefs().fontWeight);
 
 	if (ImGui::Button(TP_ICON(ICON_FA_SYNC) " Apply Font")) {
 		if (ui->reloadFonts()) {

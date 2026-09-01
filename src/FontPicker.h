@@ -20,15 +20,17 @@ std::vector<std::string> listInstalledFonts();
 std::string resolveFontPath(const std::string& pathOrName);
 
 /**
- * @brief Draw combo of installed fonts + Browse... (+ optional size).
+ * @brief Draw combo of installed fonts + Browse... (+ optional size / weight).
  * @param sizePx Null to hide size control.
  * @param ui Used for Browse (openFileDialog). May be null (Browse disabled).
  * @param onBrowse Optional; when set, Browse uses this instead of writing `path`
  *        (required when `path` is a temporary).
- * @return true if path or size changed this frame (sync edits only).
+ * @param weight Null to hide the wght slider (100-900). Needs a variable font
+ *        plus FreeType at load time.
+ * @return true if path, size, or weight changed this frame (sync edits only).
  */
 bool draw(const char* strId, std::string& path, float* sizePx, IMui* ui,
-		  std::function<void(std::string)> onBrowse = nullptr);
+		  std::function<void(std::string)> onBrowse = nullptr, float* weight = nullptr);
 
 /**
  * @brief Bake a standalone glyph atlas (ImGui atlas builder to GL texture).

@@ -4,7 +4,8 @@
 
 | Asset | License | Role |
 |-------|---------|------|
-| `Roboto-Regular.ttf` | Apache 2.0 (Google) | Default UI body font |
+| `InterVariable.ttf` | SIL OFL 1.1 (rsms/inter) | Default UI body font (`wght` slider) |
+| `Roboto-Regular.ttf` | Apache 2.0 (Google) | Fallback if Inter is missing |
 | `fa-solid-900.ttf` | Font Awesome Free 5 | IconFont merge |
 | `fontRobotoRegular.h` | - | Tiny stub fallback only |
 
