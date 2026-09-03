@@ -470,6 +470,9 @@ void PropertiesWindow::renderAllComponentProperties() {
 				rest.push_back(p);
 			}
 			RenderProps(nullptr, rest, entityId, makeCommit("Camera"));
+			if (m_afterComponent) {
+				m_afterComponent("Camera", *ecs, entity);
+			}
 			continue;
 		}
 
@@ -478,6 +481,9 @@ void PropertiesWindow::renderAllComponentProperties() {
 		// Inspector edits euler floats; keep authoritative quat in sync.
 		if (changed && info.name == "Transform" && ecs->hasComponent<ecs::CTransform>(entity)) {
 			ecs->getComponent<ecs::CTransform>(entity).syncRotationFromEuler();
+		}
+		if (m_afterComponent) {
+			m_afterComponent(info.name, *ecs, entity);
 		}
 		if (changed && m_onPropertyChanged) {
 			m_onPropertyChanged(entityId, info.name, {});
