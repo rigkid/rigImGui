@@ -107,7 +107,9 @@ class FileDialogs {
 	FileDialogs();
 
 	void open(const std::string& title, std::vector<std::string> filters, Callback onSelected);
-	void save(const std::string& title, std::vector<std::string> filters, Callback onSelected);
+	/** @param defaultName Pre-filled file name (Save As suggests the current one). */
+	void save(const std::string& title, std::vector<std::string> filters, Callback onSelected,
+			  const std::string& defaultName = {});
 
 	/** @brief Draw browsers and fire callback when a path is chosen. */
 	void tick();

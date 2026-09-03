@@ -56,12 +56,15 @@ void FileDialogs::open(const std::string& title, std::vector<std::string> filter
 }
 
 void FileDialogs::save(const std::string& title, std::vector<std::string> filters,
-					   Callback onSelected) {
+					   Callback onSelected, const std::string& defaultName) {
 	applyLayout();
 	m_mode = Mode::Save;
 	m_callback = std::move(onSelected);
 	m_save.SetTitle(title.empty() ? "Save" : title);
 	setFileBrowserFilters(m_save, std::move(filters));
+	if (!defaultName.empty()) {
+		m_save.SetInputName(defaultName);
+	}
 	m_save.Open();
 	m_skipDisplay = 1;
 	m_openedOnce = false;
