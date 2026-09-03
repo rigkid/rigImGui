@@ -1484,7 +1484,9 @@ inline std::vector<ImGui::FileBrowser::FileRecord> ImGui::FileBrowser::CollectFi
     parent.typeText = "Folder";
     records.push_back(std::move(parent));
 
-    for(auto &p : std::filesystem::directory_iterator(dir))
+    // skip_permission_denied: one unreadable entry must not abort the listing
+    for(auto &p : std::filesystem::directory_iterator(
+            dir, std::filesystem::directory_options::skip_permission_denied))
     {
         FileRecord rcd;
         try
@@ -1612,7 +1614,13 @@ inline void ImGui::FileBrowser::RequestListing()
         r.generation = gen;
         try
         {
-            r.directory = std::filesystem::absolute(dir);
+            // Follow symlinks/junctions to the real directory. Windows legacy
+            // junctions (Documents\My Music, ...) deny listing on the link
+            // itself but allow traversal, so listing the resolved target is
+            // the only way in.
+            std::error_code canonEc;
+            const auto resolved = std::filesystem::canonical(dir, canonEc);
+            r.directory = canonEc ? std::filesystem::absolute(dir) : resolved;
             r.records = CollectFileRecords(r.directory, flags);
         }
         catch(const std::exception &err)
