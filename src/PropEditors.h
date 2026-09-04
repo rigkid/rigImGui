@@ -32,6 +32,13 @@ struct PropCommit {
 /** @brief Called by RenderProps when an edit commits; hosts push undo records here. */
 using PropCommitFn = std::function<void(const PropCommit&)>;
 
+/**
+ * @brief "No entity" sentinel for the prop-drag API (`entt::to_integral(entt::null)`).
+ * @details Entity id 0 is a real entt entity (the first one created - e.g. the
+ * PixelPlotter scene), so 0 must NOT be used to mean "none".
+ */
+inline constexpr uint32_t kPropDragNoEntity = 0xFFFFFFFFu;
+
 /** @brief Read the field behind @p prop into a PropValue (unsupported types read as int 0). */
 PropValue readPropValue(const sProp& prop);
 
@@ -41,13 +48,14 @@ void writePropValue(const sProp& prop, const PropValue& value);
 /**
  * @brief Edit `sProp` fields with ImGui. Returns true if any value changed.
  * @param headerName CollapsingHeader label; null = draw widgets only.
- * @param entityId When non-zero, each row gets a patch pin (`RIG_SCENE_PROP`)
- * for the Node Editor - the automatic path for any app using Properties.
+ * @param entityId When not `kPropDragNoEntity`, each row gets a patch pin
+ * (`RIG_SCENE_PROP`) for the Node Editor - the automatic path for any app using
+ * Properties.
  * @param onCommit When set, fires once per finished edit (a whole drag = one commit)
  * with before/after values - the seam for undo records.
  */
-bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t entityId = 0,
-				 const PropCommitFn& onCommit = {});
+bool RenderProps(const char* headerName, std::vector<sProp>& props,
+				 uint32_t entityId = kPropDragNoEntity, const PropCommitFn& onCommit = {});
 
 /**
  * @brief Default entity for `offerScenePropDrag(name, type)` (nested; last Begin wins).
@@ -64,10 +72,30 @@ uint32_t currentPropDragEntity();
  * @details Overlays the label (right of the value). Drag the name; the number
  * still edits. Hold Alt to drag from the value itself. `propName` is the
  * `GetProperties()` / drive-slot name `applyRefWrites` matches.
- * `entityId == 0` uses `BeginPropDragSource`.
+ * `entityId == kPropDragNoEntity` uses `BeginPropDragSource`.
  */
 void offerScenePropDrag(uint32_t entityId, const char* propName, int propType);
 void offerScenePropDrag(const char* propName, int propType);
+
+/**
+ * @brief Queued "patch this prop into the Node Editor" request.
+ * @details Emitted by the right-click menu on prop drag pins (`offerScenePropDrag`)
+ * as a zero-drag alternative to drag-drop. The Node Editor drains the queue once
+ * per frame via `takeScenePropPatchRequests` and spawns the matching `ref.*` node
+ * (plus a wired LFO when @ref withLfo is set, matching Alt+drop).
+ */
+struct ScenePropPatchRequest {
+	uint32_t entity = kPropDragNoEntity;
+	std::string name;
+	int propType = 0;
+	bool withLfo = false;
+};
+
+/** @brief Queue a patch request (no-op when @p entityId is `kPropDragNoEntity`). */
+void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo);
+
+/** @brief Drain pending patch requests. Requests older than a couple frames are dropped. */
+std::vector<ScenePropPatchRequest> takeScenePropPatchRequests();
 
 /** @brief RAII `BeginPropDragSource` / `EndPropDragSource`. */
 struct PropDragSource {

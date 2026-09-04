@@ -215,7 +215,7 @@ void offerPropDrag(uint32_t entityId, const sProp& prop) {
 
 void BeginPropDragSource(uint32_t entityId) {
 	g_propDragStack.push_back(entityId);
-	if (entityId != 0) {
+	if (entityId != kPropDragNoEntity) {
 		ImGui::SetNextItemAllowOverlap();
 	}
 }
@@ -227,18 +227,53 @@ void EndPropDragSource() {
 }
 
 uint32_t currentPropDragEntity() {
-	return g_propDragStack.empty() ? 0 : g_propDragStack.back();
+	return g_propDragStack.empty() ? kPropDragNoEntity : g_propDragStack.back();
 }
 
 void offerScenePropDrag(const char* propName, int propType) {
 	offerScenePropDrag(currentPropDragEntity(), propName, propType);
 }
 
+namespace {
+struct PendingPatch {
+	ScenePropPatchRequest req;
+	int frame = 0;
+};
+std::vector<PendingPatch> g_patchRequests;
+} // namespace
+
+void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo) {
+	if (entityId == kPropDragNoEntity || !propName || propName[0] == '\0') {
+		return;
+	}
+	PendingPatch p;
+	p.req.entity = entityId;
+	p.req.name = propName;
+	p.req.propType = propType;
+	p.req.withLfo = withLfo;
+	p.frame = ImGui::GetFrameCount();
+	g_patchRequests.push_back(std::move(p));
+}
+
+std::vector<ScenePropPatchRequest> takeScenePropPatchRequests() {
+	std::vector<ScenePropPatchRequest> out;
+	const int now = ImGui::GetFrameCount();
+	for (auto& p : g_patchRequests) {
+		// Drop stale entries queued while no consumer (e.g. Node Editor closed).
+		if (now - p.frame <= 2) {
+			out.push_back(std::move(p.req));
+		}
+	}
+	g_patchRequests.clear();
+	return out;
+}
+
 void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
-	if (entityId == 0) {
+	if (entityId == kPropDragNoEntity) {
 		entityId = currentPropDragEntity();
 	}
-	if (entityId == 0 || !propName || propName[0] == '\0' || !canPatchPropType(propType)) {
+	if (entityId == kPropDragNoEntity || !propName || propName[0] == '\0' ||
+		!canPatchPropType(propType)) {
 		return;
 	}
 	ImGuiContext& g = *GImGui;
@@ -286,6 +321,11 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
 					 (hit.Min.y + hit.Max.y) * 0.5f);
 	const float r = ImGui::GetFrameHeight() * 0.16f;
 	auto* dl = ImGui::GetWindowDrawList();
+	if (hovered) {
+		// Highlight the label so it reads as a draggable handle.
+		dl->AddRectFilled(hit.Min, hit.Max, ImGui::GetColorU32(ImGuiCol_FrameBgHovered, 0.35f),
+						  2.f);
+	}
 	dl->AddCircleFilled(pin, r,
 						ImGui::GetColorU32(hovered ? ImGuiCol_CheckMark : ImGuiCol_TextDisabled));
 	dl->AddCircle(pin, r, ImGui::GetColorU32(ImGuiCol_Border), 0, 1.f);
@@ -303,7 +343,24 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
 		ImGui::TextDisabled("Alt+drop adds an LFO");
 		ImGui::EndDragDropSource();
 	} else if (hovered) {
-		ImGui::SetTooltip("Drag to Node Editor to patch");
+		ImGui::SetTooltip("Drag to Node Editor to patch\nRight-click for options");
+	}
+	// Zero-drag path: right-click the handle to patch without drag-drop.
+	if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+		ImGui::OpenPopup("##prop_patch_ctx");
+	}
+	if (ImGui::BeginPopup("##prop_patch_ctx")) {
+		ImGui::TextDisabled("%s", propName);
+		ImGui::Separator();
+		if (ImGui::MenuItem("Patch to Node Editor")) {
+			requestScenePropPatch(entityId, propName, propType, false);
+		}
+		const bool floatish = propType != EPT_VEC2 && propType != EPT_VEC4 &&
+							  propType != EPT_COLOR;
+		if (floatish && ImGui::MenuItem("Patch with LFO")) {
+			requestScenePropPatch(entityId, propName, propType, true);
+		}
+		ImGui::EndPopup();
 	}
 	ImGui::PopID();
 	ImGui::PopID();
@@ -419,7 +476,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 		if (!prop.data) {
 			continue;
 		}
-		if (entityId != 0 && canPatchPropType(static_cast<int>(prop.type))) {
+		if (entityId != kPropDragNoEntity && canPatchPropType(static_cast<int>(prop.type))) {
 			ImGui::SetNextItemAllowOverlap();
 		}
 		// Read before the widget runs - on the activation frame this is still
