@@ -2,7 +2,7 @@
 file(READ "${CMAKE_CURRENT_LIST_DIR}/pack.json" PACK_JSON)
 string(JSON PACK_NAME GET "${PACK_JSON}" name)
 
-# Hosts that already link PDF-Writer's bundled FreeType (Relayout) must not
+# Hosts that already link PDF-Writer's bundled FreeType (Relay) must not
 # also pull Freetype::Freetype — two FT copies collide at link (FT_Done_Face).
 option(RIGIMGUI_SYSTEM_FREETYPE
 	"Link system FreeType (OFF: headers only; symbols from PDF-Writer bundled FT)"
@@ -158,7 +158,7 @@ if(Freetype_FOUND OR TARGET PkgConfig::FREETYPE)
 		message(STATUS "Configured pack: ${PACK_NAME} (rigImGui host shell, FreeType wght)")
 	else()
 		# Compile imgui_freetype against system headers; do not link the DLL
-		# import lib. Relayout resolves FT from PDF-Writer's bundled static lib.
+		# import lib. Relay resolves FT from PDF-Writer's bundled static lib.
 		if(Freetype_FOUND)
 			get_target_property(_ft_inc Freetype::Freetype INTERFACE_INCLUDE_DIRECTORIES)
 			if(_ft_inc)
