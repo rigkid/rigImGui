@@ -1043,10 +1043,13 @@ void Mui::applyPendingWindowVisibility() {
 		return;
 	}
 	m_applyPendingVisibility = false;
-	m_windowManager->hideAllWindows();
-	for (const auto &pair : m_pendingVisibility) {
-		if (pair.second) {
-			m_windowManager->setWindowVisible(pair.first, true);
+	// Apply the saved state per window. Windows the ini has never seen (added
+	// to the app after the session was saved) keep their app-chosen
+	// visibility instead of being hidden by the blanket hide-all.
+	for (const auto &name : m_windowManager->getAllWindowNames()) {
+		const auto it = m_pendingVisibility.find(name);
+		if (it != m_pendingVisibility.end()) {
+			m_windowManager->setWindowVisible(name, it->second);
 		}
 	}
 	m_pendingVisibility.clear();
