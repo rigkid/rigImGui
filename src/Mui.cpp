@@ -84,6 +84,7 @@ void Mui::setRigKitEngine(RigKitEngine *engine) {
 	if (engine) {
 		m_window = engine->getWindow();
 		loadRecentFilesFromSettings();
+		loadPinnedFoldersFromSettings();
 		// Remember the last used workspace name; the first render restores
 		// the session autosave, or falls back to this snapshot when no
 		// session exists yet (queueStartupWorkspace()).
@@ -125,6 +126,7 @@ void Mui::initImGui() {
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigDragClickToInputText = true;
+	syncViewportsFromPrefs();
 
 	// Persist layout next to the exe (not cwd) so docks survive relaunches.
 	{
@@ -567,10 +569,19 @@ void Mui::render() {
 	renderModals();
 	renderAbout();
 	m_fileDialogs.tick();
+	if (m_fileDialogs.consumePinnedFoldersChanged()) {
+		persistPinnedFolders();
+	}
 
 	ImGui::Render();
 	m_inImGuiFrame = false;
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+		GLFWwindow *backup = glfwGetCurrentContext();
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+		glfwMakeContextCurrent(backup);
+	}
 	flushExportPng();
 }
 
@@ -718,12 +729,27 @@ bool Mui::loadTheme(const std::string &path, bool notify) {
 	return true;
 }
 
+void Mui::syncViewportsFromPrefs() {
+#if defined(RIGKIT_GLES)
+	ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
+#else
+	if (m_uiPrefs.detachableWindows) {
+		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	} else {
+		ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
+	}
+#endif
+}
+
 void Mui::applyUiPrefs() {
 	// Theme path: applyTheme (unscaled metrics) to ScaleAllSizes once.
 	// Do not ScaleAllSizes again in reloadFonts - that compounds padding on
 	// high DPI.
 	ImGuiStyleKit::migrateLegacyTheme(m_uiPrefs.theme, m_uiPrefs.themeFile);
 	setImGuiTheme(clampImGuiTheme(m_uiPrefs.theme));
+	if (m_imguiReady) {
+		syncViewportsFromPrefs();
+	}
 	const bool fontChanged = m_uiPrefs.fontFile != m_appliedFontFile ||
 							 m_uiPrefs.fontSize != m_appliedFontSize ||
 							 m_uiPrefs.fontWeight != m_appliedFontWeight;
@@ -1561,6 +1587,47 @@ void Mui::persistRecentFiles() {
 		arr.push_back(path);
 	}
 	settings->setValue("recentFiles", arr);
+	settings->saveToDisk();
+}
+
+void Mui::loadPinnedFoldersFromSettings() {
+	if (!m_engine) {
+		return;
+	}
+	auto *settings = m_engine->getSettingsManager();
+	if (!settings) {
+		return;
+	}
+	const json j = settings->getValue("pinnedFolders");
+	if (!j.is_array()) {
+		return;
+	}
+	std::vector<std::string> paths;
+	for (const auto &entry : j) {
+		if (!entry.is_string()) {
+			continue;
+		}
+		const std::string path = entry.get<std::string>();
+		if (!path.empty()) {
+			paths.push_back(path);
+		}
+	}
+	m_fileDialogs.setPinnedFolders(paths);
+}
+
+void Mui::persistPinnedFolders() {
+	if (!m_engine) {
+		return;
+	}
+	auto *settings = m_engine->getSettingsManager();
+	if (!settings) {
+		return;
+	}
+	json arr = json::array();
+	for (const auto &path : m_fileDialogs.pinnedFolders()) {
+		arr.push_back(path);
+	}
+	settings->setValue("pinnedFolders", arr);
 	settings->saveToDisk();
 }
 

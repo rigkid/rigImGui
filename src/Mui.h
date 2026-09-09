@@ -87,6 +87,8 @@ struct UiPrefs {
 	bool showStatusBar = true;
 	/// 0 = Status Bar, 1 = Menu Bar, 2 = Off
 	int fpsDisplay = 0;
+	/// ImGui multi-viewport: drag panels into their own OS windows. Desktop only.
+	bool detachableWindows = false;
 
 	std::vector<sProp> GetProperties() {
 		static constexpr const char* kThemeNames[] = {
@@ -118,6 +120,9 @@ struct UiPrefs {
 			{11, "Progress Auto-Hide Seconds", EPT_FLOAT, &progressAutoHideSeconds},
 			{12, "Show Status Bar", EPT_BOOL, &showStatusBar},
 			{13, "FPS Display", EPT_ENUM, &fpsDisplay, kFpsDisplayNames, 3},
+#if !defined(RIGKIT_GLES)
+			{17, "Detachable Windows", EPT_BOOL, &detachableWindows},
+#endif
 		};
 	}
 };
@@ -295,7 +300,12 @@ class Mui : public IMui {
 	void setGizmoOp(GizmoOp op) override { m_gizmoOp = op; }
 	GizmoOp gizmoOp() const override { return m_gizmoOp; }
 
-	void registerFontAtlasHook(std::function<void(ImFontAtlas& atlas)> hook) override;
+	/**
+	 * @brief Extra fonts for packs (e.g. monospace code editor).
+	 * @details Called during font load / reload, before the atlas is used.
+	 * Multiple packs may register; order is FIFO.
+	 */
+	void registerFontAtlasHook(std::function<void(ImFontAtlas& atlas)> hook);
 
 	void setChromeKerning(bool enabled) override;
 	bool chromeKerning() const override { return m_uiPrefs.chromeKerning; }
@@ -432,6 +442,7 @@ class Mui : public IMui {
 	void renderMainViewOverlays();
 	void tickNotifications(float dt);
 	void applyDpiStyle();
+	void syncViewportsFromPrefs();
 	void installDefaultShortcuts();
 	void ensureDefaultStatusSlots();
 	void syncFpsChromeFromPrefs();
@@ -439,6 +450,8 @@ class Mui : public IMui {
 	void syncProgressFromPrefs();
 	void loadRecentFilesFromSettings();
 	void persistRecentFiles();
+	void loadPinnedFoldersFromSettings();
+	void persistPinnedFolders();
 	void persistCurrentWorkspace();
 	void registerVisibilitySettingsHandler();
 	void queueStartupWorkspace();

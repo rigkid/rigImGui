@@ -26,9 +26,9 @@ bool endsWithIgnoreCase(const std::string& s, const std::string& suffix) {
 } // namespace
 
 FileDialogs::FileDialogs()
-	: m_open(ImGuiFileBrowserFlags_CloseOnEsc),
+	: m_open(ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter),
 	  m_save(ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir |
-			 ImGuiFileBrowserFlags_CloseOnEsc) {
+			 ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter) {
 	// 1x until open()/save() (ImGui context + FontScaleDpi ready).
 	applyFileBrowserLayout(m_open);
 	applyFileBrowserLayout(m_save);
@@ -97,6 +97,12 @@ void FileDialogs::tick() {
 	ImGui::FileBrowser& browser = (m_mode == Mode::Open) ? m_open : m_save;
 	browser.Display();
 
+	if (browser.ConsumePinnedQuickAccessChanged()) {
+		ImGui::FileBrowser& other = (m_mode == Mode::Open) ? m_save : m_open;
+		other.SetPinnedQuickAccess(browser.GetPinnedQuickAccess());
+		m_pinsChanged = true;
+	}
+
 	if (browser.HasSelected()) {
 		std::string path = browser.GetSelected().string();
 		if (m_mode == Mode::Save) {
@@ -120,6 +126,35 @@ void FileDialogs::tick() {
 		// Menu ate the first OpenPopup - ask again next frame.
 		browser.Open();
 	}
+}
+
+void FileDialogs::setPinnedFolders(const std::vector<std::string>& paths) {
+	std::vector<std::filesystem::path> fsPaths;
+	fsPaths.reserve(paths.size());
+	for (const auto& p : paths) {
+		if (p.empty()) {
+			continue;
+		}
+		// UTF-8 bytes to path (fs::u8path is deprecated in C++20).
+		fsPaths.emplace_back(std::u8string(p.begin(), p.end()));
+	}
+	m_open.SetPinnedQuickAccess(fsPaths);
+	m_save.SetPinnedQuickAccess(fsPaths);
+}
+
+std::vector<std::string> FileDialogs::pinnedFolders() const {
+	std::vector<std::string> out;
+	for (const auto& p : m_open.GetPinnedQuickAccess()) {
+		const std::u8string u8 = p.u8string();
+		out.emplace_back(u8.begin(), u8.end());
+	}
+	return out;
+}
+
+bool FileDialogs::consumePinnedFoldersChanged() {
+	const bool changed = m_pinsChanged;
+	m_pinsChanged = false;
+	return changed;
 }
 
 } // namespace rigkit

@@ -114,6 +114,16 @@ class FileDialogs {
 	/** @brief Draw browsers and fire callback when a path is chosen. */
 	void tick();
 
+	/** @brief Replace the user-pinned Quick access folders on both browsers.
+	 * @param paths UTF-8 folder paths; missing folders are skipped. */
+	void setPinnedFolders(const std::vector<std::string>& paths);
+	/** @return Current user-pinned Quick access folders (UTF-8). */
+	std::vector<std::string> pinnedFolders() const;
+	/** @return True once after the user pinned or unpinned a folder in either
+	 * browser (right-click a folder row / a pinned sidebar entry). The host
+	 * persists pinnedFolders() when this fires. */
+	bool consumePinnedFoldersChanged();
+
   private:
 	void applyLayout();
 	/** @brief Append the active type-filter extension when the name lacks it.
@@ -127,6 +137,7 @@ class FileDialogs {
 	ImGui::FileBrowser m_save;
 	Mode m_mode = Mode::None;
 	Callback m_callback;
+	bool m_pinsChanged = false; ///< User pinned/unpinned since last consume.
 	int m_skipDisplay = 0;	 ///< File menu is still a popup this frame - OpenPopup next tick.
 	bool m_openedOnce = false; ///< True after BeginPopupModal succeeded; then !open means cancel.
 };
