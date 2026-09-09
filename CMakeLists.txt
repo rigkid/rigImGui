@@ -106,6 +106,8 @@ set(PACK_SOURCES
     src/ReorderDragDrop.h
     src/ChainEditor.cpp
     src/ChainEditor.h
+    src/UiControls.cpp
+    src/UiControls.h
 )
 
 add_library(${PACK_NAME} STATIC ${PACK_SOURCES})
