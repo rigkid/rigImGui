@@ -88,7 +88,7 @@ struct UiPrefs {
 	/// 0 = Status Bar, 1 = Menu Bar, 2 = Off
 	int fpsDisplay = 0;
 	/// ImGui multi-viewport: drag panels into their own OS windows. Desktop only.
-	bool detachableWindows = false;
+	bool detachableWindows = true;
 
 	std::vector<sProp> GetProperties() {
 		static constexpr const char* kThemeNames[] = {
@@ -269,6 +269,8 @@ class Mui : public IMui {
 						FileDialogCallback onSelected) override;
 	void saveFileDialog(const std::string &title, std::vector<std::string> filters,
 						FileDialogCallback onSelected) override;
+	void registerFileThumbnailDecoder(const std::string& extension,
+									  IMui::FileThumbnailDecoder decoder) override;
 
 	void registerFileAction(const std::string &label, std::function<void()> action,
 							const std::string &shortcut = {}) override;
@@ -321,14 +323,17 @@ class Mui : public IMui {
 	 * @brief Extra Preferences sections (ImGui draw; not MSettings persistence).
 	 * @details Use for project-scoped UI (e.g. plot Document/Canvas) that should
 	 * appear under App to Preferences without writing rigkit_settings.json.
+	 * A non-empty @p group nests the drawer as a collapsing header inside that
+	 * group's page (e.g. "Audio") instead of adding a sidebar entry.
 	 */
 	void registerPreferencesDrawer(const std::string &id, const std::string &label,
-								   std::function<void()> draw);
+								   std::function<void()> draw, const std::string &group = {});
 	void unregisterPreferencesDrawer(const std::string &id);
 	struct PreferencesDrawer {
 		std::string id;
 		std::string label;
 		std::function<void()> draw;
+		std::string group;
 	};
 	const std::vector<PreferencesDrawer> &preferencesDrawers() const {
 		return m_preferencesDrawers;
@@ -452,6 +457,8 @@ class Mui : public IMui {
 	void persistRecentFiles();
 	void loadPinnedFoldersFromSettings();
 	void persistPinnedFolders();
+	void loadFileBrowserViewFromSettings();
+	void persistFileBrowserView();
 	void persistCurrentWorkspace();
 	void registerVisibilitySettingsHandler();
 	void queueStartupWorkspace();

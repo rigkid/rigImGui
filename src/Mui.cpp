@@ -85,6 +85,7 @@ void Mui::setRigKitEngine(RigKitEngine *engine) {
 		m_window = engine->getWindow();
 		loadRecentFilesFromSettings();
 		loadPinnedFoldersFromSettings();
+		loadFileBrowserViewFromSettings();
 		// Remember the last used workspace name; the first render restores
 		// the session autosave, or falls back to this snapshot when no
 		// session exists yet (queueStartupWorkspace()).
@@ -183,6 +184,7 @@ void Mui::shutdownImGui() {
 	if (!m_imguiReady) {
 		return;
 	}
+	m_fileDialogs.shutdown();
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -571,6 +573,9 @@ void Mui::render() {
 	m_fileDialogs.tick();
 	if (m_fileDialogs.consumePinnedFoldersChanged()) {
 		persistPinnedFolders();
+	}
+	if (m_fileDialogs.consumeViewModeChanged()) {
+		persistFileBrowserView();
 	}
 
 	ImGui::Render();
@@ -1418,6 +1423,11 @@ void Mui::saveFileDialog(const std::string &title,
 	m_fileDialogs.save(title, std::move(filters), std::move(onSelected));
 }
 
+void Mui::registerFileThumbnailDecoder(const std::string& extension,
+									  IMui::FileThumbnailDecoder decoder) {
+	m_fileDialogs.registerThumbnailDecoder(extension, std::move(decoder));
+}
+
 void Mui::registerFileAction(const std::string &label,
 							 std::function<void()> action,
 							 const std::string &shortcut) {
@@ -1487,6 +1497,9 @@ ImGuiKey keyFromToken(std::string token) {
 		if (n >= 1 && n <= 12) {
 			return static_cast<ImGuiKey>(ImGuiKey_F1 + (n - 1));
 		}
+	}
+	if (token == "SPACE") {
+		return ImGuiKey_Space;
 	}
 	return ImGuiKey_None;
 }
@@ -1631,6 +1644,40 @@ void Mui::persistPinnedFolders() {
 	settings->saveToDisk();
 }
 
+void Mui::loadFileBrowserViewFromSettings() {
+	if (!m_engine) {
+		return;
+	}
+	auto *settings = m_engine->getSettingsManager();
+	if (!settings) {
+		return;
+	}
+	const json j = settings->getValue("fileBrowserView");
+	if (!j.is_string()) {
+		return;
+	}
+	const std::string mode = j.get<std::string>();
+	if (mode == "icons") {
+		m_fileDialogs.setViewMode(ImGui::FileBrowser::ViewMode::Icons);
+	} else {
+		m_fileDialogs.setViewMode(ImGui::FileBrowser::ViewMode::Details);
+	}
+}
+
+void Mui::persistFileBrowserView() {
+	if (!m_engine) {
+		return;
+	}
+	auto *settings = m_engine->getSettingsManager();
+	if (!settings) {
+		return;
+	}
+	const char *mode =
+		m_fileDialogs.viewMode() == ImGui::FileBrowser::ViewMode::Icons ? "icons" : "details";
+	settings->setValue("fileBrowserView", mode);
+	settings->saveToDisk();
+}
+
 void Mui::noteRecentFile(const std::string &path) {
 	if (path.empty()) {
 		return;
@@ -1723,9 +1770,10 @@ void Mui::registerEditSubmenu(const std::string &label,
 
 void Mui::registerPreferencesDrawer(const std::string &id,
 									const std::string &label,
-									std::function<void()> draw) {
+									std::function<void()> draw,
+									const std::string &group) {
 	unregisterPreferencesDrawer(id);
-	m_preferencesDrawers.push_back({id, label, std::move(draw)});
+	m_preferencesDrawers.push_back({id, label, std::move(draw), group});
 }
 
 void Mui::unregisterPreferencesDrawer(const std::string &id) {

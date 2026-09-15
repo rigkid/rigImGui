@@ -87,6 +87,8 @@ set(PACK_SOURCES
     src/ViewportWindow.h
     src/FileDialogs.cpp
     src/FileDialogs.h
+    src/ThumbnailCache.cpp
+    src/ThumbnailCache.h
     src/UiDpi.h
     src/FontPicker.cpp
     src/FontPicker.h
@@ -108,6 +110,7 @@ set(PACK_SOURCES
     src/ChainEditor.h
     src/UiControls.cpp
     src/UiControls.h
+    src/ImMidiMapperImpl.cpp
 )
 
 add_library(${PACK_NAME} STATIC ${PACK_SOURCES})
@@ -119,12 +122,14 @@ target_include_directories(${PACK_NAME} PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/src"
     "${CMAKE_CURRENT_LIST_DIR}/third_party/imgui"
     "${CMAKE_CURRENT_LIST_DIR}/third_party/imgui/backends"
+    "${CMAKE_CURRENT_LIST_DIR}/third_party/ImMidiMapper"
     "${CMAKE_CURRENT_LIST_DIR}/third_party/IconFontCppHeaders"
     "${CMAKE_CURRENT_LIST_DIR}/third_party/imgui-filebrowser"
     "${CMAKE_CURRENT_LIST_DIR}/third_party/ImGuizmo"
     "${CMAKE_CURRENT_LIST_DIR}/fonts"
     "${_rigComponent_src}"
     "${_stb_write_dir}"
+    "${CMAKE_CURRENT_LIST_DIR}/third_party/stb"
 )
 if(_rigRender3D_src)
 	target_sources(${PACK_NAME} PRIVATE src/OrthoViewWindow.cpp src/OrthoViewWindow.h)

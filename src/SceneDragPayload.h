@@ -24,6 +24,10 @@ struct RigScenePropPayload {
 	uint32_t entity = 0;
 	char name[96]{};
 	int propType = 0;
+	/// Owning ECS (opaque). Null = engine registry. Multi-scene hosts (KidVJ
+	/// decks) tag drags so an editor bound to another ECS rejects the drop -
+	/// entt ids are only unique within one registry.
+	const void* ecsTag = nullptr;
 };
 
 } // namespace rigkit

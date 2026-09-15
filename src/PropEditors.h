@@ -74,7 +74,10 @@ uint32_t currentPropDragEntity();
  * `GetProperties()` / drive-slot name `applyRefWrites` matches.
  * `entityId == kPropDragNoEntity` uses `BeginPropDragSource`.
  */
-void offerScenePropDrag(uint32_t entityId, const char* propName, int propType);
+/// @param ecsTag Owning ECS (opaque) for multi-scene hosts - see
+/// `RigScenePropPayload::ecsTag`. Null = engine registry.
+void offerScenePropDrag(uint32_t entityId, const char* propName, int propType,
+						const void* ecsTag = nullptr);
 void offerScenePropDrag(const char* propName, int propType);
 
 /**
@@ -89,13 +92,23 @@ struct ScenePropPatchRequest {
 	std::string name;
 	int propType = 0;
 	bool withLfo = false;
+	/// Owning ECS (opaque, see `RigScenePropPayload::ecsTag`). Routes the
+	/// request to the editor bound to that ECS; null = any editor.
+	const void* ecsTag = nullptr;
 };
 
 /** @brief Queue a patch request (no-op when @p entityId is `kPropDragNoEntity`). */
-void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo);
+void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo,
+						   const void* ecsTag = nullptr);
 
-/** @brief Drain pending patch requests. Requests older than a couple frames are dropped. */
-std::vector<ScenePropPatchRequest> takeScenePropPatchRequests();
+/**
+ * @brief Drain pending patch requests for the editor bound to @p consumerEcs.
+ * @details Takes untagged requests plus those tagged with @p consumerEcs; requests
+ * tagged for another ECS stay queued for that editor (multi-deck hosts render one
+ * editor per deck). Requests older than a couple frames are dropped either way.
+ * Null @p consumerEcs takes everything (single-editor apps).
+ */
+std::vector<ScenePropPatchRequest> takeScenePropPatchRequests(const void* consumerEcs = nullptr);
 
 /** @brief RAII `BeginPropDragSource` / `EndPropDragSource`. */
 struct PropDragSource {

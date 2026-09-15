@@ -5,13 +5,13 @@
 #include "core/util/MSettings.h"
 #include "FontPicker.h"
 #include "Mui.h"
-#include "ThemePicker.h"
 #include "PropEditors.h"
+#include "ThemePicker.h"
 #include "UiDpi.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cstdio>
-#include <imgui.h>
 #include <string>
 #include <vector>
 
@@ -22,6 +22,8 @@ struct PrefCategory {
 	std::string id;
 	std::string label;
 	bool isDrawer = false;
+	bool isGroup = false;
+	std::string group;
 };
 
 const PrefCategory* findCategory(const std::vector<PrefCategory>& categories,
@@ -73,16 +75,29 @@ void PreferencesPanel::renderContents() {
 	std::vector<PrefCategory> categories;
 	if (mui) {
 		for (const auto& drawer : mui->preferencesDrawers()) {
+			if (!drawer.group.empty()) {
+				// Grouped drawers render inside the group's page, not the sidebar.
+				const std::string gid = "group:" + drawer.group;
+				if (!findCategory(categories, gid)) {
+					categories.push_back({gid, drawer.group, false, true, drawer.group});
+				}
+				continue;
+			}
 			categories.push_back({drawer.id, drawer.label, true});
 		}
 	}
 	for (const auto& section : settings->preferenceSections()) {
-		categories.push_back({section.id, section.label, false});
+		if (!section.group.empty()) {
+			const std::string gid = "group:" + section.group;
+			if (!findCategory(categories, gid)) {
+				categories.push_back({gid, section.group, false, true, section.group});
+			}
+			continue;
+		}
+		categories.push_back({section.id, section.label, false, false, {}});
 	}
 	std::sort(categories.begin(), categories.end(),
-			  [](const PrefCategory& a, const PrefCategory& b) {
-				  return a.label < b.label;
-			  });
+			  [](const PrefCategory& a, const PrefCategory& b) { return a.label < b.label; });
 
 	if (categories.empty()) {
 		ImGui::TextDisabled("No preference sections registered");
@@ -99,11 +114,10 @@ void PreferencesPanel::renderContents() {
 		if (vp) {
 			const float pad = uiPx(16.f);
 			const ImVec2 maxSz(std::max(1.f, vp->WorkSize.x - pad),
-							  std::max(1.f, vp->WorkSize.y - pad));
+							   std::max(1.f, vp->WorkSize.y - pad));
 			const ImVec2 cur = ImGui::GetWindowSize();
 			if (cur.x > maxSz.x + 0.5f || cur.y > maxSz.y + 0.5f) {
-				ImGui::SetWindowSize(
-					ImVec2(std::min(cur.x, maxSz.x), std::min(cur.y, maxSz.y)));
+				ImGui::SetWindowSize(ImVec2(std::min(cur.x, maxSz.x), std::min(cur.y, maxSz.y)));
 			}
 		}
 	}
@@ -113,7 +127,8 @@ void PreferencesPanel::renderContents() {
 
 	const PrefCategory* selected = findCategory(categories, m_selectedId);
 	// Resizable table = draggable divider; column width persists via imgui.ini.
-	const float sidebar = std::min(uiPx(200.f), std::max(uiPx(120.f), ImGui::GetContentRegionAvail().x * 0.32f));
+	const float sidebar =
+		std::min(uiPx(200.f), std::max(uiPx(120.f), ImGui::GetContentRegionAvail().x * 0.32f));
 	if (ImGui::BeginTable("##PrefColumns", 2, ImGuiTableFlags_Resizable)) {
 		ImGui::TableSetupColumn("##Sidebar", ImGuiTableColumnFlags_WidthFixed, sidebar);
 		ImGui::TableSetupColumn("##Detail", ImGuiTableColumnFlags_WidthStretch);
@@ -141,6 +156,34 @@ void PreferencesPanel::renderContents() {
 						drawer.draw();
 						ImGui::PopID();
 						break;
+					}
+				}
+			} else if (selected->isGroup) {
+				for (const auto& section : settings->preferenceSections()) {
+					if (section.group != selected->group) {
+						continue;
+					}
+					ImGui::PushID(section.id.c_str());
+					if (ImGui::CollapsingHeader(section.label.c_str(),
+												ImGuiTreeNodeFlags_DefaultOpen)) {
+						auto props = settings->preferenceProperties(section.id);
+						if (RenderProps(nullptr, props)) {
+							settings->notifyPreferenceChanged(section.id);
+						}
+					}
+					ImGui::PopID();
+				}
+				// Custom drawers targeting this group (e.g. KidVJ's Audio Test).
+				if (mui) {
+					for (const auto& drawer : mui->preferencesDrawers()) {
+						if (drawer.group != selected->group || !drawer.draw) {
+							continue;
+						}
+						ImGui::PushID(drawer.id.c_str());
+						if (ImGui::CollapsingHeader(drawer.label.c_str())) {
+							drawer.draw();
+						}
+						ImGui::PopID();
 					}
 				}
 			} else {

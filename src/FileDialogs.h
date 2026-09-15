@@ -10,8 +10,10 @@
 #include <imgui.h>
 #include <imfilebrowser.h>
 
+#include "core/IMui.h"
 #include "core/util/AppPaths.h"
 
+#include "ThumbnailCache.h"
 #include "UiDpi.h"
 
 namespace rigkit {
@@ -105,6 +107,10 @@ class FileDialogs {
 	using Callback = std::function<void(const std::string& path)>;
 
 	FileDialogs();
+	~FileDialogs();
+
+	/** @brief Drop GPU thumbs while the GL context is still current. */
+	void shutdown();
 
 	void open(const std::string& title, std::vector<std::string> filters, Callback onSelected);
 	/** @param defaultName Pre-filled file name (Save As suggests the current one). */
@@ -124,6 +130,16 @@ class FileDialogs {
 	 * persists pinnedFolders() when this fires. */
 	bool consumePinnedFoldersChanged();
 
+	void setViewMode(ImGui::FileBrowser::ViewMode mode);
+	ImGui::FileBrowser::ViewMode viewMode() const;
+	/** @return True once after the user toggled Details / Icons. The host
+	 * persists viewMode() when this fires. */
+	bool consumeViewModeChanged();
+
+	/** @brief Pack-registered CPU decoder (e.g. rigSvg for `.svg`). */
+	void registerThumbnailDecoder(const std::string& extension,
+								  IMui::FileThumbnailDecoder decoder);
+
   private:
 	void applyLayout();
 	/** @brief Append the active type-filter extension when the name lacks it.
@@ -135,9 +151,11 @@ class FileDialogs {
 
 	ImGui::FileBrowser m_open;
 	ImGui::FileBrowser m_save;
+	ThumbnailCache m_thumbs;
 	Mode m_mode = Mode::None;
 	Callback m_callback;
 	bool m_pinsChanged = false; ///< User pinned/unpinned since last consume.
+	bool m_viewChanged = false; ///< User toggled Details / Icons since last consume.
 	int m_skipDisplay = 0;	 ///< File menu is still a popup this frame - OpenPopup next tick.
 	bool m_openedOnce = false; ///< True after BeginPopupModal succeeded; then !open means cancel.
 };

@@ -242,7 +242,8 @@ struct PendingPatch {
 std::vector<PendingPatch> g_patchRequests;
 } // namespace
 
-void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo) {
+void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo,
+						   const void* ecsTag) {
 	if (entityId == kPropDragNoEntity || !propName || propName[0] == '\0') {
 		return;
 	}
@@ -251,24 +252,36 @@ void requestScenePropPatch(uint32_t entityId, const char* propName, int propType
 	p.req.name = propName;
 	p.req.propType = propType;
 	p.req.withLfo = withLfo;
+	p.req.ecsTag = ecsTag;
 	p.frame = ImGui::GetFrameCount();
 	g_patchRequests.push_back(std::move(p));
 }
 
-std::vector<ScenePropPatchRequest> takeScenePropPatchRequests() {
+std::vector<ScenePropPatchRequest> takeScenePropPatchRequests(const void* consumerEcs) {
 	std::vector<ScenePropPatchRequest> out;
+	std::vector<PendingPatch> keep;
 	const int now = ImGui::GetFrameCount();
 	for (auto& p : g_patchRequests) {
 		// Drop stale entries queued while no consumer (e.g. Node Editor closed).
-		if (now - p.frame <= 2) {
+		if (now - p.frame > 2) {
+			continue;
+		}
+		// Tagged requests only go to the editor bound to that ECS (multi-deck
+		// hosts run one editor per deck; entt ids collide across registries).
+		const bool mine =
+			p.req.ecsTag == nullptr || consumerEcs == nullptr || p.req.ecsTag == consumerEcs;
+		if (mine) {
 			out.push_back(std::move(p.req));
+		} else {
+			keep.push_back(std::move(p));
 		}
 	}
-	g_patchRequests.clear();
+	g_patchRequests = std::move(keep);
 	return out;
 }
 
-void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
+void offerScenePropDrag(uint32_t entityId, const char* propName, int propType,
+						const void* ecsTag) {
 	if (entityId == kPropDragNoEntity) {
 		entityId = currentPropDragEntity();
 	}
@@ -336,6 +349,7 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
 		RigScenePropPayload payload;
 		payload.entity = entityId;
 		payload.propType = propType;
+		payload.ecsTag = ecsTag;
 		std::snprintf(payload.name, sizeof(payload.name), "%s", propName);
 		ImGui::SetDragDropPayload(kRigScenePropPayload, &payload, sizeof(payload));
 		ImGui::Text("Patch to %s", propName);
@@ -353,12 +367,12 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType) {
 		ImGui::TextDisabled("%s", propName);
 		ImGui::Separator();
 		if (ImGui::MenuItem("Patch to Node Editor")) {
-			requestScenePropPatch(entityId, propName, propType, false);
+			requestScenePropPatch(entityId, propName, propType, false, ecsTag);
 		}
 		const bool floatish = propType != EPT_VEC2 && propType != EPT_VEC4 &&
 							  propType != EPT_COLOR;
 		if (floatish && ImGui::MenuItem("Patch with LFO")) {
-			requestScenePropPatch(entityId, propName, propType, true);
+			requestScenePropPatch(entityId, propName, propType, true, ecsTag);
 		}
 		ImGui::EndPopup();
 	}

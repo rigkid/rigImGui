@@ -10,6 +10,7 @@
 #include <cstring>
 #include <ctime>
 #include <filesystem>
+#include <functional>
 #include <mutex>
 #include <set>
 #include <string>
@@ -150,6 +151,20 @@ namespace ImGui
         // true once after the user pinned or unpinned; host mirrors + persists.
         bool ConsumePinnedQuickAccessChanged();
 
+        enum class ViewMode
+        {
+            Details = 0,
+            Icons   = 1,
+        };
+
+        void SetViewMode(ViewMode mode) noexcept;
+        ViewMode GetViewMode() const noexcept;
+        // true once after the user toggled Details / Icons; host mirrors + persists.
+        bool ConsumeViewModeChanged();
+
+        // Host supplies image thumbs. Empty / returning 0 draws a file glyph.
+        void SetThumbnailProvider(std::function<ImTextureID(const std::filesystem::path &)> fn);
+
     private:
         struct QuickAccessEntry
         {
@@ -220,6 +235,16 @@ namespace ImGui
 
         bool IsRecordVisible(const FileRecord &record) const;
         void ProcessTypeAhead();
+
+        void RebuildVisibleRecords();
+        void DisplayDetailsTable(bool &shouldSetNewDir, std::filesystem::path &newDir);
+        void DisplayIconsGrid(bool &shouldSetNewDir, std::filesystem::path &newDir);
+        void HandleRecordSelection(unsigned rscIndex);
+        void HandleRecordActivate(const FileRecord &rsc, bool &shouldSetNewDir,
+                                  std::filesystem::path &newDir);
+        void HandleRecordContext(const FileRecord &rsc);
+        void DrawIconTile(unsigned rscIndex, const ImVec2 &tileSize, const ImVec2 &thumbSize,
+                          bool &shouldSetNewDir, std::filesystem::path &newDir);
 
         static void AssignToArrayStyleString(std::vector<char> &arr, std::string_view content);
 
@@ -306,6 +331,11 @@ namespace ImGui
         std::vector<QuickAccessEntry> quickAccess_;
         float                         quickAccessWidth_ = 140.f;
         bool                          pinnedQuickAccessChanged_ = false;
+
+        ViewMode viewMode_ = ViewMode::Details;
+        bool     viewModeChanged_ = false;
+        std::function<ImTextureID(const std::filesystem::path &)> thumbnailProvider_;
+        std::vector<unsigned int> visibleRecords_;
 
         // Type-to-jump: typed letters select the next matching row.
         std::string typeAheadBuffer_;
@@ -424,6 +454,11 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     quickAccess_              = copyFrom.quickAccess_;
     quickAccessWidth_         = copyFrom.quickAccessWidth_;
     pinnedQuickAccessChanged_ = copyFrom.pinnedQuickAccessChanged_;
+
+    viewMode_            = copyFrom.viewMode_;
+    viewModeChanged_     = copyFrom.viewModeChanged_;
+    thumbnailProvider_   = copyFrom.thumbnailProvider_;
+    visibleRecords_.clear();
 
     typeAheadBuffer_.clear();
     typeAheadTime_   = -1.0;
@@ -725,6 +760,29 @@ inline void ImGui::FileBrowser::Display()
         ToolTip("Refresh");
     }
 
+    SameLine();
+    if(viewMode_ == ViewMode::Details)
+    {
+        if(SmallButton("Icons"))
+        {
+            viewMode_ = ViewMode::Icons;
+            viewModeChanged_ = true;
+        }
+        else
+        {
+            ToolTip("Icon view with image previews");
+        }
+    }
+    else if(SmallButton("Details"))
+    {
+        viewMode_ = ViewMode::Details;
+        viewModeChanged_ = true;
+    }
+    else
+    {
+        ToolTip("Details view");
+    }
+
     bool focusOnInputText = false;
     if(flags_ & ImGuiFileBrowserFlags_CreateNewDir)
     {
@@ -889,225 +947,39 @@ inline void ImGui::FileBrowser::Display()
         BeginChild("ch", ImVec2(0, -reserveHeight), true);
         ScopeGuard endChild([] { EndChild(); });
 
-        const ImGuiTableFlags tableFlags =
-            ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable |
-            ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
-            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV;
-        if(BeginTable("##files", 4, tableFlags, ImVec2(0.0f, 0.0f)))
+        if(needSort_ && viewMode_ == ViewMode::Icons)
         {
-            ScopeGuard endTable([] { EndTable(); });
-            TableSetupScrollFreeze(0, 1);
-            TableSetupColumn("Name",
-                             ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort |
-                                 ImGuiTableColumnFlags_NoHide,
-                             0.0f, 0);
-            TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending,
-                             GetFontSize() * 5.5f, 1);
-            TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, GetFontSize() * 7.0f, 2);
-            TableSetupColumn("Date modified",
-                             ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending,
-                             GetFontSize() * 10.5f, 3);
-            TableHeadersRow();
+            SortFileRecords(nullptr);
+            needSort_ = false;
+        }
 
-            if(ImGuiTableSortSpecs *sortSpecs = TableGetSortSpecs())
+        ProcessTypeAhead();
+
+        // Enter steps into the type-ahead folder while its highlight is
+        // visible. Folders beat ConfirmOnEnter, so one Enter never both
+        // enters a folder and confirms the dialog.
+        if(typeAheadIndex_ >= 0 &&
+           typeAheadIndex_ < static_cast<int>(fileRecords_.size()) &&
+           GetTime() - typeAheadTime_ < 1.5 &&
+           IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+           !GetIO().WantTextInput && IsKeyPressed(ImGuiKey_Enter))
+        {
+            const FileRecord &rec = fileRecords_[static_cast<size_t>(typeAheadIndex_)];
+            if(rec.isDir && rec.name != "..")
             {
-                if(sortSpecs->SpecsDirty || needSort_)
-                {
-                    SortFileRecords(sortSpecs);
-                    sortSpecs->SpecsDirty = false;
-                    needSort_ = false;
-                }
+                shouldSetNewDir = true;
+                newDir = currentDirectory_ / rec.name;
+                enteredDirOnEnter = true;
             }
-            else if(needSort_)
-            {
-                SortFileRecords(nullptr);
-                needSort_ = false;
-            }
+        }
 
-            ProcessTypeAhead();
-
-            // Enter steps into the type-ahead folder while its highlight is
-            // visible. Folders beat ConfirmOnEnter, so one Enter never both
-            // enters a folder and confirms the dialog.
-            if(typeAheadIndex_ >= 0 &&
-               typeAheadIndex_ < static_cast<int>(fileRecords_.size()) &&
-               GetTime() - typeAheadTime_ < 1.5 &&
-               IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-               !GetIO().WantTextInput && IsKeyPressed(ImGuiKey_Enter))
-            {
-                const FileRecord &rec = fileRecords_[static_cast<size_t>(typeAheadIndex_)];
-                if(rec.isDir && rec.name != "..")
-                {
-                    shouldSetNewDir = true;
-                    newDir = currentDirectory_ / rec.name;
-                    enteredDirOnEnter = true;
-                }
-            }
-
-            for(unsigned int rscIndex = 0; rscIndex < fileRecords_.size(); ++rscIndex)
-            {
-                const auto &rsc = fileRecords_[rscIndex];
-                if(!IsRecordVisible(rsc))
-                {
-                    continue;
-                }
-
-                const bool selected = selectedFilenames_.find(rsc.name) != selectedFilenames_.end();
-
-#if IMGUI_VERSION_NUM >= 19100
-                const ImGuiSelectableFlags selectableFlag =
-                    ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_SpanAllColumns;
-#else
-                const ImGuiSelectableFlags selectableFlag =
-                    ImGuiSelectableFlags_DontClosePopups | ImGuiSelectableFlags_SpanAllColumns;
-#endif
-
-                TableNextRow();
-                if(static_cast<int>(rscIndex) == typeAheadIndex_ && !selected &&
-                   GetTime() - typeAheadTime_ < 1.5)
-                {
-                    // Transient highlight so a type-ahead jump to a folder is
-                    // visible even when the folder cannot become the selection.
-                    TableSetBgColor(ImGuiTableBgTarget_RowBg1,
-                                    GetColorU32(ImGuiCol_HeaderHovered, 0.35f));
-                }
-                TableSetColumnIndex(0);
-                if(Selectable(rsc.showName.c_str(), selected, selectableFlag))
-                {
-                    const bool wantDir = flags_ & ImGuiFileBrowserFlags_SelectDirectory;
-                    const bool canSelect = rsc.name != ".." && rsc.isDir == wantDir;
-                    const bool rangeSelect =
-                        canSelect && GetIO().KeyShift &&
-                        rangeSelectionStart_ < fileRecords_.size() &&
-                        (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
-                        IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-                    const bool multiSelect =
-                        !rangeSelect && GetIO().KeyCtrl &&
-                        (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
-                        IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-
-                    if(rangeSelect)
-                    {
-                        const unsigned int first = (std::min)(rangeSelectionStart_, rscIndex);
-                        const unsigned int last = (std::max)(rangeSelectionStart_, rscIndex);
-                        selectedFilenames_.clear();
-                        for(unsigned int i = first; i <= last; ++i)
-                        {
-                            if(fileRecords_[i].isDir != wantDir)
-                            {
-                                continue;
-                            }
-                            if(!wantDir && !IsExtensionMatched(fileRecords_[i].extension))
-                            {
-                                continue;
-                            }
-                            selectedFilenames_.insert(fileRecords_[i].name);
-                        }
-                    }
-                    else if(selected)
-                    {
-                        if(!multiSelect)
-                        {
-                            selectedFilenames_ = { rsc.name };
-                            rangeSelectionStart_ = rscIndex;
-                        }
-                        else
-                        {
-                            selectedFilenames_.erase(rsc.name);
-                        }
-                        if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
-                        {
-                            AssignToArrayStyleString(inputNameBuffer_, "");
-                        }
-                    }
-                    else if(canSelect)
-                    {
-                        if(multiSelect)
-                        {
-                            selectedFilenames_.insert(rsc.name);
-                        }
-                        else
-                        {
-                            selectedFilenames_ = { rsc.name };
-                        }
-                        if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
-                        {
-                            const auto rscName = u8StrToStr(rsc.name.u8string());
-                            AssignToArrayStyleString(inputNameBuffer_, rscName);
-                        }
-                        rangeSelectionStart_ = rscIndex;
-                    }
-                }
-
-                if(IsMouseDoubleClicked(ImGuiMouseButton_Left) && IsItemHovered(ImGuiHoveredFlags_None))
-                {
-                    if(rsc.isDir)
-                    {
-                        shouldSetNewDir = true;
-                        newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
-                    }
-                    else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
-                    {
-                        selectedFilenames_ = { rsc.name };
-                        isOk_ = true;
-                        CloseCurrentPopup();
-                    }
-                }
-                else if(IsKeyPressed(ImGuiKey_GamepadFaceDown) && IsItemHovered())
-                {
-                    if(rsc.isDir)
-                    {
-                        shouldSetNewDir = true;
-                        newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
-                        SetKeyboardFocusHere(-1);
-                    }
-                    else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
-                    {
-                        selectedFilenames_ = { rsc.name };
-                        isOk_ = true;
-                        CloseCurrentPopup();
-                    }
-                }
-
-                if(rsc.isDir && rsc.name != ".." && BeginPopupContextItem())
-                {
-                    const std::filesystem::path full = currentDirectory_ / rsc.name;
-                    if(!HasQuickAccess(full))
-                    {
-                        if(MenuItem("Pin to Quick access"))
-                        {
-                            PinQuickAccess(full);
-                        }
-                    }
-                    else
-                    {
-                        MenuItem("Pinned to Quick access", nullptr, false, false);
-                    }
-                    EndPopup();
-                }
-
-                if(typeAheadScroll_ && static_cast<int>(rscIndex) == typeAheadIndex_)
-                {
-                    SetScrollHereY(0.35f);
-                    typeAheadScroll_ = false;
-                }
-
-                TableSetColumnIndex(1);
-                if(!rsc.isDir && !rsc.sizeText.empty())
-                {
-                    const float avail = GetContentRegionAvail().x;
-                    const float tw = CalcTextSize(rsc.sizeText.c_str()).x;
-                    if(tw < avail)
-                    {
-                        SetCursorPosX(GetCursorPosX() + avail - tw);
-                    }
-                    TextUnformatted(rsc.sizeText.c_str());
-                }
-                TableSetColumnIndex(2);
-                TextUnformatted(rsc.typeText.c_str());
-                TableSetColumnIndex(3);
-                TextUnformatted(rsc.dateText.c_str());
-            }
+        if(viewMode_ == ViewMode::Icons)
+        {
+            DisplayIconsGrid(shouldSetNewDir, newDir);
+        }
+        else
+        {
+            DisplayDetailsTable(shouldSetNewDir, newDir);
         }
     }
 
@@ -1446,6 +1318,395 @@ inline bool ImGui::FileBrowser::ConsumePinnedQuickAccessChanged()
     const bool changed = pinnedQuickAccessChanged_;
     pinnedQuickAccessChanged_ = false;
     return changed;
+}
+
+inline void ImGui::FileBrowser::SetViewMode(ViewMode mode) noexcept
+{
+    viewMode_ = mode;
+}
+
+inline ImGui::FileBrowser::ViewMode ImGui::FileBrowser::GetViewMode() const noexcept
+{
+    return viewMode_;
+}
+
+inline bool ImGui::FileBrowser::ConsumeViewModeChanged()
+{
+    const bool changed = viewModeChanged_;
+    viewModeChanged_ = false;
+    return changed;
+}
+
+inline void ImGui::FileBrowser::SetThumbnailProvider(
+    std::function<ImTextureID(const std::filesystem::path &)> fn)
+{
+    thumbnailProvider_ = std::move(fn);
+}
+
+inline void ImGui::FileBrowser::RebuildVisibleRecords()
+{
+    visibleRecords_.clear();
+    visibleRecords_.reserve(fileRecords_.size());
+    for(unsigned int i = 0; i < fileRecords_.size(); ++i)
+    {
+        if(IsRecordVisible(fileRecords_[i]))
+        {
+            visibleRecords_.push_back(i);
+        }
+    }
+}
+
+inline void ImGui::FileBrowser::HandleRecordSelection(unsigned rscIndex)
+{
+    const FileRecord &rsc = fileRecords_[rscIndex];
+    const bool selected = selectedFilenames_.find(rsc.name) != selectedFilenames_.end();
+    const bool wantDir = flags_ & ImGuiFileBrowserFlags_SelectDirectory;
+    const bool canSelect = rsc.name != ".." && rsc.isDir == wantDir;
+    const bool rangeSelect =
+        canSelect && GetIO().KeyShift &&
+        rangeSelectionStart_ < fileRecords_.size() &&
+        (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
+        IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    const bool multiSelect =
+        !rangeSelect && GetIO().KeyCtrl &&
+        (flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
+        IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+
+    if(rangeSelect)
+    {
+        const unsigned int first = (std::min)(rangeSelectionStart_, rscIndex);
+        const unsigned int last = (std::max)(rangeSelectionStart_, rscIndex);
+        selectedFilenames_.clear();
+        for(unsigned int i = first; i <= last; ++i)
+        {
+            if(fileRecords_[i].isDir != wantDir)
+            {
+                continue;
+            }
+            if(!wantDir && !IsExtensionMatched(fileRecords_[i].extension))
+            {
+                continue;
+            }
+            selectedFilenames_.insert(fileRecords_[i].name);
+        }
+    }
+    else if(selected)
+    {
+        if(!multiSelect)
+        {
+            selectedFilenames_ = { rsc.name };
+            rangeSelectionStart_ = rscIndex;
+        }
+        else
+        {
+            selectedFilenames_.erase(rsc.name);
+        }
+        if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
+        {
+            AssignToArrayStyleString(inputNameBuffer_, "");
+        }
+    }
+    else if(canSelect)
+    {
+        if(multiSelect)
+        {
+            selectedFilenames_.insert(rsc.name);
+        }
+        else
+        {
+            selectedFilenames_ = { rsc.name };
+        }
+        if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
+        {
+            const auto rscName = u8StrToStr(rsc.name.u8string());
+            AssignToArrayStyleString(inputNameBuffer_, rscName);
+        }
+        rangeSelectionStart_ = rscIndex;
+    }
+}
+
+inline void ImGui::FileBrowser::HandleRecordActivate(
+    const FileRecord &rsc, bool &shouldSetNewDir, std::filesystem::path &newDir)
+{
+    if(IsMouseDoubleClicked(ImGuiMouseButton_Left) && IsItemHovered(ImGuiHoveredFlags_None))
+    {
+        if(rsc.isDir)
+        {
+            shouldSetNewDir = true;
+            newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
+        }
+        else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
+        {
+            selectedFilenames_ = { rsc.name };
+            isOk_ = true;
+            CloseCurrentPopup();
+        }
+    }
+    else if(IsKeyPressed(ImGuiKey_GamepadFaceDown) && IsItemHovered())
+    {
+        if(rsc.isDir)
+        {
+            shouldSetNewDir = true;
+            newDir = (rsc.name != "..") ? (currentDirectory_ / rsc.name) : currentDirectory_.parent_path();
+            SetKeyboardFocusHere(-1);
+        }
+        else if(!(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
+        {
+            selectedFilenames_ = { rsc.name };
+            isOk_ = true;
+            CloseCurrentPopup();
+        }
+    }
+}
+
+inline void ImGui::FileBrowser::HandleRecordContext(const FileRecord &rsc)
+{
+    if(rsc.isDir && rsc.name != ".." && BeginPopupContextItem())
+    {
+        const std::filesystem::path full = currentDirectory_ / rsc.name;
+        if(!HasQuickAccess(full))
+        {
+            if(MenuItem("Pin to Quick access"))
+            {
+                PinQuickAccess(full);
+            }
+        }
+        else
+        {
+            MenuItem("Pinned to Quick access", nullptr, false, false);
+        }
+        EndPopup();
+    }
+}
+
+inline void ImGui::FileBrowser::DisplayDetailsTable(
+    bool &shouldSetNewDir, std::filesystem::path &newDir)
+{
+    const ImGuiTableFlags tableFlags =
+        ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable |
+        ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
+        ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV;
+    if(!BeginTable("##files", 4, tableFlags, ImVec2(0.0f, 0.0f)))
+    {
+        return;
+    }
+    ScopeGuard endTable([] { EndTable(); });
+    TableSetupScrollFreeze(0, 1);
+    TableSetupColumn("Name",
+                     ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort |
+                         ImGuiTableColumnFlags_NoHide,
+                     0.0f, 0);
+    TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending,
+                     GetFontSize() * 5.5f, 1);
+    TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, GetFontSize() * 7.0f, 2);
+    TableSetupColumn("Date modified",
+                     ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending,
+                     GetFontSize() * 10.5f, 3);
+    TableHeadersRow();
+
+    if(ImGuiTableSortSpecs *sortSpecs = TableGetSortSpecs())
+    {
+        if(sortSpecs->SpecsDirty || needSort_)
+        {
+            SortFileRecords(sortSpecs);
+            sortSpecs->SpecsDirty = false;
+            needSort_ = false;
+        }
+    }
+    else if(needSort_)
+    {
+        SortFileRecords(nullptr);
+        needSort_ = false;
+    }
+
+    for(unsigned int rscIndex = 0; rscIndex < fileRecords_.size(); ++rscIndex)
+    {
+        const auto &rsc = fileRecords_[rscIndex];
+        if(!IsRecordVisible(rsc))
+        {
+            continue;
+        }
+
+        const bool selected = selectedFilenames_.find(rsc.name) != selectedFilenames_.end();
+
+#if IMGUI_VERSION_NUM >= 19100
+        const ImGuiSelectableFlags selectableFlag =
+            ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_SpanAllColumns;
+#else
+        const ImGuiSelectableFlags selectableFlag =
+            ImGuiSelectableFlags_DontClosePopups | ImGuiSelectableFlags_SpanAllColumns;
+#endif
+
+        TableNextRow();
+        if(static_cast<int>(rscIndex) == typeAheadIndex_ && !selected &&
+           GetTime() - typeAheadTime_ < 1.5)
+        {
+            TableSetBgColor(ImGuiTableBgTarget_RowBg1,
+                            GetColorU32(ImGuiCol_HeaderHovered, 0.35f));
+        }
+        TableSetColumnIndex(0);
+        if(Selectable(rsc.showName.c_str(), selected, selectableFlag))
+        {
+            HandleRecordSelection(rscIndex);
+        }
+        HandleRecordActivate(rsc, shouldSetNewDir, newDir);
+        HandleRecordContext(rsc);
+
+        if(typeAheadScroll_ && static_cast<int>(rscIndex) == typeAheadIndex_)
+        {
+            SetScrollHereY(0.35f);
+            typeAheadScroll_ = false;
+        }
+
+        TableSetColumnIndex(1);
+        if(!rsc.isDir && !rsc.sizeText.empty())
+        {
+            const float avail = GetContentRegionAvail().x;
+            const float tw = CalcTextSize(rsc.sizeText.c_str()).x;
+            if(tw < avail)
+            {
+                SetCursorPosX(GetCursorPosX() + avail - tw);
+            }
+            TextUnformatted(rsc.sizeText.c_str());
+        }
+        TableSetColumnIndex(2);
+        TextUnformatted(rsc.typeText.c_str());
+        TableSetColumnIndex(3);
+        TextUnformatted(rsc.dateText.c_str());
+    }
+}
+
+inline void ImGui::FileBrowser::DrawIconTile(
+    unsigned rscIndex, const ImVec2 &tileSize, const ImVec2 &thumbSize,
+    bool &shouldSetNewDir, std::filesystem::path &newDir)
+{
+    const FileRecord &rsc = fileRecords_[rscIndex];
+    const bool selected = selectedFilenames_.find(rsc.name) != selectedFilenames_.end();
+    const ImVec2 p0 = GetCursorScreenPos();
+
+#if IMGUI_VERSION_NUM >= 19100
+    const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_NoAutoClosePopups;
+#else
+    const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_DontClosePopups;
+#endif
+
+    PushID(static_cast<int>(rscIndex));
+    if(Selectable("##icon", selected, selectableFlag, tileSize))
+    {
+        HandleRecordSelection(rscIndex);
+    }
+    HandleRecordActivate(rsc, shouldSetNewDir, newDir);
+    HandleRecordContext(rsc);
+    if(typeAheadScroll_ && static_cast<int>(rscIndex) == typeAheadIndex_)
+    {
+        SetScrollHereY(0.35f);
+        typeAheadScroll_ = false;
+    }
+    PopID();
+
+    if(static_cast<int>(rscIndex) == typeAheadIndex_ && !selected &&
+       GetTime() - typeAheadTime_ < 1.5)
+    {
+        GetWindowDrawList()->AddRectFilled(
+            p0, ImVec2(p0.x + tileSize.x, p0.y + tileSize.y),
+            GetColorU32(ImGuiCol_HeaderHovered, 0.35f));
+    }
+
+    const float pad = GetStyle().ItemInnerSpacing.x;
+    const ImVec2 thumbMin(p0.x + pad, p0.y + pad);
+    const ImVec2 thumbMax(thumbMin.x + thumbSize.x, thumbMin.y + thumbSize.y);
+    ImTextureID tex = ImTextureID_Invalid;
+    if(!rsc.isDir && thumbnailProvider_)
+    {
+        tex = thumbnailProvider_(currentDirectory_ / rsc.name);
+    }
+
+    ImDrawList *dl = GetWindowDrawList();
+    if(tex != ImTextureID_Invalid)
+    {
+        dl->AddImage(ImTextureRef(tex), thumbMin, thumbMax);
+    }
+    else
+    {
+        const ImU32 fill = rsc.isDir
+            ? GetColorU32(ImVec4(0.82f, 0.70f, 0.32f, 0.85f))
+            : GetColorU32(ImVec4(0.35f, 0.38f, 0.42f, 0.85f));
+        dl->AddRectFilled(thumbMin, thumbMax, fill, 4.0f);
+        const char *label = rsc.isDir ? "DIR" : (rsc.typeText.empty() ? "FILE" : rsc.typeText.c_str());
+        const ImVec2 ts = CalcTextSize(label);
+        const ImVec2 tp(
+            thumbMin.x + (thumbSize.x - ts.x) * 0.5f,
+            thumbMin.y + (thumbSize.y - ts.y) * 0.5f);
+        dl->PushClipRect(thumbMin, thumbMax, true);
+        dl->AddText(tp, GetColorU32(ImGuiCol_Text), label);
+        dl->PopClipRect();
+    }
+
+    const ImVec2 nameMin(p0.x + pad, thumbMax.y + GetStyle().ItemInnerSpacing.y);
+    const ImVec2 nameMax(p0.x + tileSize.x - pad, p0.y + tileSize.y - pad);
+    dl->PushClipRect(nameMin, nameMax, true);
+    dl->AddText(nameMin, GetColorU32(ImGuiCol_Text), rsc.showName.c_str());
+    dl->PopClipRect();
+}
+
+inline void ImGui::FileBrowser::DisplayIconsGrid(
+    bool &shouldSetNewDir, std::filesystem::path &newDir)
+{
+    RebuildVisibleRecords();
+    if(visibleRecords_.empty())
+    {
+        return;
+    }
+
+    const float font = GetFontSize();
+    const float gap = GetStyle().ItemSpacing.x;
+    const float tileW = font * 5.5f;
+    const float thumb = tileW - GetStyle().ItemInnerSpacing.x * 2.0f;
+    const float nameH = font * 2.0f;
+    const float tileH = GetStyle().ItemInnerSpacing.y * 3.0f + thumb + nameH;
+    const float avail = GetContentRegionAvail().x;
+    int cols = static_cast<int>((avail + gap) / (tileW + gap));
+    if(cols < 1)
+    {
+        cols = 1;
+    }
+    const int count = static_cast<int>(visibleRecords_.size());
+    const int rows = (count + cols - 1) / cols;
+    const ImVec2 origin = GetCursorPos();
+
+    ImGuiListClipper clipper;
+    clipper.Begin(rows, tileH + gap);
+    if(typeAheadScroll_ && typeAheadIndex_ >= 0)
+    {
+        for(int i = 0; i < count; ++i)
+        {
+            if(static_cast<int>(visibleRecords_[static_cast<size_t>(i)]) == typeAheadIndex_)
+            {
+                clipper.IncludeItemByIndex(i / cols);
+                break;
+            }
+        }
+    }
+    while(clipper.Step())
+    {
+        for(int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+        {
+            for(int col = 0; col < cols; ++col)
+            {
+                const int vis = row * cols + col;
+                if(vis >= count)
+                {
+                    break;
+                }
+                SetCursorPos(ImVec2(origin.x + static_cast<float>(col) * (tileW + gap),
+                                    origin.y + static_cast<float>(row) * (tileH + gap)));
+                DrawIconTile(visibleRecords_[static_cast<size_t>(vis)],
+                             ImVec2(tileW, tileH), ImVec2(thumb, thumb),
+                             shouldSetNewDir, newDir);
+            }
+        }
+    }
+    SetCursorPos(ImVec2(origin.x, origin.y + static_cast<float>(rows) * (tileH + gap)));
 }
 
 inline bool ImGui::FileBrowser::HasQuickAccess(const std::filesystem::path &path) const

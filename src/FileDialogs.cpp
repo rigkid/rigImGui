@@ -34,6 +34,17 @@ FileDialogs::FileDialogs()
 	applyFileBrowserLayout(m_save);
 	installFileBrowserQuickAccess(m_open);
 	installFileBrowserQuickAccess(m_save);
+	const auto thumbs = [this](const std::filesystem::path& path) { return m_thumbs.get(path); };
+	m_open.SetThumbnailProvider(thumbs);
+	m_save.SetThumbnailProvider(thumbs);
+}
+
+FileDialogs::~FileDialogs() {
+	shutdown();
+}
+
+void FileDialogs::shutdown() {
+	m_thumbs.shutdown();
 }
 
 void FileDialogs::applyLayout() {
@@ -95,12 +106,18 @@ void FileDialogs::tick() {
 	}
 
 	ImGui::FileBrowser& browser = (m_mode == Mode::Open) ? m_open : m_save;
+	m_thumbs.tick();
 	browser.Display();
 
 	if (browser.ConsumePinnedQuickAccessChanged()) {
 		ImGui::FileBrowser& other = (m_mode == Mode::Open) ? m_save : m_open;
 		other.SetPinnedQuickAccess(browser.GetPinnedQuickAccess());
 		m_pinsChanged = true;
+	}
+	if (browser.ConsumeViewModeChanged()) {
+		ImGui::FileBrowser& other = (m_mode == Mode::Open) ? m_save : m_open;
+		other.SetViewMode(browser.GetViewMode());
+		m_viewChanged = true;
 	}
 
 	if (browser.HasSelected()) {
@@ -113,6 +130,7 @@ void FileDialogs::tick() {
 		m_callback = nullptr;
 		m_mode = Mode::None;
 		m_openedOnce = false;
+		m_thumbs.clear();
 		if (cb) {
 			cb(path);
 		}
@@ -122,6 +140,7 @@ void FileDialogs::tick() {
 		m_callback = nullptr;
 		m_mode = Mode::None;
 		m_openedOnce = false;
+		m_thumbs.clear();
 	} else {
 		// Menu ate the first OpenPopup - ask again next frame.
 		browser.Open();
@@ -155,6 +174,26 @@ bool FileDialogs::consumePinnedFoldersChanged() {
 	const bool changed = m_pinsChanged;
 	m_pinsChanged = false;
 	return changed;
+}
+
+void FileDialogs::setViewMode(ImGui::FileBrowser::ViewMode mode) {
+	m_open.SetViewMode(mode);
+	m_save.SetViewMode(mode);
+}
+
+ImGui::FileBrowser::ViewMode FileDialogs::viewMode() const {
+	return m_open.GetViewMode();
+}
+
+bool FileDialogs::consumeViewModeChanged() {
+	const bool changed = m_viewChanged;
+	m_viewChanged = false;
+	return changed;
+}
+
+void FileDialogs::registerThumbnailDecoder(const std::string& extension,
+										   IMui::FileThumbnailDecoder decoder) {
+	m_thumbs.registerDecoder(extension, std::move(decoder));
 }
 
 } // namespace rigkit
