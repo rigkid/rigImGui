@@ -1672,8 +1672,10 @@ inline void ImGui::FileBrowser::DisplayIconsGrid(
     }
     const int count = static_cast<int>(visibleRecords_.size());
     const int rows = (count + cols - 1) / cols;
-    const ImVec2 origin = GetCursorPos();
 
+    // One clipper item per row. SameLine places columns so we never SetCursorPos
+    // past the last submitted tile (ImGui 1.89+ rejects that without Dummy).
+    PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
     ImGuiListClipper clipper;
     clipper.Begin(rows, tileH + gap);
     if(typeAheadScroll_ && typeAheadIndex_ >= 0)
@@ -1698,15 +1700,17 @@ inline void ImGui::FileBrowser::DisplayIconsGrid(
                 {
                     break;
                 }
-                SetCursorPos(ImVec2(origin.x + static_cast<float>(col) * (tileW + gap),
-                                    origin.y + static_cast<float>(row) * (tileH + gap)));
+                if(col > 0)
+                {
+                    SameLine();
+                }
                 DrawIconTile(visibleRecords_[static_cast<size_t>(vis)],
                              ImVec2(tileW, tileH), ImVec2(thumb, thumb),
                              shouldSetNewDir, newDir);
             }
         }
     }
-    SetCursorPos(ImVec2(origin.x, origin.y + static_cast<float>(rows) * (tileH + gap)));
+    PopStyleVar();
 }
 
 inline bool ImGui::FileBrowser::HasQuickAccess(const std::filesystem::path &path) const

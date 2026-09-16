@@ -232,10 +232,17 @@ void ThumbnailCache::workerLoop() {
 
 void ThumbnailCache::destroyEntry(Entry& entry) {
 	if (entry.tex != 0) {
-		GLuint name = entry.tex;
-		glDeleteTextures(1, &name);
+		m_doomed.push_back(entry.tex);
 		entry.tex = 0;
 	}
+}
+
+void ThumbnailCache::flushDoomed() {
+	for (unsigned name : m_doomed) {
+		GLuint tex = name;
+		glDeleteTextures(1, &tex);
+	}
+	m_doomed.clear();
 }
 
 void ThumbnailCache::evictIfNeeded() {
@@ -285,6 +292,7 @@ void ThumbnailCache::tick() {
 	if (m_shutdown) {
 		return;
 	}
+	flushDoomed();
 
 	std::vector<Raster> ready;
 	{
@@ -353,6 +361,7 @@ void ThumbnailCache::shutdown() {
 	}
 	stopWorker();
 	clear();
+	flushDoomed();
 	m_shutdown = true;
 }
 

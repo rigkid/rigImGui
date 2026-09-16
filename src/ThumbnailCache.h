@@ -73,9 +73,11 @@ class ThumbnailCache {
 	void workerLoop();
 	void destroyEntry(Entry& entry);
 	void evictIfNeeded();
+	void flushDoomed();
 
 	std::unordered_map<std::string, Entry> m_entries;
 	std::vector<std::string> m_lru;
+	std::vector<unsigned> m_doomed;
 
 	mutable std::mutex m_mutex;
 	std::condition_variable m_cv;

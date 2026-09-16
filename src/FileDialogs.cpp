@@ -97,6 +97,8 @@ std::string FileDialogs::withSaveExtension(std::filesystem::path path) const {
 }
 
 void FileDialogs::tick() {
+	// Flush thumbs doomed last frame after ImGui has already rendered them.
+	m_thumbs.tick();
 	if (m_mode == Mode::None) {
 		return;
 	}
@@ -106,7 +108,6 @@ void FileDialogs::tick() {
 	}
 
 	ImGui::FileBrowser& browser = (m_mode == Mode::Open) ? m_open : m_save;
-	m_thumbs.tick();
 	browser.Display();
 
 	if (browser.ConsumePinnedQuickAccessChanged()) {
