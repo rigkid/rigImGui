@@ -2117,8 +2117,12 @@ void Mui::renderStatusBar() {
 		(m_statusBarHeight > 0.f) ? m_statusBarHeight : ImGui::GetFrameHeight();
 	ImVec2 pos = viewport->WorkPos;
 	pos.y += viewport->WorkSize.y - h;
-	ImGui::SetNextWindowPos(pos);
-	ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, h));
+	ImGuiWindowClass wc;
+	wc.ParentViewportId = viewport->ID;
+	ImGui::SetNextWindowClass(&wc);
+	ImGui::SetNextWindowViewport(viewport->ID);
+	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, h), ImGuiCond_Always);
 	ImGuiWindowFlags flags =
 		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
 		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |

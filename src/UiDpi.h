@@ -92,4 +92,27 @@ inline float chromeBarPadX() {
 	return chromeMenuBarCursorX() + static_cast<float>(static_cast<int>(s.ItemSpacing.x * 0.5f));
 }
 
+/** @brief Frame width of a text button, including padding. */
+inline float uiTextButtonWidth(const char* label) {
+	return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2.f;
+}
+
+/**
+ * @brief SameLine only when the rest of the row can hold @p nextWidth.
+ * @details Narrow docks clip SameLine buttons; stack them instead.
+ */
+inline bool uiSameLineIfFits(float nextWidth) {
+	const float spacing = ImGui::GetStyle().ItemSpacing.x;
+	if (ImGui::GetContentRegionAvail().x >= nextWidth + spacing) {
+		ImGui::SameLine();
+		return true;
+	}
+	return false;
+}
+
+/** @brief Remaining row width after reserving @p reserved (never below 1). */
+inline float uiWidthMinus(float reserved) {
+	return std::max(1.f, ImGui::GetContentRegionAvail().x - reserved);
+}
+
 } // namespace rigkit

@@ -60,7 +60,16 @@ void IWindow::render() {
 		m_focusOnShow = false;
 	}
 	if (ImGui::Begin(m_title.c_str(), &m_isOpen, m_windowFlags)) {
-		renderContents();
+		const float fh = footerHeight();
+		if (fh > 0.f) {
+			ImGui::BeginChild("##iwindow_body", ImVec2(0.f, -fh), ImGuiChildFlags_None,
+							  ImGuiWindowFlags_NoScrollbar);
+			renderContents();
+			ImGui::EndChild();
+			renderFooter();
+		} else {
+			renderContents();
+		}
 	}
 	ImGui::End();
 	if (!m_isOpen) {

@@ -44,6 +44,16 @@ class IWindow {
   protected:
 	// Derived classes only implement the window's UI here
 	virtual void renderContents() = 0;
+
+	/**
+	 * @brief Optional strip glued to this window's bottom edge.
+	 * @details Empty default. Override with footerHeight() > 0; IWindow then
+	 *          reserves that strip so contents cannot scroll it away.
+	 */
+	virtual void renderFooter() {}
+
+	/** @brief Reserved footer height in pixels. 0 = no footer (default). */
+	virtual float footerHeight() const { return 0.f; }
 	std::string m_title;
 	bool m_isOpen = true;
 	bool m_isVisible = true;
