@@ -1644,6 +1644,25 @@ void Mui::persistPinnedFolders() {
 	settings->saveToDisk();
 }
 
+std::vector<std::string> Mui::fileDialogPinnedFolders() const {
+	return m_fileDialogs.pinnedFolders();
+}
+
+void Mui::setFileDialogPinnedFolders(const std::vector<std::string> &paths) {
+	m_fileDialogs.setPinnedFolders(paths);
+	persistPinnedFolders();
+}
+
+std::string Mui::fileDialogView() const {
+	return m_fileDialogs.viewMode() == ImGui::FileBrowser::ViewMode::Icons ? "icons" : "details";
+}
+
+void Mui::setFileDialogView(const std::string &mode) {
+	m_fileDialogs.setViewMode(mode == "icons" ? ImGui::FileBrowser::ViewMode::Icons
+											 : ImGui::FileBrowser::ViewMode::Details);
+	persistFileBrowserView();
+}
+
 void Mui::loadFileBrowserViewFromSettings() {
 	if (!m_engine) {
 		return;

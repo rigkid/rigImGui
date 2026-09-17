@@ -269,6 +269,10 @@ class Mui : public IMui {
 						FileDialogCallback onSelected) override;
 	void saveFileDialog(const std::string &title, std::vector<std::string> filters,
 						FileDialogCallback onSelected) override;
+	std::vector<std::string> fileDialogPinnedFolders() const override;
+	void setFileDialogPinnedFolders(const std::vector<std::string> &paths) override;
+	std::string fileDialogView() const override;
+	void setFileDialogView(const std::string &mode) override;
 	void registerFileThumbnailDecoder(const std::string& extension,
 									  IMui::FileThumbnailDecoder decoder) override;
 
