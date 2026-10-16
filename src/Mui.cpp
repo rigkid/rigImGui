@@ -1943,6 +1943,11 @@ void Mui::installDefaultShortcuts() {
 	}
 	m_shortcuts.bind({"view.rulers", "Rulers", ImGuiKey_F2, false, false, false,
 					  [this] { m_rulersVisible = !m_rulersVisible; }});
+	m_shortcuts.bind({"view.fullscreen", "Full Screen", ImGuiKey_F11, false, false, false, [this] {
+						  if (m_engine) {
+							  m_engine->toggleFullscreen();
+						  }
+					  }});
 	m_shortcuts.bind({"tools.select", "Select", ImGuiKey_V, false, false, false,
 					  [this] { m_gizmoOp = GizmoOp::Select; }});
 	m_shortcuts.bind({"tools.move", "Move", ImGuiKey_W, false, false, false,

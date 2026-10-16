@@ -369,6 +369,13 @@ void HostMenuBar::renderViewMenu() {
 		ImGui::Separator();
 	}
 
+	if (m_engine) {
+		if (ImGui::MenuItem("Full Screen", "F11", m_engine->isFullscreen())) {
+			m_engine->toggleFullscreen();
+		}
+		ImGui::Separator();
+	}
+
 	if (m_engine && m_engine->getECSManager()) {
 		auto* ecs = m_engine->getECSManager();
 		ecs::CCamera* cam = nullptr;
