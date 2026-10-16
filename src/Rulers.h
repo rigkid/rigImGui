@@ -52,10 +52,11 @@ bool rulerHitStrip(ImVec2 origin, ImVec2 size, ImVec2 mouse, float uiScale = 1.f
  * @brief Draw top/left ruler strips over a screen region.
  * @param pixPerUnit Screen pixels per display unit.
  * @param contentOrigin Screen position of content (0,0) so ticks track pan/zoom.
+ * @param flipY Label the vertical strip y-up (font units, CAD) instead of screen-down.
  */
 void drawRulersInRegion(ImDrawList* dl, ImVec2 origin, ImVec2 size, ImVec2 mouse, float pixPerUnit,
 						const char* unitLabel, float uiScale = 1.f,
-						ImVec2 contentOrigin = ImVec2(0, 0));
+						ImVec2 contentOrigin = ImVec2(0, 0), bool flipY = false);
 
 /**
  * @brief Right-click unit picker popup (call every frame; OpenPopup when strip hit).

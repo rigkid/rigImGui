@@ -134,7 +134,7 @@ bool rulerHitStrip(ImVec2 origin, ImVec2 size, ImVec2 mouse, float uiScale) {
 }
 
 void drawRulersInRegion(ImDrawList* dl, ImVec2 origin, ImVec2 size, ImVec2 mouse, float pixPerUnit,
-						const char* unitLabel, float uiScale, ImVec2 contentOrigin) {
+						const char* unitLabel, float uiScale, ImVec2 contentOrigin, bool flipY) {
 	if (!dl || size.x < 8.f || size.y < 8.f || pixPerUnit <= 0.f) {
 		return;
 	}
@@ -186,7 +186,7 @@ void drawRulersInRegion(ImDrawList* dl, ImVec2 origin, ImVec2 size, ImVec2 mouse
 			continue;
 		}
 		dl->AddLine(ImVec2(origin.x + thick - 6.f, y), ImVec2(origin.x + thick, y), tick);
-		formatTick(label, sizeof(label), u, stepUnits, unitLabel, false);
+		formatTick(label, sizeof(label), (flipY && u != 0.f) ? -u : u, stepUnits, unitLabel, false);
 		dl->AddText(ImVec2(origin.x + 2.f, y + 2.f), text, label);
 	}
 
