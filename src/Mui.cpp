@@ -144,6 +144,9 @@ void Mui::initImGui() {
 #if defined(RIGKIT_GLES)
 	// Pi native GLES2 or desktop ANGLE - GLSL ES 1.00.
 	ImGui_ImplOpenGL3_Init("#version 100");
+#elif defined(__APPLE__)
+	// NSGL is core profile only. GLSL 130 needs the compatibility profile.
+	ImGui_ImplOpenGL3_Init("#version 150");
 #else
 	ImGui_ImplOpenGL3_Init("#version 130");
 #endif
@@ -1436,6 +1439,12 @@ ImGuiKey keyFromToken(std::string token) {
 	if (token == "SPACE") {
 		return ImGuiKey_Space;
 	}
+	if (token == "DELETE" || token == "DEL") {
+		return ImGuiKey_Delete;
+	}
+	if (token == "BACKSPACE") {
+		return ImGuiKey_Backspace;
+	}
 	return ImGuiKey_None;
 }
 
@@ -2013,7 +2022,9 @@ void Mui::renderProgressFloating() {
 	ImGuiViewport* vp = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f),
 							ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	// Fixed width so shorter step labels do not shrink the window each tick.
 	ImGui::SetNextWindowSize(ImVec2(420.f, 0.f), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSizeConstraints(ImVec2(420.f, 0.f), ImVec2(420.f, FLT_MAX));
 
 	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoCollapse |
 								   ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize;
@@ -2030,7 +2041,9 @@ void Mui::renderProgressFloating() {
 
 	ImGui::TextUnformatted(snap.title.c_str());
 	ImGui::ProgressBar(snap.progress, ImVec2(-1.f, 0.f));
-	ImGui::TextUnformatted(snap.label.c_str());
+	ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 400.f);
+	ImGui::TextWrapped("%s", snap.label.c_str());
+	ImGui::PopTextWrapPos();
 
 	if (snap.cancelable && snap.active) {
 		if (ImGui::Button("Cancel##rigProgressFloat", ImVec2(-1.f, 0.f))) {
