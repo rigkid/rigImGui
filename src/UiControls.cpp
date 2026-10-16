@@ -1,14 +1,14 @@
 #include "UiControls.h"
 
+#include "ecs/PropertyReflection.h"
 #include "CName.h"
 #include "CUiPanel.h"
 #include "EntityProperty.h"
 #include "PropEditors.h"
-#include "ecs/PropertyReflection.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
-#include <imgui.h>
 #include <string>
 #include <vector>
 
@@ -141,7 +141,8 @@ int drawUiPanelControls(MEcs& ecs, const char* role, const UiControlDrawHost& ho
 		}
 		rows.push_back({e, c.order});
 	}
-	std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.order < b.order; });
+	std::sort(rows.begin(), rows.end(),
+			  [](const Row& a, const Row& b) { return a.order < b.order; });
 	int drawn = 0;
 	for (const auto& row : rows) {
 		ImGui::PushID(static_cast<int>(entt::to_integral(row.e)));

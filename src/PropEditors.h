@@ -2,11 +2,11 @@
 
 #include "ecs/PropertyReflection.h"
 
-#include <cstdint>
-#include <functional>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
+#include <cstdint>
+#include <functional>
 #include <string>
 #include <variant>
 #include <vector>

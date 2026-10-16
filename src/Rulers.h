@@ -53,8 +53,8 @@ bool rulerHitStrip(ImVec2 origin, ImVec2 size, ImVec2 mouse, float uiScale = 1.f
  * @param pixPerUnit Screen pixels per display unit.
  * @param contentOrigin Screen position of content (0,0) so ticks track pan/zoom.
  */
-void drawRulersInRegion(ImDrawList* dl, ImVec2 origin, ImVec2 size, ImVec2 mouse,
-						float pixPerUnit, const char* unitLabel, float uiScale = 1.f,
+void drawRulersInRegion(ImDrawList* dl, ImVec2 origin, ImVec2 size, ImVec2 mouse, float pixPerUnit,
+						const char* unitLabel, float uiScale = 1.f,
 						ImVec2 contentOrigin = ImVec2(0, 0));
 
 /**

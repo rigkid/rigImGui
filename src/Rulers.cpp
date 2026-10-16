@@ -116,9 +116,7 @@ const char* rulerUnitLabel(RulerUnit unit) {
 	}
 }
 
-float rulerStripThickness(float uiScale) {
-	return 18.f * ((uiScale > 0.1f) ? uiScale : 1.f);
-}
+float rulerStripThickness(float uiScale) { return 18.f * ((uiScale > 0.1f) ? uiScale : 1.f); }
 
 bool rulerHitStrip(ImVec2 origin, ImVec2 size, ImVec2 mouse, float uiScale) {
 	if (size.x < 8.f || size.y < 8.f) {
@@ -135,9 +133,8 @@ bool rulerHitStrip(ImVec2 origin, ImVec2 size, ImVec2 mouse, float uiScale) {
 	return onTop || onLeft;
 }
 
-void drawRulersInRegion(ImDrawList* dl, ImVec2 origin, ImVec2 size, ImVec2 mouse,
-						float pixPerUnit, const char* unitLabel, float uiScale,
-						ImVec2 contentOrigin) {
+void drawRulersInRegion(ImDrawList* dl, ImVec2 origin, ImVec2 size, ImVec2 mouse, float pixPerUnit,
+						const char* unitLabel, float uiScale, ImVec2 contentOrigin) {
 	if (!dl || size.x < 8.f || size.y < 8.f || pixPerUnit <= 0.f) {
 		return;
 	}

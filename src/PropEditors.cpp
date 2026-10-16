@@ -3,11 +3,11 @@
 #include "ImGuiExpr.h"
 #include "SceneDragPayload.h"
 
+#include <glm/glm.hpp>
+#include <imgui.h>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <glm/glm.hpp>
-#include <imgui.h>
 #include <imgui_internal.h>
 #include <string>
 #include <vector>
@@ -150,9 +150,8 @@ bool dragExprDouble(const char* label, double* v) {
 		*v = out;
 		return true;
 	}
-	const bool changed =
-		ImGui::DragScalar(label, ImGuiDataType_Double, v, 0.1f, nullptr, nullptr, "%g",
-						  ImGuiSliderFlags_NoInput);
+	const bool changed = ImGui::DragScalar(label, ImGuiDataType_Double, v, 0.1f, nullptr, nullptr,
+										   "%g", ImGuiSliderFlags_NoInput);
 	char seed[64];
 	std::snprintf(seed, sizeof(seed), "%g", *v);
 	tryOpenExprFromLastItem(*v, seed);
@@ -280,8 +279,7 @@ std::vector<ScenePropPatchRequest> takeScenePropPatchRequests(const void* consum
 	return out;
 }
 
-void offerScenePropDrag(uint32_t entityId, const char* propName, int propType,
-						const void* ecsTag) {
+void offerScenePropDrag(uint32_t entityId, const char* propName, int propType, const void* ecsTag) {
 	if (entityId == kPropDragNoEntity) {
 		entityId = currentPropDragEntity();
 	}
@@ -369,8 +367,7 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType,
 		if (ImGui::MenuItem("Patch to Node Editor")) {
 			requestScenePropPatch(entityId, propName, propType, false, ecsTag);
 		}
-		const bool floatish = propType != EPT_VEC2 && propType != EPT_VEC4 &&
-							  propType != EPT_COLOR;
+		const bool floatish = propType != EPT_VEC2 && propType != EPT_VEC4 && propType != EPT_COLOR;
 		if (floatish && ImGui::MenuItem("Patch with LFO")) {
 			requestScenePropPatch(entityId, propName, propType, true, ecsTag);
 		}
@@ -498,15 +495,14 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 		const PropValue pre = onCommit ? readPropValue(prop) : PropValue{};
 		switch (prop.type) {
 		case EPT_BOOL:
-			anyChanged |=
-				ImGui::Checkbox(prop.name.c_str(), static_cast<bool*>(prop.data));
+			anyChanged |= ImGui::Checkbox(prop.name.c_str(), static_cast<bool*>(prop.data));
 			break;
 		case EPT_INT:
 			anyChanged |= dragExprInt(prop.name.c_str(), static_cast<int*>(prop.data));
 			break;
 		case EPT_ENUM: {
 			if (!prop.enumNames || prop.enumCount <= 0) {
-				// A control that lies is worse than one that looks broken  - 
+				// A control that lies is worse than one that looks broken  -
 				// show the misconfiguration instead of a raw draggable int.
 				ImGui::TextDisabled("%s (enum missing names)", prop.name.c_str());
 				break;
@@ -526,15 +522,14 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 			anyChanged |= dragExprInt(prop.name.c_str(), static_cast<int*>(prop.data));
 			break;
 		case EPT_FLOAT:
-			anyChanged |=
-				dragExprFloat(prop.name.c_str(), static_cast<float*>(prop.data), 0.1f);
+			anyChanged |= dragExprFloat(prop.name.c_str(), static_cast<float*>(prop.data), 0.1f);
 			break;
 		case EPT_DOUBLE:
 			anyChanged |= dragExprDouble(prop.name.c_str(), static_cast<double*>(prop.data));
 			break;
 		case EPT_STRING:
-			anyChanged |= ImGuiInputTextStdString(
-				prop.name.c_str(), *static_cast<std::string*>(prop.data));
+			anyChanged |=
+				ImGuiInputTextStdString(prop.name.c_str(), *static_cast<std::string*>(prop.data));
 			break;
 		case EPT_VEC2: {
 			auto* vec = static_cast<glm::vec2*>(prop.data);

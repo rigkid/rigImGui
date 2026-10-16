@@ -1,25 +1,22 @@
 #include "Mui.h"
 
-#include "core/pack/IPack.h"
-#include "core/pack/MPack.h"
+#include "rendering/U_gladGlfw.h"
+#include "imgui.h"
 #include "core/RigKitEngine.h"
 #include "core/RigKitVersion.h"
+#include "core/pack/IPack.h"
+#include "core/pack/MPack.h"
 #include "core/util/AppPaths.h"
 #include "core/util/MSettings.h"
 #include "core/util/UndoStack.h"
 #include "ecs/MEcs.h"
 #include "ecs/systems/SEvent.h"
-#include "rendering/U_gladGlfw.h"
 #include "CCamera.h"
 #include "COrbitDrive.h"
 #include "CTransform.h"
 #include "DebugPanel.h"
 #include "ExportPng.h"
 #include "Handle2D.h"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include "imgui_internal.h"
 #include "ImGuiStyleKit.h"
 #include "LayersWindow.h"
 #include "LogWindow.h"
@@ -33,6 +30,9 @@
 #include "UiDpi.h"
 #include "ViewportWindow.h"
 #include "WindowManagerPanel.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_internal.h"
 
 #include <algorithm>
 #include <cctype>
@@ -45,13 +45,13 @@
 
 namespace {
 
-std::string themeNameForPrefs(const std::string &resolved) {
+std::string themeNameForPrefs(const std::string& resolved) {
 	namespace fs = std::filesystem;
 	const std::string dirs[] = {
 		AppPaths::getThemesDir(),
 		AppPaths::joinPath(AppPaths::getDataDir(), "themes"),
 	};
-	for (const auto &dir : dirs) {
+	for (const auto& dir : dirs) {
 		std::error_code ec;
 		const fs::path rel = fs::relative(fs::path(resolved), fs::path(dir), ec);
 		const std::string relStr = rel.generic_string();
@@ -73,7 +73,7 @@ Mui::Mui() {
 
 Mui::~Mui() { shutdown(); }
 
-void Mui::setRigKitEngine(RigKitEngine *engine) {
+void Mui::setRigKitEngine(RigKitEngine* engine) {
 	m_engine = engine;
 	if (m_windowManager) {
 		m_windowManager->setEngine(engine);
@@ -89,7 +89,7 @@ void Mui::setRigKitEngine(RigKitEngine *engine) {
 		// Remember the last used workspace name; the first render restores
 		// the session autosave, or falls back to this snapshot when no
 		// session exists yet (queueStartupWorkspace()).
-		if (auto *settings = engine->getSettingsManager()) {
+		if (auto* settings = engine->getSettingsManager()) {
 			const json ws = settings->getValue("workspace");
 			if (ws.is_string()) {
 				m_currentWorkspace = ws.get<std::string>();
@@ -123,7 +123,7 @@ void Mui::initImGui() {
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO &io = ImGui::GetIO();
+	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigDragClickToInputText = true;
@@ -159,9 +159,9 @@ void Mui::initImGui() {
 
 	// Fonts then theme (prefs may re-apply in pack setup after
 	// registerPreferences).
-	ImGuiStyleKit::loadFonts(io, AppPaths::getFontsDir(), m_uiPrefs.fontFile,
-							 m_uiPrefs.fontSize, m_uiPrefs.fontWeight);
-	for (const auto &hook : m_fontAtlasHooks) {
+	ImGuiStyleKit::loadFonts(io, AppPaths::getFontsDir(), m_uiPrefs.fontFile, m_uiPrefs.fontSize,
+							 m_uiPrefs.fontWeight);
+	for (const auto& hook : m_fontAtlasHooks) {
 		if (hook) {
 			hook(*io.Fonts);
 		}
@@ -176,8 +176,7 @@ void Mui::initImGui() {
 	m_imguiReady = true;
 	loadChromeKernTable();
 	bindChromeKerning();
-	spdlog::info("[rigImGui] ImGui context ready (dpi scale {:.2f})",
-				 m_dpiScale);
+	spdlog::info("[rigImGui] ImGui context ready (dpi scale {:.2f})", m_dpiScale);
 }
 
 void Mui::shutdownImGui() {
@@ -200,7 +199,7 @@ void Mui::setupDockspace() {
 	// Host menu is BeginMainMenuBar() - do not also reserve a window MenuBar
 	// here (that left an empty strip under the real menu on every app).
 	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 	m_statusBarHeight = statusBarVisible() ? ImGui::GetFrameHeight() : 0.f;
 	ImVec2 dockPos = viewport->WorkPos;
 	ImVec2 dockSize = viewport->WorkSize;
@@ -212,8 +211,7 @@ void Mui::setupDockspace() {
 	ImGui::SetNextWindowViewport(viewport->ID);
 	window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
 					ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-					ImGuiWindowFlags_NoBringToFrontOnFocus |
-					ImGuiWindowFlags_NoNavFocus;
+					ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 	// Passthru central: DockSpace paints the hole; Begin must not fill over the
 	// GL bed.
 	if (m_dockPassthroughCentral) {
@@ -234,13 +232,12 @@ void Mui::setupDockspace() {
 	ImGuiDockNodeFlags dock_flags = ImGuiDockNodeFlags_None;
 	if (m_dockPassthroughCentral) {
 		// Empty center shows the GL bed; block panels from docking over it.
-		dock_flags |= ImGuiDockNodeFlags_PassthruCentralNode |
-					  ImGuiDockNodeFlags_NoDockingOverCentralNode;
+		dock_flags |=
+			ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode;
 	}
 	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dock_flags);
 	m_centralValid = false;
-	if (const ImGuiDockNode *central =
-			ImGui::DockBuilderGetCentralNode(dockspace_id)) {
+	if (const ImGuiDockNode* central = ImGui::DockBuilderGetCentralNode(dockspace_id)) {
 		if (central->Size.x > 1.f && central->Size.y > 1.f) {
 			m_centralX = central->Pos.x;
 			m_centralY = central->Pos.y;
@@ -280,7 +277,7 @@ void Mui::renderNotifications() {
 		return;
 	}
 
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 	const float pad = uiPx(28.f);
 	float prefW = m_uiPrefs.notificationWidth;
 	if (prefW < 160.f) {
@@ -289,8 +286,7 @@ void Mui::renderNotifications() {
 	if (prefW > 600.f) {
 		prefW = 600.f;
 	}
-	const float maxW =
-		std::min(uiPx(prefW), std::max(1.f, viewport->WorkSize.x - 2.f * pad));
+	const float maxW = std::min(uiPx(prefW), std::max(1.f, viewport->WorkSize.x - 2.f * pad));
 	const float maxH = std::max(1.f, viewport->WorkSize.y - 2.f * pad);
 
 	const ImVec2 anchor(viewport->WorkPos.x + viewport->WorkSize.x - pad,
@@ -298,14 +294,13 @@ void Mui::renderNotifications() {
 	ImGui::SetNextWindowPos(anchor, ImGuiCond_Always, ImVec2(1.f, 0.f));
 	ImGui::SetNextWindowSizeConstraints(ImVec2(0.f, 0.f), ImVec2(maxW, maxH));
 	ImGui::SetNextWindowBgAlpha(0.85f);
-	ImGuiWindowFlags flags =
-		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
-		ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoNav |
-		ImGuiWindowFlags_NoFocusOnAppearing;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+							 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoNav |
+							 ImGuiWindowFlags_NoFocusOnAppearing;
 
 	if (ImGui::Begin("##rigImGuiNotifications", nullptr, flags)) {
 		ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + maxW);
-		for (const auto &n : m_notifications) {
+		for (const auto& n : m_notifications) {
 			ImVec4 color(1.f, 1.f, 1.f, 1.f);
 			switch (n.type) {
 			case NotificationType::Success:
@@ -336,8 +331,7 @@ void Mui::renderModals() {
 
 		ImGui::OpenPopup(it->title.c_str());
 		bool open = it->open;
-		if (ImGui::BeginPopupModal(it->title.c_str(), &open,
-								   ImGuiWindowFlags_AlwaysAutoResize)) {
+		if (ImGui::BeginPopupModal(it->title.c_str(), &open, ImGuiWindowFlags_AlwaysAutoResize)) {
 			// Explicit wrap width - TextWrapped + AlwaysAutoResize otherwise
 			// stays tiny.
 			ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 400.f);
@@ -345,8 +339,7 @@ void Mui::renderModals() {
 			ImGui::PopTextWrapPos();
 			ImGui::Separator();
 			const float okW = 120.f;
-			ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
-								 ImGui::GetContentRegionAvail().x - okW);
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - okW);
 			if (ImGui::Button("OK", ImVec2(okW, 0))) {
 				if (it->onOk) {
 					it->onOk();
@@ -372,13 +365,12 @@ void Mui::renderAbout() {
 
 	ImGui::OpenPopup("About");
 	const ImVec2 want = uiClampToWork(uiSize(640.f, 680.f), 16.f);
-	const ImGuiViewport *vp = ImGui::GetMainViewport();
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
 	const float pad = uiPx(16.f);
-	const ImVec2 maxSz = vp ? ImVec2(std::max(1.f, vp->WorkSize.x - pad),
-									 std::max(1.f, vp->WorkSize.y - pad))
-							: want;
-	const ImVec2 minSz(std::min(uiPx(360.f), maxSz.x),
-					   std::min(uiPx(280.f), maxSz.y));
+	const ImVec2 maxSz =
+		vp ? ImVec2(std::max(1.f, vp->WorkSize.x - pad), std::max(1.f, vp->WorkSize.y - pad))
+		   : want;
+	const ImVec2 minSz(std::min(uiPx(360.f), maxSz.x), std::min(uiPx(280.f), maxSz.y));
 	ImGui::SetNextWindowSize(want, ImGuiCond_Appearing);
 	ImGui::SetNextWindowSizeConstraints(minSz, maxSz);
 	bool open = m_aboutOpen;
@@ -387,7 +379,7 @@ void Mui::renderAbout() {
 		ImGui::SameLine();
 		ImGui::TextDisabled("%s", rigkit::version());
 		ImGui::Spacing();
-		const std::string &intro = aboutIntro();
+		const std::string& intro = aboutIntro();
 		if (!intro.empty()) {
 			ImGui::TextWrapped("%s", intro.c_str());
 		} else {
@@ -395,21 +387,21 @@ void Mui::renderAbout() {
 			ImGui::Spacing();
 			ImGui::TextDisabled("MIT Rigkid Contributors");
 			if (m_engine && m_engine->getApp()) {
-				const IApp *app = m_engine->getApp();
-				const auto &appName = app->getAppName();
+				const IApp* app = m_engine->getApp();
+				const auto& appName = app->getAppName();
 				if (!appName.empty()) {
 					ImGui::Separator();
 					ImGui::TextUnformatted(appName.c_str());
-					const auto &appVer = app->getAppVersion();
+					const auto& appVer = app->getAppVersion();
 					if (!appVer.empty()) {
 						ImGui::SameLine();
 						ImGui::TextDisabled("%s", appVer.c_str());
 					}
-					const auto &appDesc = app->getAppDescription();
+					const auto& appDesc = app->getAppDescription();
 					if (!appDesc.empty()) {
 						ImGui::TextWrapped("%s", appDesc.c_str());
 					}
-					const auto &appLic = app->getAppLicense();
+					const auto& appLic = app->getAppLicense();
 					if (!appLic.empty()) {
 						ImGui::TextDisabled("%s", appLic.c_str());
 					}
@@ -419,16 +411,14 @@ void Mui::renderAbout() {
 		ImGui::Separator();
 		ImGui::TextUnformatted("Pack info");
 		const float footer = ImGui::GetFrameHeightWithSpacing();
-		if (ImGui::BeginChild("about_packs", ImVec2(0.f, -footer),
-							  ImGuiChildFlags_Borders)) {
+		if (ImGui::BeginChild("about_packs", ImVec2(0.f, -footer), ImGuiChildFlags_Borders)) {
 			if (m_engine && m_engine->getPackManager()) {
 				auto packs = m_engine->getPackManager()->getAllPacks();
 				std::sort(packs.begin(), packs.end(),
-						  [](const std::shared_ptr<IPack> &a,
-							 const std::shared_ptr<IPack> &b) {
+						  [](const std::shared_ptr<IPack>& a, const std::shared_ptr<IPack>& b) {
 							  return a->getName() < b->getName();
 						  });
-				for (const auto &pack : packs) {
+				for (const auto& pack : packs) {
 					if (!pack) {
 						continue;
 					}
@@ -440,18 +430,15 @@ void Mui::renderAbout() {
 					}
 					if (ImGui::CollapsingHeader(header.c_str())) {
 						ImGui::Indent();
-						const auto &desc = pack->getDescription();
+						const auto& desc = pack->getDescription();
 						if (!desc.empty()) {
 							ImGui::TextWrapped("%s", desc.c_str());
 							ImGui::Spacing();
 						}
 						std::string url = pack->getUrl();
 						if (url.empty()) {
-							url =
-								"https://github.com/rigkid/" + pack->getName();
-						} else if (url.size() > 4 &&
-								   url.compare(url.size() - 4, 4, ".git") ==
-									   0) {
+							url = "https://github.com/rigkid/" + pack->getName();
+						} else if (url.size() > 4 && url.compare(url.size() - 4, 4, ".git") == 0) {
 							url.resize(url.size() - 4);
 						}
 						ImGui::TextDisabled("URL");
@@ -472,8 +459,7 @@ void Mui::renderAbout() {
 		}
 		ImGui::EndChild();
 		const float okW = 120.f;
-		ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
-							 ImGui::GetContentRegionAvail().x - okW);
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - okW);
 		if (ImGui::Button("OK", ImVec2(okW, 0.f))) {
 			open = false;
 			ImGui::CloseCurrentPopup();
@@ -548,7 +534,7 @@ void Mui::render() {
 	renderAllWindows();
 	if (m_gizmoDrawer && m_engine) {
 		float gx = 0.f, gy = 0.f, gw = 0.f, gh = 0.f;
-		const ImGuiViewport *vp = ImGui::GetMainViewport();
+		const ImGuiViewport* vp = ImGui::GetMainViewport();
 		// Bed rect is the GL present only when the central dock shows through.
 		if (m_dockPassthroughCentral && centralViewRect(gx, gy, gw, gh)) {
 			gx += vp ? vp->Pos.x : 0.f;
@@ -582,7 +568,7 @@ void Mui::render() {
 	m_inImGuiFrame = false;
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-		GLFWwindow *backup = glfwGetCurrentContext();
+		GLFWwindow* backup = glfwGetCurrentContext();
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 		glfwMakeContextCurrent(backup);
@@ -590,7 +576,7 @@ void Mui::render() {
 	flushExportPng();
 }
 
-void Mui::setWindowVisibility(const std::string &windowName, bool visible) {
+void Mui::setWindowVisibility(const std::string& windowName, bool visible) {
 	if (m_windowManager) {
 		m_windowManager->setWindowVisible(windowName, visible);
 	}
@@ -607,28 +593,25 @@ void Mui::setWindowVisibilityAll(bool visible) {
 	}
 }
 
-bool Mui::getWindowVisibility(const std::string &windowName) const {
-	return m_windowManager ? m_windowManager->getWindowVisibility(windowName)
-						   : false;
+bool Mui::getWindowVisibility(const std::string& windowName) const {
+	return m_windowManager ? m_windowManager->getWindowVisibility(windowName) : false;
 }
 
 std::vector<std::string> Mui::getAllWindowNames() const {
-	return m_windowManager ? m_windowManager->getAllWindowNames()
-						   : std::vector<std::string>{};
+	return m_windowManager ? m_windowManager->getAllWindowNames() : std::vector<std::string>{};
 }
 
-MWindow *Mui::getWindowManager() { return m_windowManager.get(); }
+MWindow* Mui::getWindowManager() { return m_windowManager.get(); }
 
-const MWindow *Mui::getWindowManager() const { return m_windowManager.get(); }
+const MWindow* Mui::getWindowManager() const { return m_windowManager.get(); }
 
-bool Mui::centralViewRect(float &outX, float &outY, float &outW,
-						  float &outH) const {
+bool Mui::centralViewRect(float& outX, float& outY, float& outW, float& outH) const {
 	if (!m_centralValid) {
 		outX = outY = 0.f;
 		outW = outH = 0.f;
 		return false;
 	}
-	const ImGuiViewport *vp = ImGui::GetMainViewport();
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
 	const float originX = vp ? vp->Pos.x : 0.f;
 	const float originY = vp ? vp->Pos.y : 0.f;
 	outX = m_centralX - originX;
@@ -642,7 +625,7 @@ void Mui::applyDpiStyle() {
 	// ScaleAllSizes is multiplicative and lossy. Prefer a relative step from
 	// style._MainScale so applyTheme (colors-only) + applyUiPrefs does not
 	// compound WindowPadding on high-DPI (e.g. 2.25x to 5x).
-	ImGuiStyle &style = ImGui::GetStyle();
+	ImGuiStyle& style = ImGui::GetStyle();
 	style.FontScaleDpi = m_dpiScale;
 	const float cur = (style._MainScale > 0.01f) ? style._MainScale : 1.f;
 	const float factor = m_dpiScale / cur;
@@ -653,42 +636,38 @@ void Mui::applyDpiStyle() {
 
 void Mui::setImGuiTheme(ImGuiTheme theme) {
 	theme = clampImGuiTheme(static_cast<int>(theme));
-	const bool changed =
-		m_currentTheme != theme || m_uiPrefs.theme != static_cast<int>(theme);
+	const bool changed = m_currentTheme != theme || m_uiPrefs.theme != static_cast<int>(theme);
 	m_currentTheme = theme;
 	m_uiPrefs.theme = static_cast<int>(theme);
 	ImGuiStyleKit::applyTheme(theme);
 	if (!m_uiPrefs.themeFile.empty()) {
-		const std::string resolved =
-			ImGuiStyleKit::resolveThemePath(m_uiPrefs.themeFile);
+		const std::string resolved = ImGuiStyleKit::resolveThemePath(m_uiPrefs.themeFile);
 		if (!resolved.empty()) {
-			ImGuiStyleKit::loadStyleFromFile(resolved, ImGui::GetStyle(),
-											 nullptr);
+			ImGuiStyleKit::loadStyleFromFile(resolved, ImGui::GetStyle(), nullptr);
 		}
 	}
 	applyDpiStyle();
 	if (changed && m_engine) {
-		if (auto *settings = m_engine->getSettingsManager()) {
+		if (auto* settings = m_engine->getSettingsManager()) {
 			settings->markDirty();
 		}
 	}
 }
 
-bool Mui::saveCurrentTheme(const std::string &path, bool notify) {
+bool Mui::saveCurrentTheme(const std::string& path, bool notify) {
 	const std::string resolved =
 		ImGuiStyleKit::themePathForSave(path.empty() ? "custom.json" : path);
-	const bool ok = ImGuiStyleKit::saveStyleToFile(
-		resolved, ImGui::GetStyle(), static_cast<int>(m_currentTheme));
+	const bool ok = ImGuiStyleKit::saveStyleToFile(resolved, ImGui::GetStyle(),
+												   static_cast<int>(m_currentTheme));
 	if (ok) {
 		m_uiPrefs.themeFile = themeNameForPrefs(resolved);
 		if (m_engine) {
-			if (auto *settings = m_engine->getSettingsManager()) {
+			if (auto* settings = m_engine->getSettingsManager()) {
 				settings->markDirty();
 			}
 		}
 		if (notify) {
-			showNotification("Style saved: " + m_uiPrefs.themeFile,
-							 NotificationType::Success);
+			showNotification("Style saved: " + m_uiPrefs.themeFile, NotificationType::Success);
 		}
 	} else if (notify) {
 		showNotification("Failed to save style", NotificationType::Error);
@@ -696,19 +675,17 @@ bool Mui::saveCurrentTheme(const std::string &path, bool notify) {
 	return ok;
 }
 
-bool Mui::loadTheme(const std::string &path, bool notify) {
+bool Mui::loadTheme(const std::string& path, bool notify) {
 	const std::string resolved =
-		ImGuiStyleKit::resolveThemePath(path.empty() ? m_uiPrefs.themeFile
-													 : path);
+		ImGuiStyleKit::resolveThemePath(path.empty() ? m_uiPrefs.themeFile : path);
 	if (resolved.empty()) {
 		if (notify) {
-			showNotification("No style file specified",
-							 NotificationType::Warning);
+			showNotification("No style file specified", NotificationType::Warning);
 		}
 		return false;
 	}
 	int baseTheme = static_cast<int>(m_currentTheme);
-	ImGuiStyle &style = ImGui::GetStyle();
+	ImGuiStyle& style = ImGui::GetStyle();
 	if (!ImGuiStyleKit::loadStyleFromFile(resolved, style, &baseTheme)) {
 		if (notify) {
 			showNotification("Failed to load style", NotificationType::Error);
@@ -723,13 +700,12 @@ bool Mui::loadTheme(const std::string &path, bool notify) {
 	style._MainScale = (m_dpiScale > 0.01f) ? m_dpiScale : 1.f;
 	applyDpiStyle();
 	if (m_engine) {
-		if (auto *settings = m_engine->getSettingsManager()) {
+		if (auto* settings = m_engine->getSettingsManager()) {
 			settings->markDirty();
 		}
 	}
 	if (notify) {
-		showNotification("Style loaded: " + m_uiPrefs.themeFile,
-						 NotificationType::Success);
+		showNotification("Style loaded: " + m_uiPrefs.themeFile, NotificationType::Success);
 	}
 	return true;
 }
@@ -768,8 +744,7 @@ void Mui::applyUiPrefs() {
 }
 
 void Mui::syncProgressFromPrefs() {
-	const bool useBar =
-		m_uiPrefs.showStatusBar && m_uiPrefs.progressUseStatusBar;
+	const bool useBar = m_uiPrefs.showStatusBar && m_uiPrefs.progressUseStatusBar;
 	m_progress.setUseStatusBar(useBar);
 	m_progress.setAutoHideDelay(m_uiPrefs.progressAutoHideSeconds);
 }
@@ -783,12 +758,11 @@ bool Mui::reloadFonts() {
 		m_pendingFontReload = true;
 		return true;
 	}
-	ImGuiIO &io = ImGui::GetIO();
+	ImGuiIO& io = ImGui::GetIO();
 	io.Fonts->Clear();
-	const bool ok = ImGuiStyleKit::loadFonts(
-		io, AppPaths::getFontsDir(), m_uiPrefs.fontFile, m_uiPrefs.fontSize,
-		m_uiPrefs.fontWeight);
-	for (const auto &hook : m_fontAtlasHooks) {
+	const bool ok = ImGuiStyleKit::loadFonts(io, AppPaths::getFontsDir(), m_uiPrefs.fontFile,
+											 m_uiPrefs.fontSize, m_uiPrefs.fontWeight);
+	for (const auto& hook : m_fontAtlasHooks) {
 		if (hook) {
 			hook(*io.Fonts);
 		}
@@ -804,11 +778,10 @@ bool Mui::reloadFonts() {
 }
 
 void Mui::loadChromeKernTable() {
-	const std::string ttf = ImGuiStyleKit::resolveBodyFontPath(
-		AppPaths::getFontsDir(), m_uiPrefs.fontFile);
+	const std::string ttf =
+		ImGuiStyleKit::resolveBodyFontPath(AppPaths::getFontsDir(), m_uiPrefs.fontFile);
 	if (!ttf.empty() && m_ttfKern.loadFromFile(ttf)) {
-		spdlog::info("[rigImGui] Chrome kern table: {} pairs from {}",
-					 m_ttfKern.pairCount(), ttf);
+		spdlog::info("[rigImGui] Chrome kern table: {} pairs from {}", m_ttfKern.pairCount(), ttf);
 		return;
 	}
 	m_ttfKern.clear();
@@ -821,7 +794,7 @@ void Mui::setChromeKerning(bool enabled) {
 	}
 }
 
-void Mui::setChromeKernFn(ChromeKernFn fn, void *user) {
+void Mui::setChromeKernFn(ChromeKernFn fn, void* user) {
 	m_chromeKernFn = fn;
 	m_chromeKernUser = user;
 	if (m_imguiReady) {
@@ -831,10 +804,9 @@ void Mui::setChromeKernFn(ChromeKernFn fn, void *user) {
 
 namespace {
 
-float chromeKernFromTtf(ImFont *font, ImWchar left, ImWchar right, float size,
-						void *user) {
+float chromeKernFromTtf(ImFont* font, ImWchar left, ImWchar right, float size, void* user) {
 	(void)font;
-	return static_cast<TtfKern *>(user)->pairPx(left, right, size);
+	return static_cast<TtfKern*>(user)->pairPx(left, right, size);
 }
 
 } // namespace
@@ -843,8 +815,8 @@ void Mui::bindChromeKerning() {
 	if (!m_imguiReady) {
 		return;
 	}
-	ImGuiIO &io = ImGui::GetIO();
-	ImFont *font = io.FontDefault;
+	ImGuiIO& io = ImGui::GetIO();
+	ImFont* font = io.FontDefault;
 	if (!font && io.Fonts && io.Fonts->Fonts.Size > 0) {
 		font = io.Fonts->Fonts[0];
 	}
@@ -857,14 +829,13 @@ void Mui::bindChromeKerning() {
 		return;
 	}
 	if (m_chromeKernFn) {
-		font->KerningFn = [](ImFont *, ImWchar left, ImWchar right, float size,
-							 void *user) -> float {
-			auto *self = static_cast<Mui *>(user);
+		font->KerningFn = [](ImFont*, ImWchar left, ImWchar right, float size,
+							 void* user) -> float {
+			auto* self = static_cast<Mui*>(user);
 			if (!self || !self->m_chromeKernFn) {
 				return 0.f;
 			}
-			return self->m_chromeKernFn(left, right, size,
-										self->m_chromeKernUser);
+			return self->m_chromeKernFn(left, right, size, self->m_chromeKernUser);
 		};
 		font->KerningUserData = this;
 		return;
@@ -878,7 +849,7 @@ void Mui::bindChromeKerning() {
 	font->KerningUserData = nullptr;
 }
 
-void Mui::registerFontAtlasHook(std::function<void(ImFontAtlas &atlas)> hook) {
+void Mui::registerFontAtlasHook(std::function<void(ImFontAtlas& atlas)> hook) {
 	if (hook) {
 		m_fontAtlasHooks.push_back(std::move(hook));
 	}
@@ -892,7 +863,7 @@ namespace {
 // Workspace names become filenames; keep them portable. "imgui" is the
 // session autosave; "Standard" is the seeded default (deletable only by
 // wiping the file on disk - deleteWorkspace refuses it).
-bool workspaceNameValid(const std::string &name) {
+bool workspaceNameValid(const std::string& name) {
 	if (name.empty() || name == "imgui") {
 		return false;
 	}
@@ -904,15 +875,14 @@ bool workspaceNameValid(const std::string &name) {
 	return true;
 }
 
-std::filesystem::path workspaceIniPath(const std::string &name) {
-	return std::filesystem::path(AppPaths::getWorkspacesDir()) /
-		   (name + ".ini");
+std::filesystem::path workspaceIniPath(const std::string& name) {
+	return std::filesystem::path(AppPaths::getWorkspacesDir()) / (name + ".ini");
 }
 
 // Windows filesystems match "bruno" to "Bruno.ini", case-sensitive hosts (Pi)
 // do not. Resolve to the on-disk casing so both agree on one workspace and
 // the menu checkmark matches workspaceNames().
-std::string resolveWorkspaceCase(const std::string &name) {
+std::string resolveWorkspaceCase(const std::string& name) {
 	if (name.empty()) {
 		return name;
 	}
@@ -921,16 +891,15 @@ std::string resolveWorkspaceCase(const std::string &name) {
 	if (ec) {
 		return name;
 	}
-	for (const auto &entry : it) {
+	for (const auto& entry : it) {
 		if (!entry.is_regular_file(ec) || entry.path().extension() != ".ini") {
 			continue;
 		}
 		const std::string stem = entry.path().stem().string();
-		if (stem.size() == name.size() &&
-			std::equal(stem.begin(), stem.end(), name.begin(),
-					   [](unsigned char a, unsigned char b) {
-						   return std::tolower(a) == std::tolower(b);
-					   })) {
+		if (stem.size() == name.size() && std::equal(stem.begin(), stem.end(), name.begin(),
+													 [](unsigned char a, unsigned char b) {
+														 return std::tolower(a) == std::tolower(b);
+													 })) {
 			return stem;
 		}
 	}
@@ -939,7 +908,7 @@ std::string resolveWorkspaceCase(const std::string &name) {
 
 // True when an ini file holds real state (any `[Section]` header). A missing
 // or comment-only file (the old shipped default) counts as no session.
-bool iniFileHasSections(const std::string &path) {
+bool iniFileHasSections(const std::string& path) {
 	std::ifstream in(path);
 	std::string line;
 	while (std::getline(in, line)) {
@@ -951,9 +920,8 @@ bool iniFileHasSections(const std::string &path) {
 }
 } // namespace
 
-void Mui::RigVisibility_ClearAll(ImGuiContext *,
-								 ImGuiSettingsHandler *handler) {
-	auto *ui = static_cast<Mui *>(handler->UserData);
+void Mui::RigVisibility_ClearAll(ImGuiContext*, ImGuiSettingsHandler* handler) {
+	auto* ui = static_cast<Mui*>(handler->UserData);
 	if (!ui) {
 		return;
 	}
@@ -962,9 +930,8 @@ void Mui::RigVisibility_ClearAll(ImGuiContext *,
 	ui->m_applyPendingVisibility = false;
 }
 
-void Mui::RigVisibility_ReadInit(ImGuiContext *,
-								 ImGuiSettingsHandler *handler) {
-	auto *ui = static_cast<Mui *>(handler->UserData);
+void Mui::RigVisibility_ReadInit(ImGuiContext*, ImGuiSettingsHandler* handler) {
+	auto* ui = static_cast<Mui*>(handler->UserData);
 	if (!ui) {
 		return;
 	}
@@ -972,9 +939,8 @@ void Mui::RigVisibility_ReadInit(ImGuiContext *,
 	ui->m_rigVisibilitySectionSeen = false;
 }
 
-void *Mui::RigVisibility_ReadOpen(ImGuiContext *, ImGuiSettingsHandler *handler,
-								  const char *name) {
-	auto *ui = static_cast<Mui *>(handler->UserData);
+void* Mui::RigVisibility_ReadOpen(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name) {
+	auto* ui = static_cast<Mui*>(handler->UserData);
 	if (!ui || !name || strcmp(name, "Windows") != 0) {
 		return nullptr;
 	}
@@ -983,13 +949,13 @@ void *Mui::RigVisibility_ReadOpen(ImGuiContext *, ImGuiSettingsHandler *handler,
 	return ui;
 }
 
-void Mui::RigVisibility_ReadLine(ImGuiContext *, ImGuiSettingsHandler *,
-								 void *entry, const char *line) {
-	auto *ui = static_cast<Mui *>(entry);
+void Mui::RigVisibility_ReadLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry,
+								 const char* line) {
+	auto* ui = static_cast<Mui*>(entry);
 	if (!ui || !line || !line[0]) {
 		return;
 	}
-	const char *eq = strrchr(line, '=');
+	const char* eq = strrchr(line, '=');
 	if (!eq || eq == line) {
 		return;
 	}
@@ -1003,23 +969,22 @@ void Mui::RigVisibility_ReadLine(ImGuiContext *, ImGuiSettingsHandler *,
 	}
 }
 
-void Mui::RigVisibility_ApplyAll(ImGuiContext *,
-								 ImGuiSettingsHandler *handler) {
-	auto *ui = static_cast<Mui *>(handler->UserData);
+void Mui::RigVisibility_ApplyAll(ImGuiContext*, ImGuiSettingsHandler* handler) {
+	auto* ui = static_cast<Mui*>(handler->UserData);
 	if (!ui || !ui->m_rigVisibilitySectionSeen) {
 		return;
 	}
 	ui->m_applyPendingVisibility = true;
 }
 
-void Mui::RigVisibility_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler,
-								 ImGuiTextBuffer *out_buf) {
-	auto *ui = static_cast<Mui *>(handler->UserData);
+void Mui::RigVisibility_WriteAll(ImGuiContext*, ImGuiSettingsHandler* handler,
+								 ImGuiTextBuffer* out_buf) {
+	auto* ui = static_cast<Mui*>(handler->UserData);
 	if (!ui || !ui->getWindowManager() || !out_buf) {
 		return;
 	}
 	out_buf->appendf("[%s][Windows]\n", handler->TypeName);
-	for (const auto &name : ui->getWindowManager()->getAllWindowNames()) {
+	for (const auto& name : ui->getWindowManager()->getAllWindowNames()) {
 		const bool visible = ui->getWindowManager()->getWindowVisibility(name);
 		out_buf->appendf("%s=%d\n", name.c_str(), visible ? 1 : 0);
 	}
@@ -1040,7 +1005,7 @@ void Mui::registerVisibilitySettingsHandler() {
 	ImGui::AddSettingsHandler(&handler);
 }
 
-bool Mui::workspaceFileExists(const std::string &name) {
+bool Mui::workspaceFileExists(const std::string& name) {
 	std::error_code ec;
 	return std::filesystem::exists(workspaceIniPath(name), ec);
 }
@@ -1077,7 +1042,7 @@ void Mui::applyPendingWindowVisibility() {
 	// Apply the saved state per window. Windows the ini has never seen (added
 	// to the app after the session was saved) keep their app-chosen
 	// visibility instead of being hidden by the blanket hide-all.
-	for (const auto &name : m_windowManager->getAllWindowNames()) {
+	for (const auto& name : m_windowManager->getAllWindowNames()) {
 		const auto it = m_pendingVisibility.find(name);
 		if (it != m_pendingVisibility.end()) {
 			m_windowManager->setWindowVisible(name, it->second);
@@ -1095,8 +1060,7 @@ void Mui::maybeSeedStandardWorkspace() {
 		m_standardSeedAttempted = true;
 		return;
 	}
-	ImGuiDockNode *node =
-		m_dockspaceId ? ImGui::DockBuilderGetNode(m_dockspaceId) : nullptr;
+	ImGuiDockNode* node = m_dockspaceId ? ImGui::DockBuilderGetNode(m_dockspaceId) : nullptr;
 	if (!node || !node->IsSplitNode()) {
 		return; // Wait until a builder (or restored ini) settles a split.
 	}
@@ -1104,7 +1068,7 @@ void Mui::maybeSeedStandardWorkspace() {
 	saveWorkspace(kStandardWorkspace, false);
 }
 
-bool Mui::saveWorkspace(const std::string &name, bool notify) {
+bool Mui::saveWorkspace(const std::string& name, bool notify) {
 	if (!m_imguiReady || !workspaceNameValid(name)) {
 		return false;
 	}
@@ -1117,21 +1081,19 @@ bool Mui::saveWorkspace(const std::string &name, bool notify) {
 	ImGui::SaveIniSettingsToDisk(path.string().c_str());
 	if (!std::filesystem::exists(path, ec)) {
 		if (notify) {
-			showNotification("Could not save workspace: " + resolved,
-							 NotificationType::Error);
+			showNotification("Could not save workspace: " + resolved, NotificationType::Error);
 		}
 		return false;
 	}
 	m_currentWorkspace = resolved;
 	persistCurrentWorkspace();
 	if (notify) {
-		showNotification("Workspace saved: " + resolved,
-						 NotificationType::Success);
+		showNotification("Workspace saved: " + resolved, NotificationType::Success);
 	}
 	return true;
 }
 
-bool Mui::loadWorkspace(const std::string &name, bool notify) {
+bool Mui::loadWorkspace(const std::string& name, bool notify) {
 	if (!workspaceNameValid(name)) {
 		return false;
 	}
@@ -1140,8 +1102,7 @@ bool Mui::loadWorkspace(const std::string &name, bool notify) {
 	std::error_code ec;
 	if (!std::filesystem::exists(path, ec)) {
 		if (notify) {
-			showNotification("Workspace not found: " + resolved,
-							 NotificationType::Warning);
+			showNotification("Workspace not found: " + resolved, NotificationType::Warning);
 		}
 		return false;
 	}
@@ -1153,14 +1114,13 @@ bool Mui::loadWorkspace(const std::string &name, bool notify) {
 	return true;
 }
 
-bool Mui::deleteWorkspace(const std::string &name) {
+bool Mui::deleteWorkspace(const std::string& name) {
 	const std::string resolved = resolveWorkspaceCase(name);
 	if (!workspaceNameValid(resolved) || resolved == kStandardWorkspace) {
 		return false;
 	}
 	std::error_code ec;
-	const bool removed =
-		std::filesystem::remove(workspaceIniPath(resolved), ec);
+	const bool removed = std::filesystem::remove(workspaceIniPath(resolved), ec);
 	if (m_currentWorkspace == resolved) {
 		m_currentWorkspace.clear();
 		persistCurrentWorkspace();
@@ -1175,7 +1135,7 @@ std::vector<std::string> Mui::workspaceNames() const {
 	if (ec) {
 		return names;
 	}
-	for (const auto &entry : it) {
+	for (const auto& entry : it) {
 		if (!entry.is_regular_file(ec) || entry.path().extension() != ".ini") {
 			continue;
 		}
@@ -1192,7 +1152,7 @@ void Mui::persistCurrentWorkspace() {
 	if (!m_engine) {
 		return;
 	}
-	auto *settings = m_engine->getSettingsManager();
+	auto* settings = m_engine->getSettingsManager();
 	if (!settings) {
 		return;
 	}
@@ -1200,7 +1160,7 @@ void Mui::persistCurrentWorkspace() {
 	settings->saveToDisk();
 }
 
-const char *Mui::hostPanelTitle(HostPanel panel) {
+const char* Mui::hostPanelTitle(HostPanel panel) {
 	switch (panel) {
 	case HostPanel::Log:
 		return "Log";
@@ -1230,7 +1190,7 @@ std::shared_ptr<IWindow> Mui::ensureHostPanel(HostPanel panel) {
 	if (!m_windowManager) {
 		return nullptr;
 	}
-	const char *title = hostPanelTitle(panel);
+	const char* title = hostPanelTitle(panel);
 	if (auto existing = m_windowManager->getWindow<IWindow>(title)) {
 		return existing;
 	}
@@ -1238,8 +1198,7 @@ std::shared_ptr<IWindow> Mui::ensureHostPanel(HostPanel panel) {
 	std::shared_ptr<IWindow> window;
 	switch (panel) {
 	case HostPanel::Log: {
-		auto log = m_windowManager->createWindow<LogWindow>(
-			title, ImGuiWindowFlags_MenuBar);
+		auto log = m_windowManager->createWindow<LogWindow>(title, ImGuiWindowFlags_MenuBar);
 		if (log) {
 			log->setupSpdlogSink();
 		}
@@ -1247,8 +1206,7 @@ std::shared_ptr<IWindow> Mui::ensureHostPanel(HostPanel panel) {
 		break;
 	}
 	case HostPanel::Windows:
-		window = m_windowManager->createWindow<WindowManagerPanel>(
-			title, m_windowManager.get());
+		window = m_windowManager->createWindow<WindowManagerPanel>(title, m_windowManager.get());
 		break;
 	case HostPanel::Debug:
 		window = m_windowManager->createWindow<DebugPanel>(title);
@@ -1310,13 +1268,12 @@ void Mui::addAllHostPanels() {
 		HostPanel panel;
 		bool visible;
 	} defaults[] = {
-		{HostPanel::Log, true},		  {HostPanel::Windows, true},
-		{HostPanel::Debug, false},	  {HostPanel::Properties, true},
-		{HostPanel::Scene, true},	  {HostPanel::Layers, true},
-		{HostPanel::Viewport, false}, {HostPanel::Shortcuts, false},
-		{HostPanel::Theme, false},	  {HostPanel::Preferences, false},
+		{HostPanel::Log, true},			 {HostPanel::Windows, true},	{HostPanel::Debug, false},
+		{HostPanel::Properties, true},	 {HostPanel::Scene, true},		{HostPanel::Layers, true},
+		{HostPanel::Viewport, false},	 {HostPanel::Shortcuts, false}, {HostPanel::Theme, false},
+		{HostPanel::Preferences, false},
 	};
-	for (const auto &row : defaults) {
+	for (const auto& row : defaults) {
 		if (auto window = ensureHostPanel(row.panel)) {
 			window->setVisible(row.visible);
 		}
@@ -1325,16 +1282,13 @@ void Mui::addAllHostPanels() {
 	if (!m_dockLayoutBuilder && !workspaceFileExists(kStandardWorkspace)) {
 		setFirstRunHostDockLayout();
 	}
-	spdlog::info(
-		"[rigImGui] Host panels ready (Log, Windows, Debug, Properties, "
-		"Scene, Layers, Viewport, Shortcuts, Theme, Preferences)");
+	spdlog::info("[rigImGui] Host panels ready (Log, Windows, Debug, Properties, "
+				 "Scene, Layers, Viewport, Shortcuts, Theme, Preferences)");
 }
 
-void Mui::setFirstRunHostDockLayout(
-	std::vector<std::string> extraRightWindows) {
-	m_dockLayoutBuilder = [this, extras = std::move(extraRightWindows)](
-							  ImGuiID dockspaceId) {
-		ImGuiDockNode *node = ImGui::DockBuilderGetNode(dockspaceId);
+void Mui::setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows) {
+	m_dockLayoutBuilder = [this, extras = std::move(extraRightWindows)](ImGuiID dockspaceId) {
+		ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspaceId);
 		if (!node) {
 			return; // DockSpace not created yet
 		}
@@ -1344,27 +1298,23 @@ void Mui::setFirstRunHostDockLayout(
 			return;
 		}
 
-		const ImGuiViewport *vp = ImGui::GetMainViewport();
+		const ImGuiViewport* vp = ImGui::GetMainViewport();
 		ImGui::DockBuilderRemoveNode(dockspaceId);
 		ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
 		ImGui::DockBuilderSetNodeSize(dockspaceId, vp->WorkSize);
 
 		ImGuiID left = 0, center = 0, right = 0, bottom = 0;
-		ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.22f, &left,
-									&center);
+		ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.22f, &left, &center);
 		// Right strip holds Properties (+ app extras like Show Control /
 		// ColorEdit).
-		ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.36f, &right,
-									&center);
-		ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.28f, &bottom,
-									&center);
+		ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.36f, &right, &center);
+		ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.28f, &bottom, &center);
 
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Scene), left);
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Layers), left);
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Windows), left);
-		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Properties),
-									 right);
-		for (const auto &title : extras) {
+		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Properties), right);
+		for (const auto& title : extras) {
 			ImGui::DockBuilderDockWindow(title.c_str(), right);
 		}
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Log), bottom);
@@ -1377,8 +1327,7 @@ void Mui::setFirstRunHostDockLayout(
 
 void Mui::showPreferences() { addHostPanel(HostPanel::Preferences); }
 
-void Mui::showNotification(const std::string &message, NotificationType type,
-						   float duration) {
+void Mui::showNotification(const std::string& message, NotificationType type, float duration) {
 	float seconds = duration;
 	if (seconds < 0.f) {
 		seconds = m_uiPrefs.notificationSeconds;
@@ -1389,20 +1338,18 @@ void Mui::showNotification(const std::string &message, NotificationType type,
 	m_notifications.push_back({message, type, seconds});
 }
 
-void Mui::showModal(const std::string &title, const std::string &message,
-					NotificationType type, std::function<void()> onOk) {
+void Mui::showModal(const std::string& title, const std::string& message, NotificationType type,
+					std::function<void()> onOk) {
 	m_modals.push_back({title, message, type, std::move(onOk), true});
 }
 
 void Mui::showAbout() { m_aboutOpen = true; }
 
 namespace {
-constexpr const char *kEditModeStatus = "Edit Mode";
+constexpr const char* kEditModeStatus = "Edit Mode";
 }
 
-bool Mui::editModeEnabled() const {
-	return m_engine && m_engine->editModeEnabled();
-}
+bool Mui::editModeEnabled() const { return m_engine && m_engine->editModeEnabled(); }
 
 void Mui::setEditMode(bool on) {
 	if (!editModeEnabled()) {
@@ -1411,58 +1358,46 @@ void Mui::setEditMode(bool on) {
 	m_editMode = on;
 }
 
-void Mui::openFileDialog(const std::string &title,
-						 std::vector<std::string> filters,
+void Mui::openFileDialog(const std::string& title, std::vector<std::string> filters,
 						 FileDialogCallback onSelected) {
 	m_fileDialogs.open(title, std::move(filters), std::move(onSelected));
 }
 
-void Mui::saveFileDialog(const std::string &title,
-						 std::vector<std::string> filters,
+void Mui::saveFileDialog(const std::string& title, std::vector<std::string> filters,
 						 FileDialogCallback onSelected) {
 	m_fileDialogs.save(title, std::move(filters), std::move(onSelected));
 }
 
 void Mui::registerFileThumbnailDecoder(const std::string& extension,
-									  IMui::FileThumbnailDecoder decoder) {
+									   IMui::FileThumbnailDecoder decoder) {
 	m_fileDialogs.registerThumbnailDecoder(extension, std::move(decoder));
 }
 
-void Mui::registerFileAction(const std::string &label,
-							 std::function<void()> action,
-							 const std::string &shortcut) {
-	m_fileActions.push_back(
-		FileMenuAction{label, shortcut, std::move(action), false});
+void Mui::registerFileAction(const std::string& label, std::function<void()> action,
+							 const std::string& shortcut) {
+	m_fileActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
 }
 
-void Mui::registerFileSubmenu(const std::string &label,
-							  std::function<void()> drawContents) {
-	m_fileActions.push_back(
-		FileMenuAction{label, {}, std::move(drawContents), true});
+void Mui::registerFileSubmenu(const std::string& label, std::function<void()> drawContents) {
+	m_fileActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
 }
 
-void Mui::registerAppAction(const std::string &label,
-							std::function<void()> action,
-							const std::string &shortcut) {
-	m_appActions.push_back(
-		FileMenuAction{label, shortcut, std::move(action), false});
+void Mui::registerAppAction(const std::string& label, std::function<void()> action,
+							const std::string& shortcut) {
+	m_appActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
 }
 
-void Mui::registerAppSubmenu(const std::string &label,
-							 std::function<void()> drawContents) {
-	m_appActions.push_back(
-		FileMenuAction{label, {}, std::move(drawContents), true});
+void Mui::registerAppSubmenu(const std::string& label, std::function<void()> drawContents) {
+	m_appActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
 }
 
-void Mui::registerViewSubmenu(const std::string &label,
-							  std::function<void()> drawContents) {
-	m_viewActions.push_back(
-		FileMenuAction{label, {}, std::move(drawContents), true});
+void Mui::registerViewSubmenu(const std::string& label, std::function<void()> drawContents) {
+	m_viewActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
 }
 
-void Mui::registerViewAction(const std::string &label, std::function<void()> action,
-							 const std::string &shortcut) {
-	for (auto &row : m_viewActions) {
+void Mui::registerViewAction(const std::string& label, std::function<void()> action,
+							 const std::string& shortcut) {
+	for (auto& row : m_viewActions) {
 		if (!row.submenu && row.label == label) {
 			row.shortcut = shortcut;
 			row.action = std::move(action);
@@ -1475,7 +1410,7 @@ void Mui::registerViewAction(const std::string &label, std::function<void()> act
 namespace {
 
 ImGuiKey keyFromToken(std::string token) {
-	for (char &c : token) {
+	for (char& c : token) {
 		if (c >= 'a' && c <= 'z') {
 			c = static_cast<char>(c - 'a' + 'A');
 		}
@@ -1504,8 +1439,7 @@ ImGuiKey keyFromToken(std::string token) {
 	return ImGuiKey_None;
 }
 
-bool parseMenuChord(const std::string &text, ImGuiKey &key, bool &ctrl, bool &shift,
-					bool &alt) {
+bool parseMenuChord(const std::string& text, ImGuiKey& key, bool& ctrl, bool& shift, bool& alt) {
 	ctrl = false;
 	shift = false;
 	alt = false;
@@ -1519,7 +1453,7 @@ bool parseMenuChord(const std::string &text, ImGuiKey &key, bool &ctrl, bool &sh
 			return;
 		}
 		std::string lower = token;
-		for (char &c : lower) {
+		for (char& c : lower) {
 			if (c >= 'A' && c <= 'Z') {
 				c = static_cast<char>(c - 'A' + 'a');
 			}
@@ -1548,8 +1482,8 @@ bool parseMenuChord(const std::string &text, ImGuiKey &key, bool &ctrl, bool &sh
 
 } // namespace
 
-void Mui::registerShortcut(const std::string &id, const std::string &label,
-						   const std::string &chord, std::function<void()> action) {
+void Mui::registerShortcut(const std::string& id, const std::string& label,
+						   const std::string& chord, std::function<void()> action) {
 	installDefaultShortcuts();
 	ImGuiKey key = ImGuiKey_None;
 	bool ctrl = false;
@@ -1564,7 +1498,7 @@ void Mui::loadRecentFilesFromSettings() {
 	if (!m_engine) {
 		return;
 	}
-	auto *settings = m_engine->getSettingsManager();
+	auto* settings = m_engine->getSettingsManager();
 	if (!settings) {
 		return;
 	}
@@ -1572,7 +1506,7 @@ void Mui::loadRecentFilesFromSettings() {
 	if (!j.is_array()) {
 		return;
 	}
-	for (const auto &entry : j) {
+	for (const auto& entry : j) {
 		if (!entry.is_string()) {
 			continue;
 		}
@@ -1591,12 +1525,12 @@ void Mui::persistRecentFiles() {
 	if (!m_engine) {
 		return;
 	}
-	auto *settings = m_engine->getSettingsManager();
+	auto* settings = m_engine->getSettingsManager();
 	if (!settings) {
 		return;
 	}
 	json arr = json::array();
-	for (const auto &path : m_recentFiles) {
+	for (const auto& path : m_recentFiles) {
 		arr.push_back(path);
 	}
 	settings->setValue("recentFiles", arr);
@@ -1607,7 +1541,7 @@ void Mui::loadPinnedFoldersFromSettings() {
 	if (!m_engine) {
 		return;
 	}
-	auto *settings = m_engine->getSettingsManager();
+	auto* settings = m_engine->getSettingsManager();
 	if (!settings) {
 		return;
 	}
@@ -1616,7 +1550,7 @@ void Mui::loadPinnedFoldersFromSettings() {
 		return;
 	}
 	std::vector<std::string> paths;
-	for (const auto &entry : j) {
+	for (const auto& entry : j) {
 		if (!entry.is_string()) {
 			continue;
 		}
@@ -1632,12 +1566,12 @@ void Mui::persistPinnedFolders() {
 	if (!m_engine) {
 		return;
 	}
-	auto *settings = m_engine->getSettingsManager();
+	auto* settings = m_engine->getSettingsManager();
 	if (!settings) {
 		return;
 	}
 	json arr = json::array();
-	for (const auto &path : m_fileDialogs.pinnedFolders()) {
+	for (const auto& path : m_fileDialogs.pinnedFolders()) {
 		arr.push_back(path);
 	}
 	settings->setValue("pinnedFolders", arr);
@@ -1648,7 +1582,7 @@ std::vector<std::string> Mui::fileDialogPinnedFolders() const {
 	return m_fileDialogs.pinnedFolders();
 }
 
-void Mui::setFileDialogPinnedFolders(const std::vector<std::string> &paths) {
+void Mui::setFileDialogPinnedFolders(const std::vector<std::string>& paths) {
 	m_fileDialogs.setPinnedFolders(paths);
 	persistPinnedFolders();
 }
@@ -1657,9 +1591,9 @@ std::string Mui::fileDialogView() const {
 	return m_fileDialogs.viewMode() == ImGui::FileBrowser::ViewMode::Icons ? "icons" : "details";
 }
 
-void Mui::setFileDialogView(const std::string &mode) {
+void Mui::setFileDialogView(const std::string& mode) {
 	m_fileDialogs.setViewMode(mode == "icons" ? ImGui::FileBrowser::ViewMode::Icons
-											 : ImGui::FileBrowser::ViewMode::Details);
+											  : ImGui::FileBrowser::ViewMode::Details);
 	persistFileBrowserView();
 }
 
@@ -1667,7 +1601,7 @@ void Mui::loadFileBrowserViewFromSettings() {
 	if (!m_engine) {
 		return;
 	}
-	auto *settings = m_engine->getSettingsManager();
+	auto* settings = m_engine->getSettingsManager();
 	if (!settings) {
 		return;
 	}
@@ -1687,33 +1621,30 @@ void Mui::persistFileBrowserView() {
 	if (!m_engine) {
 		return;
 	}
-	auto *settings = m_engine->getSettingsManager();
+	auto* settings = m_engine->getSettingsManager();
 	if (!settings) {
 		return;
 	}
-	const char *mode =
+	const char* mode =
 		m_fileDialogs.viewMode() == ImGui::FileBrowser::ViewMode::Icons ? "icons" : "details";
 	settings->setValue("fileBrowserView", mode);
 	settings->saveToDisk();
 }
 
-void Mui::noteRecentFile(const std::string &path) {
+void Mui::noteRecentFile(const std::string& path) {
 	if (path.empty()) {
 		return;
 	}
 	std::error_code ec;
 	std::filesystem::path fp(path);
-	const std::string stored =
-		std::filesystem::weakly_canonical(fp, ec).string();
+	const std::string stored = std::filesystem::weakly_canonical(fp, ec).string();
 	const std::string key = ec ? path : stored;
-	m_recentFiles.erase(
-		std::remove(m_recentFiles.begin(), m_recentFiles.end(), key),
-		m_recentFiles.end());
+	m_recentFiles.erase(std::remove(m_recentFiles.begin(), m_recentFiles.end(), key),
+						m_recentFiles.end());
 	// Also drop any non-canonical duplicate of the same path.
 	if (key != path) {
-		m_recentFiles.erase(
-			std::remove(m_recentFiles.begin(), m_recentFiles.end(), path),
-			m_recentFiles.end());
+		m_recentFiles.erase(std::remove(m_recentFiles.begin(), m_recentFiles.end(), path),
+							m_recentFiles.end());
 	}
 	m_recentFiles.insert(m_recentFiles.begin(), key);
 	if (static_cast<int>(m_recentFiles.size()) > kMaxRecentFiles) {
@@ -1730,21 +1661,18 @@ void Mui::clearRecentFiles() {
 	persistRecentFiles();
 }
 
-void Mui::setRecentFileOpenHandler(
-	std::function<void(const std::string &path)> handler) {
+void Mui::setRecentFileOpenHandler(std::function<void(const std::string& path)> handler) {
 	m_recentOpenHandler = std::move(handler);
 }
 
-void Mui::registerExportAction(const std::string &label,
-							   std::function<void()> action) {
+void Mui::registerExportAction(const std::string& label, std::function<void()> action) {
 	m_exportActions.emplace_back(label, std::move(action));
 }
 
-void Mui::registerToolAction(const std::string &id, const std::string &label,
-							 const std::string &shortcut,
-							 std::function<bool()> isActive,
+void Mui::registerToolAction(const std::string& id, const std::string& label,
+							 const std::string& shortcut, std::function<bool()> isActive,
 							 std::function<void()> action) {
-	for (auto &row : m_toolActions) {
+	for (auto& row : m_toolActions) {
 		if (row.id == id) {
 			row.label = label;
 			row.shortcut = shortcut;
@@ -1753,15 +1681,13 @@ void Mui::registerToolAction(const std::string &id, const std::string &label,
 			return;
 		}
 	}
-	m_toolActions.push_back(ToolMenuAction{
-		id, label, shortcut, std::move(isActive), std::move(action)});
+	m_toolActions.push_back(
+		ToolMenuAction{id, label, shortcut, std::move(isActive), std::move(action)});
 }
 
-void Mui::registerEditAction(const std::string &label,
-							 const std::string &shortcut,
-							 std::function<bool()> isEnabled,
-							 std::function<void()> action) {
-	for (auto &row : m_editActions) {
+void Mui::registerEditAction(const std::string& label, const std::string& shortcut,
+							 std::function<bool()> isEnabled, std::function<void()> action) {
+	for (auto& row : m_editActions) {
 		if (row.label == label) {
 			row.shortcut = shortcut;
 			row.isEnabled = std::move(isEnabled);
@@ -1769,36 +1695,33 @@ void Mui::registerEditAction(const std::string &label,
 			return;
 		}
 	}
-	m_editActions.push_back(EditMenuAction{
-		label, shortcut, std::move(isEnabled), std::move(action)});
+	m_editActions.push_back(
+		EditMenuAction{label, shortcut, std::move(isEnabled), std::move(action)});
 }
 
-void Mui::registerEditSubmenu(const std::string &label,
-							  std::function<void()> drawContents,
+void Mui::registerEditSubmenu(const std::string& label, std::function<void()> drawContents,
 							  std::function<bool()> isEnabled) {
-	for (auto &row : m_editActions) {
+	for (auto& row : m_editActions) {
 		if (row.submenu && row.label == label) {
 			row.isEnabled = std::move(isEnabled);
 			row.action = std::move(drawContents);
 			return;
 		}
 	}
-	m_editActions.push_back(EditMenuAction{
-		label, {}, std::move(isEnabled), std::move(drawContents), true});
+	m_editActions.push_back(
+		EditMenuAction{label, {}, std::move(isEnabled), std::move(drawContents), true});
 }
 
-void Mui::registerPreferencesDrawer(const std::string &id,
-									const std::string &label,
-									std::function<void()> draw,
-									const std::string &group) {
+void Mui::registerPreferencesDrawer(const std::string& id, const std::string& label,
+									std::function<void()> draw, const std::string& group) {
 	unregisterPreferencesDrawer(id);
 	m_preferencesDrawers.push_back({id, label, std::move(draw), group});
 }
 
-void Mui::unregisterPreferencesDrawer(const std::string &id) {
+void Mui::unregisterPreferencesDrawer(const std::string& id) {
 	m_preferencesDrawers.erase(
 		std::remove_if(m_preferencesDrawers.begin(), m_preferencesDrawers.end(),
-					   [&](const PreferencesDrawer &d) { return d.id == id; }),
+					   [&](const PreferencesDrawer& d) { return d.id == id; }),
 		m_preferencesDrawers.end());
 }
 
@@ -1809,8 +1732,8 @@ void Mui::flushExportPng() {
 		return;
 	}
 	m_exportPngPending = false;
-	const std::string path = exportFramebufferPng(
-		m_engine->getFramebufferWidth(), m_engine->getFramebufferHeight());
+	const std::string path =
+		exportFramebufferPng(m_engine->getFramebufferWidth(), m_engine->getFramebufferHeight());
 	if (path.empty()) {
 		showNotification("Export PNG failed", NotificationType::Error);
 	} else {
@@ -1840,8 +1763,7 @@ float pixelsPerWorldCmAtFocus(MEcs* ecs, float viewW, float viewH) {
 	if (ecs->hasComponent<ecs::COrbitDrive>(cam)) {
 		focus = ecs->getComponent<ecs::COrbitDrive>(cam).target;
 	}
-	const glm::mat4 vp =
-		optics.projectionMatrix(viewW / viewH) * ecs::CCamera::viewMatrix(xf);
+	const glm::mat4 vp = optics.projectionMatrix(viewW / viewH) * ecs::CCamera::viewMatrix(xf);
 	const glm::vec3 right = glm::normalize(glm::vec3(xf.world[0]));
 	auto toView = [&](const glm::vec3& p, glm::vec2& out) {
 		const glm::vec4 clip = vp * glm::vec4(p, 1.f);
@@ -1863,7 +1785,7 @@ float pixelsPerWorldCmAtFocus(MEcs* ecs, float viewW, float viewH) {
 } // namespace
 
 void Mui::renderMainViewOverlays() {
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 	ImVec2 origin = viewport->WorkPos;
 	ImVec2 size = viewport->WorkSize;
 	if (m_statusBarHeight > 0.f && size.y > m_statusBarHeight) {
@@ -1887,16 +1809,16 @@ void Mui::renderMainViewOverlays() {
 		} else {
 			float worldCm = 0.f;
 			if (m_engine) {
-				worldCm = pixelsPerWorldCmAtFocus(m_engine->getECSManager(), rulerSize.x,
-												  rulerSize.y);
+				worldCm =
+					pixelsPerWorldCmAtFocus(m_engine->getECSManager(), rulerSize.x, rulerSize.y);
 			}
 			ppu = rulerPixPerWorldCm(unit, worldCm, m_dpiScale);
 		}
 		const ImVec2 mouse = ImGui::GetIO().MousePos;
 		const float thick = rulerStripThickness(m_dpiScale);
 		ImDrawList* dl = ImGui::GetBackgroundDrawList(const_cast<ImGuiViewport*>(viewport));
-		drawRulersInRegion(dl, rulerOrigin, rulerSize, mouse, ppu, rulerUnitLabel(unit),
-						   m_dpiScale, contentOrigin);
+		drawRulersInRegion(dl, rulerOrigin, rulerSize, mouse, ppu, rulerUnitLabel(unit), m_dpiScale,
+						   contentOrigin);
 
 		// Host for strip hits + unit popup (DockSpace already ended). Pass
 		// through clicks outside the bands so docked panels stay interactive.
@@ -1906,11 +1828,9 @@ void Mui::renderMainViewOverlays() {
 		ImGui::SetNextWindowViewport(viewport->ID);
 		ImGuiWindowFlags hitFlags =
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
-			ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground |
-			ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-			ImGuiWindowFlags_NoScrollWithMouse |
-			ImGuiWindowFlags_NoBringToFrontOnFocus |
-			ImGuiWindowFlags_NoFocusOnAppearing;
+			ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
+			ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing;
 		if (!onStrip) {
 			hitFlags |= ImGuiWindowFlags_NoInputs;
 		}
@@ -1919,17 +1839,15 @@ void Mui::renderMainViewOverlays() {
 		ImGui::InvisibleButton("##ruler_top", uiHitSize(ImVec2(rulerSize.x, thick)));
 		const bool topClick = ImGui::IsItemClicked(ImGuiMouseButton_Right);
 		ImGui::SetCursorScreenPos(rulerOrigin);
-		ImGui::InvisibleButton("##ruler_left",
-							   uiHitSize(ImVec2(thick, rulerSize.y)));
+		ImGui::InvisibleButton("##ruler_left", uiHitSize(ImVec2(thick, rulerSize.y)));
 		const bool leftClick = ImGui::IsItemClicked(ImGuiMouseButton_Right);
 		if (topClick || leftClick) {
 			ImGui::OpenPopup("##RulerUnits");
 		}
 		if (rulerUnitPopup("##RulerUnits", m_uiPrefs.rulerUnit)) {
-			m_uiPrefs.rulerUnit =
-				static_cast<int>(clampRulerUnit(m_uiPrefs.rulerUnit));
+			m_uiPrefs.rulerUnit = static_cast<int>(clampRulerUnit(m_uiPrefs.rulerUnit));
 			if (m_engine) {
-				if (auto *settings = m_engine->getSettingsManager()) {
+				if (auto* settings = m_engine->getSettingsManager()) {
 					settings->markDirty();
 				}
 			}
@@ -1956,7 +1874,7 @@ void Mui::renderMainViewOverlays() {
 			bed = ImVec2(m_centralX, m_centralY);
 			bedSize = ImVec2(m_centralW, m_centralH);
 		}
-		for (auto &ov : m_viewportOverlays) {
+		for (auto& ov : m_viewportOverlays) {
 			if (ov.draw) {
 				ov.draw(bed.x, bed.y, bedSize.x, bedSize.y);
 			}
@@ -1977,9 +1895,10 @@ void Mui::removeViewportOverlay(int id) {
 	if (id == 0) {
 		return;
 	}
-	m_viewportOverlays.erase(std::remove_if(m_viewportOverlays.begin(), m_viewportOverlays.end(),
-											[id](const ViewportOverlay &ov) { return ov.id == id; }),
-							 m_viewportOverlays.end());
+	m_viewportOverlays.erase(
+		std::remove_if(m_viewportOverlays.begin(), m_viewportOverlays.end(),
+					   [id](const ViewportOverlay& ov) { return ov.id == id; }),
+		m_viewportOverlays.end());
 }
 
 void Mui::installDefaultShortcuts() {
@@ -1992,28 +1911,26 @@ void Mui::installDefaultShortcuts() {
 		if (!m_engine) {
 			return;
 		}
-		if (auto *settings = m_engine->getSettingsManager()) {
+		if (auto* settings = m_engine->getSettingsManager()) {
 			settings->setValue("shortcuts", m_shortcuts.exportOverrides());
 		}
 	});
 
-	m_shortcuts.bind(
-		{"edit.undo", "Undo", ImGuiKey_Z, true, false, false, [this] {
-			 if (m_undoStack && m_undoStack->canUndo()) {
-				 m_undoStack->undo();
-			 }
-		 }});
-	m_shortcuts.bind(
-		{"edit.redo", "Redo", ImGuiKey_Y, true, false, false, [this] {
-			 if (m_undoStack && m_undoStack->canRedo()) {
-				 m_undoStack->redo();
-			 }
-		 }});
+	m_shortcuts.bind({"edit.undo", "Undo", ImGuiKey_Z, true, false, false, [this] {
+						  if (m_undoStack && m_undoStack->canUndo()) {
+							  m_undoStack->undo();
+						  }
+					  }});
+	m_shortcuts.bind({"edit.redo", "Redo", ImGuiKey_Y, true, false, false, [this] {
+						  if (m_undoStack && m_undoStack->canRedo()) {
+							  m_undoStack->redo();
+						  }
+					  }});
 	// Opt-in is a setup()-time call, so it is already settled by the first
 	// frame.
 	if (editModeEnabled()) {
-		m_shortcuts.bind({"view.edit_mode", kEditModeStatus, ImGuiKey_E, true,
-						  false, false, [this] { setEditMode(!m_editMode); }});
+		m_shortcuts.bind({"view.edit_mode", kEditModeStatus, ImGuiKey_E, true, false, false,
+						  [this] { setEditMode(!m_editMode); }});
 	}
 	m_shortcuts.bind({"view.rulers", "Rulers", ImGuiKey_F2, false, false, false,
 					  [this] { m_rulersVisible = !m_rulersVisible; }});
@@ -2027,7 +1944,7 @@ void Mui::installDefaultShortcuts() {
 					  [this] { m_gizmoOp = GizmoOp::Scale; }});
 
 	if (m_engine) {
-		if (auto *settings = m_engine->getSettingsManager()) {
+		if (auto* settings = m_engine->getSettingsManager()) {
 			m_shortcuts.importOverrides(settings->getValue("shortcuts"));
 		}
 	}
@@ -2046,8 +1963,7 @@ std::string Mui::fpsStatusText() const {
 		return "FPS --";
 	}
 	char buf[32];
-	std::snprintf(buf, sizeof(buf), "FPS %.0f",
-				  static_cast<double>(m_fpsShown));
+	std::snprintf(buf, sizeof(buf), "FPS %.0f", static_cast<double>(m_fpsShown));
 	return buf;
 }
 
@@ -2071,8 +1987,7 @@ void Mui::drawProgressInStatusBar(bool sameLine) {
 	ImGui::TextUnformatted(snap.title.c_str());
 	ImGui::SameLine(0, 10.f);
 
-	const float barW =
-		std::max(160.f, ImGui::GetContentRegionAvail().x * 0.42f);
+	const float barW = std::max(160.f, ImGui::GetContentRegionAvail().x * 0.42f);
 	ImGui::ProgressBar(snap.progress, ImVec2(barW, 0.f));
 
 	ImGui::SameLine(0, 10.f);
@@ -2095,15 +2010,13 @@ void Mui::renderProgressFloating() {
 		return;
 	}
 
-	ImGuiViewport *vp = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(
-		ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f),
-		ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	ImGuiViewport* vp = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f),
+							ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(420.f, 0.f), ImGuiCond_Appearing);
 
-	const ImGuiWindowFlags flags =
-		ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoCollapse |
-		ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize;
+	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoCollapse |
+								   ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize;
 	bool open = true;
 	if (!ImGui::Begin("Progress###rigProgressFloat", &open, flags)) {
 		ImGui::End();
@@ -2131,9 +2044,8 @@ void Mui::renderStatusBar() {
 	if (!statusBarVisible()) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	const float h =
-		(m_statusBarHeight > 0.f) ? m_statusBarHeight : ImGui::GetFrameHeight();
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const float h = (m_statusBarHeight > 0.f) ? m_statusBarHeight : ImGui::GetFrameHeight();
 	ImVec2 pos = viewport->WorkPos;
 	pos.y += viewport->WorkSize.y - h;
 	ImGuiWindowClass wc;
@@ -2142,12 +2054,11 @@ void Mui::renderStatusBar() {
 	ImGui::SetNextWindowViewport(viewport->ID);
 	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, h), ImGuiCond_Always);
-	ImGuiWindowFlags flags =
-		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |
-		ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+							 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |
+							 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing;
 
-	const ImGuiStyle &style = ImGui::GetStyle();
+	const ImGuiStyle& style = ImGui::GetStyle();
 	const float padX = chromeBarPadX();
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
@@ -2157,11 +2068,10 @@ void Mui::renderStatusBar() {
 		// FrameBorderSize).
 		{
 			const ImVec2 p = ImGui::GetWindowPos();
-			const float borderSz =
-				(style.FrameBorderSize > 0.f) ? style.FrameBorderSize : 1.f;
-			ImGui::GetWindowDrawList()->AddLine(
-				ImVec2(p.x, p.y), ImVec2(p.x + ImGui::GetWindowWidth(), p.y),
-				ImGui::GetColorU32(ImGuiCol_Border), borderSz);
+			const float borderSz = (style.FrameBorderSize > 0.f) ? style.FrameBorderSize : 1.f;
+			ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x, p.y),
+												ImVec2(p.x + ImGui::GetWindowWidth(), p.y),
+												ImGui::GetColorU32(ImGuiCol_Border), borderSz);
 		}
 
 		bool leftDrawn = false;
@@ -2187,7 +2097,7 @@ void Mui::renderStatusBar() {
 
 		float right = 0.f;
 		for (size_t i = 0; i < m_statusBar.slots().size(); ++i) {
-			const auto &slot = m_statusBar.slots()[i];
+			const auto& slot = m_statusBar.slots()[i];
 			if (slot.width > 0.f) {
 				right += slot.width;
 			} else if (slot.text && !slot.draw) {
@@ -2205,12 +2115,11 @@ void Mui::renderStatusBar() {
 			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - right);
 		}
 		for (size_t i = 0; i < m_statusBar.slots().size(); ++i) {
-			const auto &slot = m_statusBar.slots()[i];
+			const auto& slot = m_statusBar.slots()[i];
 			if (slot.draw) {
 				slot.draw();
 			} else {
-				const std::string text =
-					slot.text ? slot.text() : std::string{};
+				const std::string text = slot.text ? slot.text() : std::string{};
 				ImGui::TextUnformatted(text.c_str());
 			}
 			if (i + 1 < m_statusBar.slots().size()) {
