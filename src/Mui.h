@@ -181,19 +181,21 @@ class Mui : public IMui {
 	 * @param notify When true, show a success/error notification.
 	 * @return False when the name is invalid or the file could not be written.
 	 */
-	bool saveWorkspace(const std::string& name, bool notify = true);
+	bool saveWorkspace(const std::string& name, bool notify = true) override;
 	/**
 	 * @brief Apply a saved workspace at the next frame boundary.
 	 * @details Restores dock layout and, when the file has `[RigVisibility]`,
 	 * hides every registered window then shows only those marked visible.
+	 * Files without `[Docking]` keep that visibility swap and run the
+	 * workspace dock seed registered via `setWorkspaceDockBuilder`.
 	 * @param notify When true, warn if the workspace file is missing.
 	 * @return False when the name is invalid or no such workspace exists.
 	 */
-	bool loadWorkspace(const std::string& name, bool notify = true);
+	bool loadWorkspace(const std::string& name, bool notify = true) override;
 	/// Remove a saved workspace. `Standard` and session `imgui` cannot be deleted.
 	bool deleteWorkspace(const std::string& name);
 	/// Active workspace name; empty when the session layout is unnamed.
-	const std::string& currentWorkspace() const { return m_currentWorkspace; }
+	std::string currentWorkspace() const override { return m_currentWorkspace; }
 	/// Saved workspace names, sorted (session `imgui.ini` excluded).
 	std::vector<std::string> workspaceNames() const;
 	/// Built-in default workspace name (seeded once from the first settled layout).
@@ -246,6 +248,24 @@ class Mui : public IMui {
 	 */
 	void setDockLayoutBuilder(std::function<void(ImGuiID dockspaceId)> fn) {
 		m_dockLayoutBuilder = std::move(fn);
+	}
+
+	/**
+	 * @brief Dock seed for a named workspace (Vector, Pixel, ...).
+	 * @details Used when `loadWorkspace` applies an ini that has no `[Docking]`
+	 * tree - visibility-only presets still get a correct first layout. Pass an
+	 * empty function to remove a seed. Names match workspace files
+	 * case-sensitively after `resolveWorkspaceCase`.
+	 */
+	void setWorkspaceDockBuilder(std::string name, std::function<void(ImGuiID dockspaceId)> fn) {
+		if (name.empty()) {
+			return;
+		}
+		if (!fn) {
+			m_workspaceDockBuilders.erase(name);
+			return;
+		}
+		m_workspaceDockBuilders[std::move(name)] = std::move(fn);
 	}
 
 	/**
@@ -540,11 +560,14 @@ class Mui : public IMui {
 	std::function<void(const std::string &)> m_recentOpenHandler;
 	static constexpr int kMaxRecentFiles = 10;
 
+	void installWorkspaceDockSeed();
+
 	bool m_imguiReady = false;
 	bool m_dockPassthroughCentral = false;
 	bool m_inImGuiFrame = false;
 	bool m_pendingFontReload = false;
 	std::function<void(ImGuiID)> m_dockLayoutBuilder;
+	std::unordered_map<std::string, std::function<void(ImGuiID)>> m_workspaceDockBuilders;
 	ImGuiID m_dockspaceId = 0;
 	float m_centralX = 0.f;
 	float m_centralY = 0.f;

@@ -66,6 +66,10 @@ std::string themeNameForPrefs(const std::string& resolved) {
 
 namespace rigkit {
 
+namespace {
+bool iniFileHasDocking(const std::string& path);
+}
+
 Mui::Mui() {
 	m_windowManager = std::make_unique<MWindow>();
 	m_menuBar = std::make_unique<HostMenuBar>(this);
@@ -488,14 +492,19 @@ void Mui::render() {
 		queueStartupWorkspace();
 	}
 
-	// Workspace ini swap must also stay outside the frame. Drop any one-shot
-	// dock builder first - pack seeds (e.g. plotter) must not rebuild over the
-	// snapshot on the same frame.
+	// Workspace ini swap must also stay outside the frame. A file with
+	// [Docking] is a full snapshot - drop one-shot builders so they do not
+	// rebuild over it. Visibility-only presets re-seed via the named builder (Vector / Pixel / ...).
 	if (!m_pendingWorkspaceLoad.empty()) {
 		const std::string path = m_pendingWorkspaceLoad;
 		m_pendingWorkspaceLoad.clear();
-		setDockLayoutBuilder(nullptr);
+		const bool hasDocking = iniFileHasDocking(path);
 		ImGui::LoadIniSettingsFromDisk(path.c_str());
+		if (hasDocking) {
+			setDockLayoutBuilder(nullptr);
+		} else {
+			installWorkspaceDockSeed();
+		}
 		// Keep the live session file aligned with the loaded snapshot.
 		if (!m_iniPath.empty()) {
 			ImGui::SaveIniSettingsToDisk(m_iniPath.c_str());
@@ -921,7 +930,34 @@ bool iniFileHasSections(const std::string& path) {
 	}
 	return false;
 }
+
+bool iniFileHasDocking(const std::string& path) {
+	std::ifstream in(path);
+	std::string line;
+	while (std::getline(in, line)) {
+		if (line.rfind("[Docking]", 0) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
 } // namespace
+
+void Mui::installWorkspaceDockSeed() {
+	const auto it = m_workspaceDockBuilders.find(m_currentWorkspace);
+	if (it == m_workspaceDockBuilders.end() || !it->second) {
+		setDockLayoutBuilder(nullptr);
+		return;
+	}
+	const auto seed = it->second;
+	setDockLayoutBuilder([this, seed](ImGuiID id) {
+		if (id == 0) {
+			return;
+		}
+		seed(id);
+		setDockLayoutBuilder(nullptr);
+	});
+}
 
 void Mui::RigVisibility_ClearAll(ImGuiContext*, ImGuiSettingsHandler* handler) {
 	auto* ui = static_cast<Mui*>(handler->UserData);
@@ -1042,13 +1078,20 @@ void Mui::applyPendingWindowVisibility() {
 		return;
 	}
 	m_applyPendingVisibility = false;
-	// Apply the saved state per window. Windows the ini has never seen (added
-	// to the app after the session was saved) keep their app-chosen
-	// visibility instead of being hidden by the blanket hide-all.
-	for (const auto& name : m_windowManager->getAllWindowNames()) {
-		const auto it = m_pendingVisibility.find(name);
-		if (it != m_pendingVisibility.end()) {
-			m_windowManager->setWindowVisible(name, it->second);
+	// Presets list the windows they want. Hide everything, then show
+	// only names marked visible. Inis without [RigVisibility] leave visibility.
+	if (m_rigVisibilitySectionSeen) {
+		for (const auto& name : m_windowManager->getAllWindowNames()) {
+			const auto it = m_pendingVisibility.find(name);
+			const bool visible = it != m_pendingVisibility.end() && it->second;
+			m_windowManager->setWindowVisible(name, visible);
+		}
+	} else {
+		for (const auto& name : m_windowManager->getAllWindowNames()) {
+			const auto it = m_pendingVisibility.find(name);
+			if (it != m_pendingVisibility.end()) {
+				m_windowManager->setWindowVisible(name, it->second);
+			}
 		}
 	}
 	m_pendingVisibility.clear();
