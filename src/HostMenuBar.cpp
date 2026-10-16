@@ -1,29 +1,29 @@
 #include "HostMenuBar.h"
 
+#include "rendering/U_gladGlfw.h"
 #include "core/RigKitEngine.h"
 #include "core/util/UndoStack.h"
 #include "ecs/MEcs.h"
-#include "rendering/U_gladGlfw.h"
 #include "CCamera.h"
 #include "ImGuiStyleKit.h"
-#include "Mui.h"
 #include "MWindow.h"
+#include "Mui.h"
 #include "UiDpi.h"
 
-#include <filesystem>
 #include <imgui.h>
+#include <filesystem>
 #include <string>
 
 namespace rigkit {
 
-HostMenuBar::HostMenuBar(Mui *ui) : m_ui(ui) {}
+HostMenuBar::HostMenuBar(Mui* ui) : m_ui(ui) {}
 
 void HostMenuBar::render() {
 	if (!ImGui::BeginMainMenuBar()) {
 		return;
 	}
 
-	const ImGuiStyle &style = ImGui::GetStyle();
+	const ImGuiStyle& style = ImGui::GetStyle();
 	// BeginMenu adds ItemSpacing/2; File glyphs land on chromeBarPadX().
 	const float padX = chromeMenuBarCursorX();
 	ImGui::SetCursorPosX(padX);
@@ -37,14 +37,13 @@ void HostMenuBar::render() {
 
 	if (m_ui) {
 		std::string status;
-		const int fpsMode =
-			(m_ui->uiPrefs().fpsDisplay < 0 || m_ui->uiPrefs().fpsDisplay > 2)
-				? 0
-				: m_ui->uiPrefs().fpsDisplay;
+		const int fpsMode = (m_ui->uiPrefs().fpsDisplay < 0 || m_ui->uiPrefs().fpsDisplay > 2)
+								? 0
+								: m_ui->uiPrefs().fpsDisplay;
 		if (fpsMode == 1) {
 			status = m_ui->fpsStatusText();
 		}
-		const auto &statusFn = m_ui->menuBarRightStatus();
+		const auto& statusFn = m_ui->menuBarRightStatus();
 		if (statusFn) {
 			const std::string appStatus = statusFn();
 			if (!appStatus.empty()) {
@@ -84,8 +83,8 @@ void HostMenuBar::renderWorkspaceMenu() {
 		return;
 	}
 	const auto names = m_ui->workspaceNames();
-	const std::string &current = m_ui->currentWorkspace();
-	for (const auto &name : names) {
+	const std::string& current = m_ui->currentWorkspace();
+	for (const auto& name : names) {
 		if (ImGui::MenuItem(name.c_str(), nullptr, name == current)) {
 			m_ui->loadWorkspace(name);
 		}
@@ -98,21 +97,20 @@ void HostMenuBar::renderWorkspaceMenu() {
 		m_openWorkspaceSavePopup = true;
 	}
 	bool canDelete = false;
-	for (const auto &name : names) {
+	for (const auto& name : names) {
 		if (name != Mui::kStandardWorkspace) {
 			canDelete = true;
 			break;
 		}
 	}
 	if (ImGui::BeginMenu("Delete Workspace", canDelete)) {
-		for (const auto &name : names) {
+		for (const auto& name : names) {
 			if (name == Mui::kStandardWorkspace) {
 				continue;
 			}
 			if (ImGui::MenuItem(name.c_str())) {
-				Mui *ui = m_ui;
-				ui->showModal("Delete Workspace",
-							  "Delete workspace \"" + name + "\"?",
+				Mui* ui = m_ui;
+				ui->showModal("Delete Workspace", "Delete workspace \"" + name + "\"?",
 							  NotificationType::Warning,
 							  [ui, name]() { ui->deleteWorkspace(name); });
 			}
@@ -126,10 +124,9 @@ void HostMenuBar::renderWorkspaceSavePopup() {
 	if (!m_ui) {
 		return;
 	}
-	const ImGuiViewport *vp = ImGui::GetMainViewport();
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	if (!ImGui::BeginPopupModal("Save Workspace As", nullptr,
-								ImGuiWindowFlags_AlwaysAutoResize)) {
+	if (!ImGui::BeginPopupModal("Save Workspace As", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		return;
 	}
 	ImGui::TextUnformatted("Workspace name");
@@ -155,9 +152,9 @@ void HostMenuBar::renderWorkspaceSavePopup() {
 }
 
 void HostMenuBar::renderAppMenu() {
-	const char *appLabel = "App";
+	const char* appLabel = "App";
 	if (m_engine && m_engine->getApp()) {
-		const auto &name = m_engine->getApp()->settings().appName;
+		const auto& name = m_engine->getApp()->settings().appName;
 		if (!name.empty()) {
 			appLabel = name.c_str();
 		}
@@ -166,8 +163,8 @@ void HostMenuBar::renderAppMenu() {
 		return;
 	}
 	if (m_ui) {
-		const auto &rows = m_ui->appActions();
-		for (const auto &row : rows) {
+		const auto& rows = m_ui->appActions();
+		for (const auto& row : rows) {
 			if (row.submenu) {
 				if (ImGui::BeginMenu(row.label.c_str())) {
 					if (row.action) {
@@ -177,7 +174,7 @@ void HostMenuBar::renderAppMenu() {
 				}
 				continue;
 			}
-			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
 			if (ImGui::MenuItem(row.label.c_str(), chord)) {
 				if (row.action) {
 					row.action();
@@ -208,8 +205,8 @@ void HostMenuBar::renderFileMenu() {
 		return;
 	}
 	if (m_ui) {
-		const auto &rows = m_ui->fileActions();
-		for (const auto &row : rows) {
+		const auto& rows = m_ui->fileActions();
+		for (const auto& row : rows) {
 			if (row.submenu) {
 				if (ImGui::BeginMenu(row.label.c_str())) {
 					if (row.action) {
@@ -219,7 +216,7 @@ void HostMenuBar::renderFileMenu() {
 				}
 				continue;
 			}
-			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
 			if (ImGui::MenuItem(row.label.c_str(), chord)) {
 				if (row.action) {
 					row.action();
@@ -230,10 +227,10 @@ void HostMenuBar::renderFileMenu() {
 			ImGui::Separator();
 		}
 
-		const auto &recent = m_ui->recentFiles();
+		const auto& recent = m_ui->recentFiles();
 		if (ImGui::BeginMenu("Open Recent", !recent.empty())) {
 			for (size_t i = 0; i < recent.size(); ++i) {
-				const std::string &path = recent[i];
+				const std::string& path = recent[i];
 				std::string label;
 				try {
 					label = std::filesystem::path(path).filename().string();
@@ -246,7 +243,7 @@ void HostMenuBar::renderFileMenu() {
 				// Unique id when basenames collide; tooltip shows the full path.
 				const std::string item = label + "##recent_" + std::to_string(i);
 				if (ImGui::MenuItem(item.c_str())) {
-					if (const auto &handler = m_ui->recentFileOpenHandler()) {
+					if (const auto& handler = m_ui->recentFileOpenHandler()) {
 						handler(path);
 					}
 				}
@@ -268,7 +265,7 @@ void HostMenuBar::renderFileMenu() {
 			}
 		}
 		if (m_ui) {
-			for (const auto &row : m_ui->exportActions()) {
+			for (const auto& row : m_ui->exportActions()) {
 				if (ImGui::MenuItem(row.first.c_str())) {
 					if (row.second) {
 						row.second();
@@ -286,7 +283,7 @@ void HostMenuBar::renderEditMenu() {
 		return;
 	}
 
-	UndoStack *stack = m_ui ? m_ui->undoStack() : nullptr;
+	UndoStack* stack = m_ui ? m_ui->undoStack() : nullptr;
 	std::string undoLabel = "Undo";
 	std::string redoLabel = "Redo";
 	if (stack && stack->canUndo() && !stack->undoLabel().empty()) {
@@ -326,7 +323,7 @@ void HostMenuBar::renderEditMenu() {
 
 	if (m_ui && !m_ui->editActions().empty()) {
 		ImGui::Separator();
-		for (const auto &row : m_ui->editActions()) {
+		for (const auto& row : m_ui->editActions()) {
 			const bool enabled = !row.isEnabled || row.isEnabled();
 			if (row.submenu) {
 				if (ImGui::BeginMenu(row.label.c_str(), enabled)) {
@@ -337,7 +334,7 @@ void HostMenuBar::renderEditMenu() {
 				}
 				continue;
 			}
-			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
 			if (ImGui::MenuItem(row.label.c_str(), chord, false, enabled) && row.action) {
 				row.action();
 			}
@@ -400,7 +397,7 @@ void HostMenuBar::renderViewMenu() {
 
 	if (m_ui && !m_ui->viewActions().empty()) {
 		ImGui::Separator();
-		for (const auto &row : m_ui->viewActions()) {
+		for (const auto& row : m_ui->viewActions()) {
 			if (row.submenu) {
 				if (ImGui::BeginMenu(row.label.c_str())) {
 					if (row.action) {
@@ -409,7 +406,7 @@ void HostMenuBar::renderViewMenu() {
 					ImGui::EndMenu();
 				}
 			} else {
-				const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+				const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
 				if (ImGui::MenuItem(row.label.c_str(), chord) && row.action) {
 					row.action();
 				}
@@ -419,9 +416,9 @@ void HostMenuBar::renderViewMenu() {
 
 	if (ImGui::BeginMenu("Windows")) {
 		if (m_ui && m_ui->getWindowManager()) {
-			auto *wm = m_ui->getWindowManager();
+			auto* wm = m_ui->getWindowManager();
 			auto names = wm->getAllWindowNames();
-			for (const auto &name : names) {
+			for (const auto& name : names) {
 				bool visible = wm->getWindowVisibility(name);
 				if (ImGui::MenuItem(name.c_str(), nullptr, visible)) {
 					wm->setWindowVisible(name, !visible);
@@ -466,8 +463,8 @@ void HostMenuBar::renderViewMenu() {
 		if (ImGui::BeginMenu("Chrome")) {
 			const auto chromes = m_engine->uiChromes();
 			for (const auto& id : chromes) {
-				const bool sel = m_engine->uiChrome() == id ||
-								 (id == "imgui" && m_engine->uiChrome().empty());
+				const bool sel =
+					m_engine->uiChrome() == id || (id == "imgui" && m_engine->uiChrome().empty());
 				if (ImGui::MenuItem(id.c_str(), nullptr, sel)) {
 					m_engine->requestUiChrome(id);
 				}
@@ -487,11 +484,11 @@ void HostMenuBar::renderToolsMenu() {
 		ImGui::EndMenu();
 		return;
 	}
-	const auto &toolRows = m_ui->toolActions();
+	const auto& toolRows = m_ui->toolActions();
 	if (!toolRows.empty()) {
-		for (const auto &row : toolRows) {
+		for (const auto& row : toolRows) {
 			const bool active = row.isActive ? row.isActive() : false;
-			const char *chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
 			if (ImGui::MenuItem(row.label.c_str(), chord, active)) {
 				if (row.action) {
 					row.action();
