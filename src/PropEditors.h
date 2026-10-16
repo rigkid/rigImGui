@@ -76,8 +76,11 @@ uint32_t currentPropDragEntity();
  */
 /// @param ecsTag Owning ECS (opaque) for multi-scene hosts - see
 /// `RigScenePropPayload::ecsTag`. Null = engine registry.
+/// @param hasRange When true, Sound patches seed the Map output with
+/// @p rangeMin / @p rangeMax (the slider limits).
 void offerScenePropDrag(uint32_t entityId, const char* propName, int propType,
-						const void* ecsTag = nullptr);
+						const void* ecsTag = nullptr, float rangeMin = 0.f, float rangeMax = 1.f,
+						bool hasRange = false);
 void offerScenePropDrag(const char* propName, int propType);
 
 /**
@@ -85,21 +88,50 @@ void offerScenePropDrag(const char* propName, int propType);
  * @details Emitted by the right-click menu on prop drag pins (`offerScenePropDrag`)
  * as a zero-drag alternative to drag-drop. The Node Editor drains the queue once
  * per frame via `takeScenePropPatchRequests` and spawns the matching `ref.*` node
- * (plus a wired LFO when @ref withLfo is set, matching Alt+drop).
+ * (plus a wired LFO when @ref withLfo is set, matching Alt+drop, or the catalog
+ * node in @ref sourceType / @ref sourcePin — Sound uses `mod.audio`).
  */
 struct ScenePropPatchRequest {
 	uint32_t entity = kPropDragNoEntity;
 	std::string name;
 	int propType = 0;
 	bool withLfo = false;
+	/// Catalog node wired into the ref (`mod.audio`, ...). Empty keeps @ref withLfo.
+	std::string sourceType;
+	/// Output pin on @ref sourceType (`level`, `bass`, ...). Empty means `out`.
+	std::string sourcePin;
+	/// When set, the Map between a Sound pin and the ref uses this output range
+	/// (the knob's slider limits). Input stays 0..1, matching `mod.audio`.
+	bool hasMapRange = false;
+	float mapOutMin = 0.f;
+	float mapOutMax = 1.f;
+	/// Remove the ref driving this property (and a Map / LFO that only fed it).
+	bool unpatch = false;
 	/// Owning ECS (opaque, see `RigScenePropPayload::ecsTag`). Routes the
 	/// request to the editor bound to that ECS; null = any editor.
 	const void* ecsTag = nullptr;
 };
 
+/**
+ * @brief One row in the property right-click menu (Sound → Level, and so on).
+ * @details Filled from the node catalog so new audio outputs show up without
+ * a menu edit. Empty list falls back to the built-in `mod.audio` pins.
+ */
+struct ScenePropPatchSource {
+	std::string group;
+	std::string typeId;
+	std::string pin;
+	std::string label;
+};
+
+/** @brief Replace the right-click source list (Sound, and any later groups). */
+void setScenePropPatchSources(std::vector<ScenePropPatchSource> sources);
+
 /** @brief Queue a patch request (no-op when @p entityId is `kPropDragNoEntity`). */
 void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo,
-						   const void* ecsTag = nullptr);
+						   const void* ecsTag = nullptr, const char* sourceType = nullptr,
+						   const char* sourcePin = nullptr, bool hasMapRange = false,
+						   float mapOutMin = 0.f, float mapOutMax = 1.f, bool unpatch = false);
 
 /**
  * @brief Drain pending patch requests for the editor bound to @p consumerEcs.

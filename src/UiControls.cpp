@@ -9,6 +9,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -56,55 +57,71 @@ bool drawOneControl(MEcs& ecs, entt::entity e, ecs::CUiControl& c, const UiContr
 	if (disabled) {
 		ImGui::BeginDisabled();
 	}
+	const ImGuiStyle& style = ImGui::GetStyle();
+	const float xW =
+		host.unpublish
+			? (ImGui::CalcTextSize("x").x + style.FramePadding.x * 2.f + style.ItemSpacing.x)
+			: 0.f;
+	char id[32];
+	std::snprintf(id, sizeof(id), "##c%u", entt::to_integral(e));
 	bool changed = false;
+
 	if (c.type == "bool") {
 		const auto cur = ecs::readEntityProperty(ecs, target, c.propertyKey);
 		bool v = cur && *cur >= 0.5f;
-		if (ImGui::Checkbox(label.c_str(), &v)) {
+		if (ImGui::Checkbox(id, &v)) {
 			ecs::writeEntityProperty(ecs, target, c.propertyKey, v ? 1.f : 0.f);
 			changed = true;
 		}
+		ImGui::SameLine();
+		ImGui::TextUnformatted(label.c_str());
 		offerScenePropDrag(entt::to_integral(target), c.propertyKey.c_str(), EPT_BOOL);
-	} else if (c.type == "int" || c.type == "long") {
-		const auto cur = ecs::readEntityProperty(ecs, target, c.propertyKey);
-		int v = cur ? static_cast<int>(std::lround(*cur)) : 0;
-		const int mn = static_cast<int>(c.min);
-		const int mx = static_cast<int>(c.max);
-		const float step = c.step > 0.f ? c.step : 1.f;
-		if (ImGui::DragInt(label.c_str(), &v, step, mn, mx)) {
-			ecs::writeEntityProperty(ecs, target, c.propertyKey, static_cast<float>(v));
-			changed = true;
-		}
-		offerScenePropDrag(entt::to_integral(target), c.propertyKey.c_str(), EPT_INT);
-	} else if (c.type == "color") {
-		const std::string rKey = c.propertyKey + " R";
-		const std::string gKey = c.propertyKey + " G";
-		const std::string bKey = c.propertyKey + " B";
-		const auto r = ecs::readEntityProperty(ecs, target, rKey);
-		const auto g = ecs::readEntityProperty(ecs, target, gKey);
-		const auto b = ecs::readEntityProperty(ecs, target, bKey);
-		float rgb[3] = {r.value_or(1.f), g.value_or(1.f), b.value_or(1.f)};
-		if (ImGui::ColorEdit3(label.c_str(), rgb)) {
-			ecs::writeEntityProperty(ecs, target, rKey, rgb[0]);
-			ecs::writeEntityProperty(ecs, target, gKey, rgb[1]);
-			ecs::writeEntityProperty(ecs, target, bKey, rgb[2]);
-			changed = true;
-		}
-		offerScenePropDrag(entt::to_integral(target), c.propertyKey.c_str(), EPT_COLOR);
 	} else {
-		const auto cur = ecs::readEntityProperty(ecs, target, c.propertyKey);
-		float v = cur.value_or(0.f);
-		const float step = c.step > 0.f ? c.step : 0.01f;
-		if (c.widget == "slider") {
-			if (ImGui::SliderFloat(label.c_str(), &v, c.min, c.max)) {
+		ImGui::AlignTextToFramePadding();
+		ImGui::TextUnformatted(label.c_str());
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(-xW);
+		if (c.type == "int" || c.type == "long") {
+			const auto cur = ecs::readEntityProperty(ecs, target, c.propertyKey);
+			int v = cur ? static_cast<int>(std::lround(*cur)) : 0;
+			const int mn = static_cast<int>(c.min);
+			const int mx = static_cast<int>(c.max);
+			const float step = c.step > 0.f ? c.step : 1.f;
+			if (ImGui::DragInt(id, &v, step, mn, mx)) {
+				ecs::writeEntityProperty(ecs, target, c.propertyKey, static_cast<float>(v));
+				changed = true;
+			}
+			offerScenePropDrag(entt::to_integral(target), c.propertyKey.c_str(), EPT_INT);
+		} else if (c.type == "color") {
+			const std::string rKey = c.propertyKey + " R";
+			const std::string gKey = c.propertyKey + " G";
+			const std::string bKey = c.propertyKey + " B";
+			const auto r = ecs::readEntityProperty(ecs, target, rKey);
+			const auto g = ecs::readEntityProperty(ecs, target, gKey);
+			const auto b = ecs::readEntityProperty(ecs, target, bKey);
+			float rgb[3] = {r.value_or(1.f), g.value_or(1.f), b.value_or(1.f)};
+			if (ImGui::ColorEdit3(id, rgb, ImGuiColorEditFlags_NoInputs)) {
+				ecs::writeEntityProperty(ecs, target, rKey, rgb[0]);
+				ecs::writeEntityProperty(ecs, target, gKey, rgb[1]);
+				ecs::writeEntityProperty(ecs, target, bKey, rgb[2]);
+				changed = true;
+			}
+			offerScenePropDrag(entt::to_integral(target), c.propertyKey.c_str(), EPT_COLOR);
+		} else {
+			const auto cur = ecs::readEntityProperty(ecs, target, c.propertyKey);
+			float v = cur.value_or(0.f);
+			const float step = c.step > 0.f ? c.step : 0.01f;
+			if (c.widget == "slider") {
+				if (ImGui::SliderFloat(id, &v, c.min, c.max)) {
+					ecs::writeEntityProperty(ecs, target, c.propertyKey, v);
+					changed = true;
+				}
+			} else if (ImGui::DragFloat(id, &v, step, c.min, c.max)) {
 				ecs::writeEntityProperty(ecs, target, c.propertyKey, v);
 				changed = true;
 			}
-		} else if (ImGui::DragFloat(label.c_str(), &v, step, c.min, c.max)) {
-			ecs::writeEntityProperty(ecs, target, c.propertyKey, v);
-			changed = true;
+			offerScenePropDrag(entt::to_integral(target), c.propertyKey.c_str(), EPT_FLOAT);
 		}
-		offerScenePropDrag(entt::to_integral(target), c.propertyKey.c_str(), EPT_FLOAT);
 	}
 	if (disabled) {
 		ImGui::EndDisabled();

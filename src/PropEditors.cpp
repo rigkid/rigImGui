@@ -239,10 +239,76 @@ struct PendingPatch {
 	int frame = 0;
 };
 std::vector<PendingPatch> g_patchRequests;
+std::vector<ScenePropPatchSource> g_patchSources;
+
+/// Used when the node catalog has not registered outputs yet. Keep in step
+/// with `mod.audio` in NodeCatalog.cpp.
+struct SoundPin {
+	const char* pin;
+	const char* label;
+};
+constexpr SoundPin kSoundPins[] = {
+	{"level", "Level"},	  {"bass", "Bass"},		  {"mid", "Mid"},
+	{"treble", "Treble"}, {"peak", "Peak"},		  {"centroid", "Centroid"},
+	{"spread", "Spread"}, {"rolloff", "Rolloff"}, {"flatness", "Flatness"},
+	{"flux", "Flux"},	  {"onset", "Onset"},	  {"hue", "Hue"},
+	{"warmth", "Warmth"},
+};
+
+void drawSoundPatchMenu(uint32_t entityId, const char* propName, int propType, const void* ecsTag,
+						bool hasRange, float rangeMin, float rangeMax) {
+	if (g_patchSources.empty()) {
+		if (!ImGui::BeginMenu("Sound")) {
+			return;
+		}
+		for (const SoundPin& pin : kSoundPins) {
+			if (ImGui::MenuItem(pin.label)) {
+				requestScenePropPatch(entityId, propName, propType, false, ecsTag, "mod.audio",
+									  pin.pin, hasRange, rangeMin, rangeMax);
+			}
+		}
+		ImGui::EndMenu();
+		return;
+	}
+	std::vector<std::string> groups;
+	for (const ScenePropPatchSource& src : g_patchSources) {
+		bool seen = false;
+		for (const std::string& group : groups) {
+			if (group == src.group) {
+				seen = true;
+				break;
+			}
+		}
+		if (!seen && !src.group.empty()) {
+			groups.push_back(src.group);
+		}
+	}
+	for (const std::string& group : groups) {
+		if (!ImGui::BeginMenu(group.c_str())) {
+			continue;
+		}
+		for (const ScenePropPatchSource& src : g_patchSources) {
+			if (src.group != group || src.label.empty()) {
+				continue;
+			}
+			if (ImGui::MenuItem(src.label.c_str())) {
+				requestScenePropPatch(entityId, propName, propType, false, ecsTag,
+									  src.typeId.c_str(), src.pin.c_str(), hasRange, rangeMin,
+									  rangeMax);
+			}
+		}
+		ImGui::EndMenu();
+	}
+}
 } // namespace
 
+void setScenePropPatchSources(std::vector<ScenePropPatchSource> sources) {
+	g_patchSources = std::move(sources);
+}
+
 void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo,
-						   const void* ecsTag) {
+						   const void* ecsTag, const char* sourceType, const char* sourcePin,
+						   bool hasMapRange, float mapOutMin, float mapOutMax, bool unpatch) {
 	if (entityId == kPropDragNoEntity || !propName || propName[0] == '\0') {
 		return;
 	}
@@ -251,6 +317,17 @@ void requestScenePropPatch(uint32_t entityId, const char* propName, int propType
 	p.req.name = propName;
 	p.req.propType = propType;
 	p.req.withLfo = withLfo;
+	if (sourceType && sourceType[0] != '\0') {
+		p.req.sourceType = sourceType;
+		p.req.withLfo = false;
+	}
+	if (sourcePin && sourcePin[0] != '\0') {
+		p.req.sourcePin = sourcePin;
+	}
+	p.req.hasMapRange = hasMapRange;
+	p.req.mapOutMin = mapOutMin;
+	p.req.mapOutMax = mapOutMax;
+	p.req.unpatch = unpatch;
 	p.req.ecsTag = ecsTag;
 	p.frame = ImGui::GetFrameCount();
 	g_patchRequests.push_back(std::move(p));
@@ -261,7 +338,7 @@ std::vector<ScenePropPatchRequest> takeScenePropPatchRequests(const void* consum
 	std::vector<PendingPatch> keep;
 	const int now = ImGui::GetFrameCount();
 	for (auto& p : g_patchRequests) {
-		// Drop stale entries queued while no consumer (e.g. Node Editor closed).
+		// Drop stale entries queued while no editor was bound to this ECS.
 		if (now - p.frame > 2) {
 			continue;
 		}
@@ -279,7 +356,8 @@ std::vector<ScenePropPatchRequest> takeScenePropPatchRequests(const void* consum
 	return out;
 }
 
-void offerScenePropDrag(uint32_t entityId, const char* propName, int propType, const void* ecsTag) {
+void offerScenePropDrag(uint32_t entityId, const char* propName, int propType, const void* ecsTag,
+						float rangeMin, float rangeMax, bool hasRange) {
 	if (entityId == kPropDragNoEntity) {
 		entityId = currentPropDragEntity();
 	}
@@ -351,11 +429,12 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType, c
 		std::snprintf(payload.name, sizeof(payload.name), "%s", propName);
 		ImGui::SetDragDropPayload(kRigScenePropPayload, &payload, sizeof(payload));
 		ImGui::Text("Patch to %s", propName);
-		ImGui::TextDisabled("Drop on Node Editor");
+		ImGui::TextDisabled("Drop on Node Editor or Patch Destination");
 		ImGui::TextDisabled("Alt+drop adds an LFO");
 		ImGui::EndDragDropSource();
 	} else if (hovered) {
-		ImGui::SetTooltip("Drag to Node Editor to patch\nRight-click for options");
+		ImGui::SetTooltip(
+			"Drag to Node Editor or Patch Destination\nRight-click: LFO, Sound, or Unpatch");
 	}
 	// Zero-drag path: right-click the handle to patch without drag-drop.
 	if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
@@ -370,6 +449,15 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType, c
 		const bool floatish = propType != EPT_VEC2 && propType != EPT_VEC4 && propType != EPT_COLOR;
 		if (floatish && ImGui::MenuItem("Patch with LFO")) {
 			requestScenePropPatch(entityId, propName, propType, true, ecsTag);
+		}
+		// Submenu keeps the root menu to a few lines on a small screen.
+		if (floatish) {
+			drawSoundPatchMenu(entityId, propName, propType, ecsTag, hasRange, rangeMin, rangeMax);
+		}
+		ImGui::Separator();
+		if (ImGui::MenuItem("Unpatch")) {
+			requestScenePropPatch(entityId, propName, propType, false, ecsTag, nullptr, nullptr,
+								  false, 0.f, 1.f, true);
 		}
 		ImGui::EndPopup();
 	}
@@ -527,10 +615,27 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 		case EPT_DOUBLE:
 			anyChanged |= dragExprDouble(prop.name.c_str(), static_cast<double*>(prop.data));
 			break;
-		case EPT_STRING:
-			anyChanged |=
-				ImGuiInputTextStdString(prop.name.c_str(), *static_cast<std::string*>(prop.data));
+		case EPT_STRING: {
+			auto* value = static_cast<std::string*>(prop.data);
+			if (prop.enumNames && prop.enumCount > 0) {
+				int idx = 0;
+				for (int i = 0; i < prop.enumCount; ++i) {
+					if (prop.enumNames[i] && *value == prop.enumNames[i]) {
+						idx = i;
+						break;
+					}
+				}
+				if (ImGui::Combo(prop.name.c_str(), &idx, prop.enumNames, prop.enumCount)) {
+					*value = (idx >= 0 && idx < prop.enumCount && prop.enumNames[idx])
+								 ? prop.enumNames[idx]
+								 : std::string{};
+					anyChanged = true;
+				}
+			} else {
+				anyChanged |= ImGuiInputTextStdString(prop.name.c_str(), *value);
+			}
 			break;
+		}
 		case EPT_VEC2: {
 			auto* vec = static_cast<glm::vec2*>(prop.data);
 			float arr[2] = {vec->x, vec->y};
@@ -573,6 +678,13 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 				color->b = imColor.z;
 				color->a = imColor.w;
 				anyChanged = true;
+			}
+			break;
+		}
+		case EPT_BUTTON: {
+			auto* fn = static_cast<std::function<void()>*>(prop.data);
+			if (ImGui::Button(prop.name.c_str()) && fn && *fn) {
+				(*fn)();
 			}
 			break;
 		}
