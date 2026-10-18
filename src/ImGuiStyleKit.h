@@ -42,6 +42,9 @@ namespace ImGuiStyleKit {
 
 void applyTheme(ImGuiTheme theme);
 void applyStyleExtras(ImGuiTheme theme);
+/// Rotate every style color's hue by `turns` (1 = a full cycle). Alpha stays.
+/// Dark and Light both keep their accent, so a non-zero shift recolors either base.
+void shiftStyleHue(ImGuiStyle& style, float turns);
 
 /// Map leftover prefs ints onto Dark/Light and a scheme filename.
 void migrateLegacyTheme(int& theme, std::string& themeFile);

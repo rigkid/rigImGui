@@ -18,12 +18,7 @@ void FileBrowserApp::DemoWindow::renderContents() {
 	}
 }
 
-FileBrowserApp::FileBrowserApp() {
-	window().width = 900;
-	window().height = 580;
-	window().title = "rigImGui - example_filebrowser";
-	settings().appName = "example_filebrowser";
-}
+FileBrowserApp::FileBrowserApp() { settings().appName = "example_filebrowser"; }
 
 void FileBrowserApp::openDialog() {
 	if (auto* mui = dynamic_cast<rigkit::Mui*>(m_engine->getUiManager())) {

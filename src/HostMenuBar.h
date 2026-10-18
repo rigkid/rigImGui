@@ -7,17 +7,17 @@ namespace rigkit {
 class Mui;
 class RigKitEngine;
 
-/// Lean rigImGui host menu - App / File / Edit / View / Tools / Help.
+/// Host menu - App / File / Edit / View / Help. Tools when the app has some.
 class HostMenuBar {
   public:
-	explicit HostMenuBar(Mui *ui);
+	explicit HostMenuBar(Mui* ui);
 
-	void setEngine(RigKitEngine *engine) { m_engine = engine; }
+	void setEngine(RigKitEngine* engine) { m_engine = engine; }
 	void render();
 
   private:
-	Mui *m_ui = nullptr;
-	RigKitEngine *m_engine = nullptr;
+	Mui* m_ui = nullptr;
+	RigKitEngine* m_engine = nullptr;
 	bool m_openWorkspaceSavePopup = false;
 	char m_workspaceNameBuf[64] = {};
 

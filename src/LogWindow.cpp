@@ -1,5 +1,6 @@
 #include "LogWindow.h"
 
+#include <algorithm>
 #include <chrono>
 #include <imgui.h>
 #include <iomanip>
@@ -8,6 +9,7 @@
 #include <spdlog/sinks/base_sink.h>
 #include <spdlog/spdlog.h>
 #include <sstream>
+#include <streambuf>
 
 namespace rigkit {
 
@@ -15,6 +17,7 @@ namespace rigkit {
 class LogWindowSink : public spdlog::sinks::base_sink<std::mutex> {
   public:
 	LogWindowSink(LogWindow *logWindow) : m_logWindow(logWindow) {}
+	void detach() { m_logWindow = nullptr; }
 
   protected:
 	void sink_it_(const spdlog::details::log_msg &msg) override {
@@ -49,13 +52,97 @@ class LogWindowSink : public spdlog::sinks::base_sink<std::mutex> {
 	LogWindow *m_logWindow;
 };
 
+class StdTeeBuf : public std::streambuf {
+  public:
+	StdTeeBuf(std::streambuf *orig, LogWindow *log, LogLevel level)
+		: m_orig(orig), m_log(log), m_level(level) {}
+
+  protected:
+	int overflow(int ch) override {
+		if (ch == EOF) {
+			return sync();
+		}
+		if (m_orig) {
+			m_orig->sputc(static_cast<char>(ch));
+		}
+		if (ch == '\n') {
+			flushLine();
+		} else {
+			m_line.push_back(static_cast<char>(ch));
+			if (m_line.size() > 4000) {
+				flushLine();
+			}
+		}
+		return ch;
+	}
+	int sync() override {
+		if (m_orig) {
+			m_orig->pubsync();
+		}
+		flushLine();
+		return 0;
+	}
+
+  private:
+	void flushLine() {
+		if (m_line.empty() || !m_log) {
+			m_line.clear();
+			return;
+		}
+		m_log->addLogFromSink(m_level, m_line, m_log->getCurrentTimestamp());
+		m_line.clear();
+	}
+
+	std::streambuf *m_orig = nullptr;
+	LogWindow *m_log = nullptr;
+	LogLevel m_level = LogLevel::Info;
+	std::string m_line;
+};
+
 LogWindow::LogWindow(const std::string &title, ImGuiWindowFlags flags)
-	: IWindow(title, flags) {
-	// Optionally, add an initial log entry via spdlog
-	// spdlog::info("Log window initialized.");
+	: IWindow(title, flags) {}
+
+LogWindow::~LogWindow() {
+	releaseStdStreams();
+	if (auto *self = dynamic_cast<LogWindowSink *>(m_spdlogSink.get())) {
+		self->detach();
+	}
+	if (auto logger = spdlog::default_logger()) {
+		auto &sinks = logger->sinks();
+		sinks.erase(std::remove(sinks.begin(), sinks.end(), m_spdlogSink), sinks.end());
+	}
+	m_spdlogSink.reset();
+}
+
+void LogWindow::captureStdStreams() {
+	if (m_teeOut) {
+		return;
+	}
+	m_coutBuf = std::cout.rdbuf();
+	m_cerrBuf = std::cerr.rdbuf();
+	m_teeOut = std::make_unique<StdTeeBuf>(m_coutBuf, this, LogLevel::Info);
+	m_teeErr = std::make_unique<StdTeeBuf>(m_cerrBuf, this, LogLevel::Error);
+	std::cout.rdbuf(m_teeOut.get());
+	std::cerr.rdbuf(m_teeErr.get());
+}
+
+void LogWindow::releaseStdStreams() {
+	if (m_coutBuf) {
+		std::cout.rdbuf(m_coutBuf);
+		m_coutBuf = nullptr;
+	}
+	if (m_cerrBuf) {
+		std::cerr.rdbuf(m_cerrBuf);
+		m_cerrBuf = nullptr;
+	}
+	m_teeOut.reset();
+	m_teeErr.reset();
 }
 
 void LogWindow::setupSpdlogSink() {
+	if (m_spdlogSink) {
+		return;
+	}
 	// Create and set a custom sink for this LogWindow
 	auto sink = std::make_shared<LogWindowSink>(this);
 	setSpdlogSink(sink);
@@ -64,6 +151,7 @@ void LogWindow::setupSpdlogSink() {
 	if (logger) {
 		logger->sinks().push_back(sink);
 	}
+	captureStdStreams();
 }
 
 void LogWindow::addLogFromSink(LogLevel level, const std::string &message,

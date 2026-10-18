@@ -26,7 +26,7 @@ git submodule update --init --recursive
 The pack extends RigKit with a complete UI system built on Dear ImGui. It provides:
 
 - **Window Management**: Create, manage, and organize ImGui windows
-- **Host shell**: Edit menu + undo bind, Edit Mode (opt-in via `enableEditMode(true)`; panels hidden until Ctrl+E), Scene (DnD reparent), Layers (`CLayer`), Viewport (`View2D`), rulers (F2), full screen (F11), 2D handles, Tools W·E·R gizmo mode, File > Export PNG, shortcuts panel with remapping (persisted in user settings), status bar, open/save dialogs
+- **Host shell**: Edit menu + undo bind, full screen (F11), File > Export PNG, shortcuts panel with remapping (persisted in user settings), status bar, open/save dialogs. Edit Mode (`enableEditMode(true)`; panels hidden until Ctrl+E) adds Scene, Layers, and the Select / Move / Rotate / Scale tools (V W E R). A bound content view adds rulers (F2) and 2D handles. A gizmo drawer adds those same tool rows. Apps register their own Tools rows with `registerToolAction`.
 - **Standard Windows**: Pre-built windows for common tasks (debug, properties, logs)
 - **Custom UI**: Easy creation of custom windows and UI components
 - **ECS Integration**: Seamless integration with RigKit's Entity-Component-System

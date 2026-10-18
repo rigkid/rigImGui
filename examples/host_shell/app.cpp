@@ -54,12 +54,7 @@ void placeBox(rigkit::MEcs& ecs, entt::entity e, glm::vec3 pos, float scale = 1.
 
 } // namespace
 
-HostShellApp::HostShellApp() {
-	window().width = 1100;
-	window().height = 700;
-	window().title = "rigImGui - host_shell";
-	settings().appName = "host_shell";
-}
+HostShellApp::HostShellApp() { settings().appName = "host_shell"; }
 
 void HostShellApp::WidgetsWindow::renderContents() {
 	ImGui::TextWrapped(

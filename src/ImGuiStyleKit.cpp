@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <spdlog/spdlog.h>
@@ -364,19 +365,43 @@ void applyTheme(ImGuiTheme theme) {
 	applyStyleExtras(theme);
 }
 
+void shiftStyleHue(ImGuiStyle& style, float turns) {
+	if (turns == 0.f) {
+		return;
+	}
+	turns -= std::floor(turns);
+	if (turns == 0.f) {
+		return;
+	}
+	for (int i = 0; i < ImGuiCol_COUNT; ++i) {
+		ImVec4& col = style.Colors[i];
+		float h = 0.f, s = 0.f, v = 0.f;
+		ImGui::ColorConvertRGBtoHSV(col.x, col.y, col.z, h, s, v);
+		h += turns;
+		if (h >= 1.f) {
+			h -= 1.f;
+		}
+		ImGui::ColorConvertHSVtoRGB(h, s, v, col.x, col.y, col.z);
+	}
+}
+
 void migrateLegacyTheme(int& theme, std::string& themeFile) {
-	if (themeFile == "corporate.json") {
+	std::string fileName = themeFile;
+	const auto slash = fileName.find_last_of("/\\");
+	if (slash != std::string::npos) {
+		fileName = fileName.substr(slash + 1);
+	}
+	for (char& c : fileName) {
+		c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	}
+	if (fileName == "corporate.json" || fileName == "enemy-mouse.json") {
 		themeFile.clear();
 	}
 	if (theme < 2) {
 		return;
 	}
-	if (themeFile.empty()) {
-		if (theme == 5) {
-			themeFile = "enemy-mouse.json";
-		} else if (theme == 3 || theme == 4) {
-			themeFile = "dracula.json";
-		}
+	if (themeFile.empty() && (theme == 3 || theme == 4)) {
+		themeFile = "dracula.json";
 	}
 	theme = 0;
 }

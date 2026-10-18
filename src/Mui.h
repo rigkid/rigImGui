@@ -68,16 +68,17 @@ enum class HostPanel {
 
 /// Pack-owned preference POD (registered on MSettings as "rigImGui.ui" / label "Interface").
 struct UiPrefs {
-	int theme = 0; // ImGuiTheme as int (0=Dark, 1=Light)
+	int theme = 0;		   // ImGuiTheme as int (0=Dark, 1=Light)
 	std::string themeFile; // empty = base only; else color-scheme JSON
 						   // (user/themes or data/themes)
+	float hueShift = 0.f;  ///< Turns added to theme colors after the scheme loads. 0 leaves them.
 	std::string fontFile;  // empty = Inter Variable (or Roboto); else TTF under data/fonts
 	float fontSize = 16.0f;
-	float fontWeight = 400.f; ///< OpenType wght (100-900). Needs a variable font + FreeType.
+	float fontWeight = 400.f;  ///< OpenType wght (100-900). Needs a variable font + FreeType.
 	bool chromeKerning = true; ///< Pair kerning on chrome labels (TTF `kern` or setChromeKernFn)
 	bool confirmQuit = false;
 	float notificationSeconds = 3.0f;
-	float notificationWidth = 320.f; ///< logical px; clamped 160-600, scaled by DPI
+	float notificationWidth = 320.f;				 ///< logical px; clamped 160-600, scaled by DPI
 	int rulerUnit = static_cast<int>(RulerUnit::Mm); // default mm for plotter hosts
 	float rulerThickness = 18.f;
 	bool rulerMinorTicks = true;
@@ -105,6 +106,7 @@ struct UiPrefs {
 		return {
 			{0, "Theme", EPT_ENUM, &theme, kThemeNames, kImGuiThemeCount},
 			{1, "Theme File", EPT_STRING, &themeFile},
+			{18, "Hue Shift", EPT_FLOAT, &hueShift},
 			{2, "Font File", EPT_STRING, &fontFile},
 			{3, "Font Size", EPT_FLOAT, &fontSize},
 			{16, "Font Weight", EPT_FLOAT, &fontWeight},
@@ -138,18 +140,17 @@ class Mui : public IMui {
 	void shutdown() override;
 	void handleInput() override;
 	void render() override;
-	void setRigKitEngine(RigKitEngine *engine) override;
+	void setRigKitEngine(RigKitEngine* engine) override;
 
-	RigKitEngine *getRigKitEngine() const override { return m_engine; }
+	RigKitEngine* getRigKitEngine() const override { return m_engine; }
 
-	void setWindowVisibility(const std::string &windowName,
-							 bool visible) override;
+	void setWindowVisibility(const std::string& windowName, bool visible) override;
 	void setWindowVisibilityAll(bool visible) override;
-	bool getWindowVisibility(const std::string &windowName) const override;
+	bool getWindowVisibility(const std::string& windowName) const override;
 	std::vector<std::string> getAllWindowNames() const override;
 
-	MWindow *getWindowManager() override;
-	const MWindow *getWindowManager() const override;
+	MWindow* getWindowManager() override;
+	const MWindow* getWindowManager() const override;
 
 	void initImGui();
 	void shutdownImGui();
@@ -226,19 +227,16 @@ class Mui : public IMui {
 	 * @param type Severity tint.
 	 * @param duration Seconds visible; negative uses UiPrefs::notificationSeconds.
 	 */
-	void showNotification(const std::string &message,
-						  NotificationType type = NotificationType::Info,
-						  float duration = -1.f);
-	void showModal(const std::string &title, const std::string &message,
+	void showNotification(const std::string& message,
+						  NotificationType type = NotificationType::Info, float duration = -1.f);
+	void showModal(const std::string& title, const std::string& message,
 				   NotificationType type = NotificationType::Info,
 				   std::function<void()> onOk = nullptr);
 
 	/** @brief Help to About - RigKit version, app identity, loaded packs. */
 	void showAbout();
 
-	void setDockPassthroughCentral(bool enabled) override {
-		m_dockPassthroughCentral = enabled;
-	}
+	void setDockPassthroughCentral(bool enabled) override { m_dockPassthroughCentral = enabled; }
 	bool dockPassthroughCentral() const override { return m_dockPassthroughCentral; }
 
 	/**
@@ -276,8 +274,8 @@ class Mui : public IMui {
 	 */
 	void setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows = {});
 
-	void setUndoStack(UndoStack *stack) override { m_undoStack = stack; }
-	UndoStack *undoStack() const override { return m_undoStack; }
+	void setUndoStack(UndoStack* stack) override { m_undoStack = stack; }
+	UndoStack* undoStack() const override { return m_undoStack; }
 
 	void setEditMode(bool enabled) override;
 	bool editMode() const override { return m_editMode; }
@@ -285,44 +283,39 @@ class Mui : public IMui {
 	/// Reads the engine's opt-in flag - Mui keeps no copy.
 	bool editModeEnabled() const;
 
-	void openFileDialog(const std::string &title, std::vector<std::string> filters,
+	void openFileDialog(const std::string& title, std::vector<std::string> filters,
 						FileDialogCallback onSelected) override;
-	void saveFileDialog(const std::string &title, std::vector<std::string> filters,
+	void saveFileDialog(const std::string& title, std::vector<std::string> filters,
 						FileDialogCallback onSelected) override;
 	std::vector<std::string> fileDialogPinnedFolders() const override;
-	void setFileDialogPinnedFolders(const std::vector<std::string> &paths) override;
+	void setFileDialogPinnedFolders(const std::vector<std::string>& paths) override;
 	std::string fileDialogView() const override;
-	void setFileDialogView(const std::string &mode) override;
+	void setFileDialogView(const std::string& mode) override;
 	void registerFileThumbnailDecoder(const std::string& extension,
 									  IMui::FileThumbnailDecoder decoder) override;
 
-	void registerFileAction(const std::string &label, std::function<void()> action,
-							const std::string &shortcut = {}) override;
-	void registerFileSubmenu(const std::string &label,
-							 std::function<void()> drawContents) override;
-	void registerAppAction(const std::string &label, std::function<void()> action,
-						   const std::string &shortcut = {}) override;
-	void registerAppSubmenu(const std::string &label,
-							std::function<void()> drawContents) override;
-	void noteRecentFile(const std::string &path) override;
+	void registerFileAction(const std::string& label, std::function<void()> action,
+							const std::string& shortcut = {}) override;
+	void registerFileSubmenu(const std::string& label, std::function<void()> drawContents) override;
+	void registerAppAction(const std::string& label, std::function<void()> action,
+						   const std::string& shortcut = {}) override;
+	void registerAppSubmenu(const std::string& label, std::function<void()> drawContents) override;
+	void noteRecentFile(const std::string& path) override;
 	void clearRecentFiles() override;
-	void setRecentFileOpenHandler(
-		std::function<void(const std::string &path)> handler) override;
-	void registerExportAction(const std::string &label,
-							  std::function<void()> action) override;
-	void registerToolAction(const std::string &id, const std::string &label,
-							const std::string &shortcut, std::function<bool()> isActive,
+	void setRecentFileOpenHandler(std::function<void(const std::string& path)> handler) override;
+	void registerExportAction(const std::string& label, std::function<void()> action) override;
+	void registerToolAction(const std::string& id, const std::string& label,
+							const std::string& shortcut, std::function<bool()> isActive,
 							std::function<void()> action) override;
-	void registerEditAction(const std::string &label, const std::string &shortcut,
+	void registerEditAction(const std::string& label, const std::string& shortcut,
 							std::function<bool()> isEnabled, std::function<void()> action) override;
-	void registerEditSubmenu(const std::string &label, std::function<void()> drawContents,
+	void registerEditSubmenu(const std::string& label, std::function<void()> drawContents,
 							 std::function<bool()> isEnabled = {}) override;
-	void registerViewSubmenu(const std::string &label,
-							 std::function<void()> drawContents) override;
-	void registerViewAction(const std::string &label, std::function<void()> action,
-							const std::string &shortcut = {}) override;
-	void registerShortcut(const std::string &id, const std::string &label,
-						  const std::string &chord, std::function<void()> action) override;
+	void registerViewSubmenu(const std::string& label, std::function<void()> drawContents) override;
+	void registerViewAction(const std::string& label, std::function<void()> action,
+							const std::string& shortcut = {}) override;
+	void registerShortcut(const std::string& id, const std::string& label, const std::string& chord,
+						  std::function<void()> action) override;
 	void setGizmoOp(GizmoOp op) override { m_gizmoOp = op; }
 	GizmoOp gizmoOp() const override { return m_gizmoOp; }
 
@@ -350,21 +343,22 @@ class Mui : public IMui {
 	 * A non-empty @p group nests the drawer as a collapsing header inside that
 	 * group's page (e.g. "Audio") instead of adding a sidebar entry.
 	 */
-	void registerPreferencesDrawer(const std::string &id, const std::string &label,
-								   std::function<void()> draw, const std::string &group = {});
-	void unregisterPreferencesDrawer(const std::string &id);
+	void registerPreferencesDrawer(const std::string& id, const std::string& label,
+								   std::function<void()> draw, const std::string& group = {});
+	void unregisterPreferencesDrawer(const std::string& id);
 	struct PreferencesDrawer {
 		std::string id;
 		std::string label;
 		std::function<void()> draw;
 		std::string group;
 	};
-	const std::vector<PreferencesDrawer> &preferencesDrawers() const {
+	const std::vector<PreferencesDrawer>& preferencesDrawers() const {
 		return m_preferencesDrawers;
 	}
 
 	/** @brief Optional per-frame gizmo draw (apps wire MeshGizmo here). */
-	void setGizmoDrawer(std::function<void(float x, float y, float w, float h, GizmoOp op)> drawer) {
+	void
+	setGizmoDrawer(std::function<void(float x, float y, float w, float h, GizmoOp op)> drawer) {
 		m_gizmoDrawer = std::move(drawer);
 	}
 
@@ -382,10 +376,10 @@ class Mui : public IMui {
 	int addViewportOverlay(std::function<void(float x, float y, float w, float h)> draw);
 	void removeViewportOverlay(int id);
 
-	ShortcutManager &shortcuts() { return m_shortcuts; }
-	const ShortcutManager &shortcuts() const { return m_shortcuts; }
-	StatusBar &statusBar() { return m_statusBar; }
-	const StatusBar &statusBar() const { return m_statusBar; }
+	ShortcutManager& shortcuts() { return m_shortcuts; }
+	const ShortcutManager& shortcuts() const { return m_shortcuts; }
+	StatusBar& statusBar() { return m_statusBar; }
+	const StatusBar& statusBar() const { return m_statusBar; }
 
 	/**
 	 * @brief Optional right-aligned status text in the host main menu bar.
@@ -394,14 +388,17 @@ class Mui : public IMui {
 	void setMenuBarRightStatus(std::function<std::string()> text) {
 		m_menuBarRightStatus = std::move(text);
 	}
-	const std::function<std::string()> &menuBarRightStatus() const {
-		return m_menuBarRightStatus;
-	}
+	const std::function<std::string()>& menuBarRightStatus() const { return m_menuBarRightStatus; }
 
 	bool rulersVisible() const { return m_rulersVisible; }
 	void setRulersVisible(bool v) { m_rulersVisible = v; }
 	bool handles2DVisible() const { return m_handles2D; }
 	void setHandles2DVisible(bool v) { m_handles2D = v; }
+
+	/** @brief Rulers and 2D handles. A bound content view or Edit Mode. */
+	bool view2DChrome() const { return editModeEnabled() || m_contentView != nullptr; }
+	/** @brief Select / Move / Rotate / Scale. Edit Mode or a gizmo drawer. */
+	bool gizmoChrome() const { return editModeEnabled() || static_cast<bool>(m_gizmoDrawer); }
 
 	/**
 	 * @brief Bind the central bed's View2D so host rulers / 2D handles match the sheet.
@@ -440,22 +437,22 @@ class Mui : public IMui {
 		bool submenu = false; ///< When true, @c action draws nested menu contents.
 	};
 
-	const std::vector<FileMenuAction> &fileActions() const { return m_fileActions; }
-	const std::vector<FileMenuAction> &appActions() const { return m_appActions; }
-	const std::vector<FileMenuAction> &viewActions() const { return m_viewActions; }
-	const std::vector<ToolMenuAction> &toolActions() const { return m_toolActions; }
-	const std::vector<EditMenuAction> &editActions() const { return m_editActions; }
-	const std::vector<std::string> &recentFiles() const { return m_recentFiles; }
-	const std::function<void(const std::string &)> &recentFileOpenHandler() const {
+	const std::vector<FileMenuAction>& fileActions() const { return m_fileActions; }
+	const std::vector<FileMenuAction>& appActions() const { return m_appActions; }
+	const std::vector<FileMenuAction>& viewActions() const { return m_viewActions; }
+	const std::vector<ToolMenuAction>& toolActions() const { return m_toolActions; }
+	const std::vector<EditMenuAction>& editActions() const { return m_editActions; }
+	const std::vector<std::string>& recentFiles() const { return m_recentFiles; }
+	const std::function<void(const std::string&)>& recentFileOpenHandler() const {
 		return m_recentOpenHandler;
 	}
 
-	const std::vector<std::pair<std::string, std::function<void()>>> &exportActions() const {
+	const std::vector<std::pair<std::string, std::function<void()>>>& exportActions() const {
 		return m_exportActions;
 	}
 
-	UiPrefs &uiPrefs() { return m_uiPrefs; }
-	const UiPrefs &uiPrefs() const { return m_uiPrefs; }
+	UiPrefs& uiPrefs() { return m_uiPrefs; }
+	const UiPrefs& uiPrefs() const { return m_uiPrefs; }
 	float dpiScale() const { return m_dpiScale; }
 
 	/** @brief Host FPS text for status bar / menu bar chrome (smoothed). */
@@ -508,14 +505,14 @@ class Mui : public IMui {
 		return (m_uiPrefs.fpsDisplay < 0 || m_uiPrefs.fpsDisplay > 2) ? 0 : m_uiPrefs.fpsDisplay;
 	}
 
-	RigKitEngine *m_engine = nullptr;
+	RigKitEngine* m_engine = nullptr;
 	std::unique_ptr<MWindow> m_windowManager;
 	std::unique_ptr<HostMenuBar> m_menuBar;
-	GLFWwindow *m_window = nullptr;
+	GLFWwindow* m_window = nullptr;
 	ImGuiTheme m_currentTheme = ImGuiTheme::Dark;
-	std::string m_currentWorkspace;	   ///< Active workspace name; empty = unnamed
+	std::string m_currentWorkspace;		///< Active workspace name; empty = unnamed
 	std::string m_pendingWorkspaceLoad; ///< Ini path applied before next NewFrame
-	std::string m_iniPath; ///< Stable storage for io.IniFilename pointer
+	std::string m_iniPath;				///< Stable storage for io.IniFilename pointer
 	std::unordered_map<std::string, bool> m_pendingVisibility; ///< From [RigVisibility]
 	bool m_rigVisibilitySectionSeen = false; ///< Set while parsing a RigVisibility block
 	bool m_applyPendingVisibility = false;	 ///< Apply hide-all / show-listed after LoadIni
@@ -527,7 +524,7 @@ class Mui : public IMui {
 	bool m_aboutOpen = false;
 	std::string m_aboutIntro;
 
-	UndoStack *m_undoStack = nullptr;
+	UndoStack* m_undoStack = nullptr;
 	ShortcutManager m_shortcuts;
 	StatusBar m_statusBar;
 	Progress m_progress;
@@ -557,7 +554,7 @@ class Mui : public IMui {
 	std::vector<std::pair<std::string, std::function<void()>>> m_exportActions;
 	std::vector<PreferencesDrawer> m_preferencesDrawers;
 	std::vector<std::string> m_recentFiles;
-	std::function<void(const std::string &)> m_recentOpenHandler;
+	std::function<void(const std::string&)> m_recentOpenHandler;
 	static constexpr int kMaxRecentFiles = 10;
 
 	void installWorkspaceDockSeed();
@@ -576,9 +573,9 @@ class Mui : public IMui {
 	bool m_centralValid = false;
 	float m_dpiScale = 1.f;
 	float m_statusBarHeight = 0.f;
-	float m_fpsShown = 0.f;	 ///< Averaged FPS for chrome text
-	float m_fpsAccum = 0.f;	 ///< Seconds in the current FPS sample window
-	int m_fpsFrames = 0;	 ///< Frames in the current FPS sample window
+	float m_fpsShown = 0.f; ///< Averaged FPS for chrome text
+	float m_fpsAccum = 0.f; ///< Seconds in the current FPS sample window
+	int m_fpsFrames = 0;	///< Frames in the current FPS sample window
 	UiPrefs m_uiPrefs;
 	std::string m_appliedFontFile;
 	float m_appliedFontSize = -1.f;

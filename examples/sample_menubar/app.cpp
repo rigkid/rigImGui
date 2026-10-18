@@ -8,12 +8,7 @@
 
 #include <spdlog/spdlog.h>
 
-SampleMenubarApp::SampleMenubarApp() {
-	window().width = 880;
-	window().height = 560;
-	window().title = "rigImGui - sample_menubar";
-	settings().appName = "sample_menubar";
-}
+SampleMenubarApp::SampleMenubarApp() { settings().appName = "sample_menubar"; }
 
 void SampleMenubarApp::setup() {
 	spdlog::info("sample_menubar - host menu bar + Log");

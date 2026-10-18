@@ -39,7 +39,8 @@ const PrefCategory* findCategory(const std::vector<PrefCategory>& categories,
 } // namespace
 
 PreferencesPanel::PreferencesPanel(const std::string& title, ImGuiWindowFlags flags)
-	: IWindow(title, flags != 0 ? flags : ImGuiWindowFlags_NoDocking) {}
+	: IWindow(title, (flags != 0 ? flags : ImGuiWindowFlags_NoDocking) |
+						ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse) {}
 
 void PreferencesPanel::render() {
 	if (!isVisible()) {
@@ -122,8 +123,10 @@ void PreferencesPanel::renderContents() {
 		}
 	}
 
-	const float footerHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
-	const float columnHeight = ImGui::GetContentRegionAvail().y - footerHeight;
+	// Table cell padding sits outside the children. Leave that, plus the Save row,
+	// or the window grows its own scrollbar beside the detail pane.
+	const float reserve =
+		ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().CellPadding.y * 2.f;
 
 	const PrefCategory* selected = findCategory(categories, m_selectedId);
 	// Resizable table = draggable divider; column width persists via imgui.ini.
@@ -135,7 +138,7 @@ void PreferencesPanel::renderContents() {
 		ImGui::TableNextRow();
 
 		ImGui::TableSetColumnIndex(0);
-		ImGui::BeginChild("##PrefSidebar", ImVec2(0, columnHeight), true);
+		ImGui::BeginChild("##PrefSidebar", ImVec2(0.f, -reserve), true);
 		for (const auto& cat : categories) {
 			if (ImGui::Selectable(cat.label.c_str(), cat.id == m_selectedId)) {
 				m_selectedId = cat.id;
@@ -144,7 +147,7 @@ void PreferencesPanel::renderContents() {
 		ImGui::EndChild();
 
 		ImGui::TableSetColumnIndex(1);
-		ImGui::BeginChild("##PrefDetail", ImVec2(0, columnHeight), true);
+		ImGui::BeginChild("##PrefDetail", ImVec2(0.f, -reserve), true);
 		if (selected) {
 			ImGui::TextUnformatted(selected->label.c_str());
 			ImGui::Separator();
@@ -195,6 +198,7 @@ void PreferencesPanel::renderContents() {
 					float* fontSize = nullptr;
 					float* fontWeight = nullptr;
 					std::string* themeFile = nullptr;
+					float* hueShift = nullptr;
 					for (auto& p : props) {
 						if (p.name == "Font File" && p.type == EPT_STRING) {
 							fontFile = static_cast<std::string*>(p.data);
@@ -204,12 +208,19 @@ void PreferencesPanel::renderContents() {
 							fontWeight = static_cast<float*>(p.data);
 						} else if (p.name == "Theme File" && p.type == EPT_STRING) {
 							themeFile = static_cast<std::string*>(p.data);
+						} else if (p.name == "Hue Shift" && p.type == EPT_FLOAT) {
+							hueShift = static_cast<float*>(p.data);
 						} else {
 							rest.push_back(p);
 						}
 					}
 					bool changed = false;
 					if (themeFile && ThemePicker::draw("prefScheme", *themeFile)) {
+						changed = true;
+						mui->setImGuiTheme(mui->getImGuiTheme());
+					}
+					if (hueShift && ImGui::SliderFloat("Hue Shift", hueShift, 0.f, 1.f, "%.2f")) {
+						*hueShift = std::clamp(*hueShift, 0.f, 1.f);
 						changed = true;
 						mui->setImGuiTheme(mui->getImGuiTheme());
 					}

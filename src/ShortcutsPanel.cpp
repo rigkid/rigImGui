@@ -84,14 +84,28 @@ void ShortcutsPanel::renderContents() {
 		m_shortcuts->setCapturing(false);
 		m_shortcuts->resetAll();
 	}
+	if (!m_captureId.empty()) {
+		ImGui::SameLine();
+		ImGui::TextDisabled("Listening for %s", m_captureId.c_str());
+	}
 	ImGui::Separator();
 
-	if (ImGui::BeginTable("shortcuts", 3,
-						  ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
-							  ImGuiTableFlags_SizingStretchProp)) {
-		ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthStretch, 2.f);
-		ImGui::TableSetupColumn("Keys", ImGuiTableColumnFlags_WidthStretch, 2.f);
-		ImGui::TableSetupColumn("##reset", ImGuiTableColumnFlags_WidthFixed, 56.f);
+	const ImGuiStyle& st = ImGui::GetStyle();
+	const float padX = st.FramePadding.x * 2.f;
+	const float cellPad = st.CellPadding.x * 2.f;
+	const float resetW = ImGui::CalcTextSize("Reset").x + padX + cellPad;
+	const float tableH = ImGui::GetContentRegionAvail().y;
+	const ImGuiTableFlags flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg |
+								  ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY |
+								  ImGuiTableFlags_SizingStretchProp;
+	if (ImGui::BeginTable("shortcut_list", 3, flags, ImVec2(0.f, tableH))) {
+		ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthStretch, 1.f);
+		ImGui::TableSetupColumn("Keys", ImGuiTableColumnFlags_WidthStretch, 1.5f);
+		ImGui::TableSetupColumn("##reset",
+							   ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize |
+								   ImGuiTableColumnFlags_NoHide,
+							   resetW);
+		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableHeadersRow();
 
 		for (const auto& b : m_shortcuts->bindings()) {
@@ -137,11 +151,6 @@ void ShortcutsPanel::renderContents() {
 			ImGui::PopID();
 		}
 		ImGui::EndTable();
-	}
-
-	if (!m_captureId.empty()) {
-		ImGui::Spacing();
-		ImGui::TextDisabled("Listening for %s", m_captureId.c_str());
 	}
 }
 

@@ -357,7 +357,7 @@ void HostMenuBar::renderViewMenu() {
 		return;
 	}
 
-	if (m_ui) {
+	if (m_ui && m_ui->view2DChrome()) {
 		bool rulers = m_ui->rulersVisible();
 		if (ImGui::MenuItem("Rulers", "F2", rulers)) {
 			m_ui->setRulersVisible(!rulers);
@@ -484,14 +484,16 @@ void HostMenuBar::renderViewMenu() {
 }
 
 void HostMenuBar::renderToolsMenu() {
-	if (!ImGui::BeginMenu("Tools")) {
-		return;
-	}
 	if (!m_ui) {
-		ImGui::EndMenu();
 		return;
 	}
 	const auto& toolRows = m_ui->toolActions();
+	if (toolRows.empty() && !m_ui->gizmoChrome()) {
+		return;
+	}
+	if (!ImGui::BeginMenu("Tools")) {
+		return;
+	}
 	if (!toolRows.empty()) {
 		for (const auto& row : toolRows) {
 			const bool active = row.isActive ? row.isActive() : false;

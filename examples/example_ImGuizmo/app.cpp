@@ -12,12 +12,7 @@
 #include <ImGuizmo.h>
 #include <spdlog/spdlog.h>
 
-ImGuizmoApp::ImGuizmoApp() {
-	window().width = 880;
-	window().height = 560;
-	window().title = "rigImGui - example_ImGuizmo";
-	settings().appName = "example_ImGuizmo";
-}
+ImGuizmoApp::ImGuizmoApp() { settings().appName = "example_ImGuizmo"; }
 
 void ImGuizmoApp::setup() {
 	spdlog::info("example_ImGuizmo - translate gizmo via Mui::setGizmoDrawer");

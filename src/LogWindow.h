@@ -3,6 +3,7 @@
 #include "IWindow.h"
 
 #include <imgui.h>
+#include <iosfwd>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -32,7 +33,7 @@ class LogWindow : public IWindow {
   public:
 	LogWindow(const std::string &title = "Log###Log",
 			  ImGuiWindowFlags flags = 0);
-	virtual ~LogWindow() = default;
+	~LogWindow() override;
 
 	// spdlog sink integration
 	void setupSpdlogSink();
@@ -52,8 +53,8 @@ class LogWindow : public IWindow {
 	// Ensure this class is not abstract
 	void renderContents() override;
 
-	// Allow LogWindowSink to access protected/private members
 	friend class LogWindowSink;
+	friend class StdTeeBuf;
 
   private:
 	std::vector<LogEntry> m_logEntries;
@@ -69,6 +70,13 @@ class LogWindow : public IWindow {
 	bool m_collapseDuplicates = true;
 	size_t m_maxLogLines = 1000;
 	std::shared_ptr<spdlog::sinks::sink> m_spdlogSink;
+	std::streambuf *m_coutBuf = nullptr;
+	std::streambuf *m_cerrBuf = nullptr;
+	std::unique_ptr<std::streambuf> m_teeOut;
+	std::unique_ptr<std::streambuf> m_teeErr;
+
+	void captureStdStreams();
+	void releaseStdStreams();
 
 	// UI methods
 	void renderLogEntries();

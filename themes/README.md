@@ -12,4 +12,4 @@ Search order (later folders lose to an earlier filename match):
 | File | Credit | License |
 |------|--------|---------|
 | `dracula.json` | Dracula palette, Zeno Rocha / [draculatheme.com](https://draculatheme.com) - ImGui mapping by RigKit | MIT (Dracula) |
-| `enemy-mouse.json` | enemymouse gist via [dear-imgui-styles](https://github.com/GraphicsProgramming/dear-imgui-styles) | see that repo |
+| `minimal.json` | RigKit. Neutral chrome and tight metrics (padding, spacing, scrollbars, no rounding) so content keeps the space | MIT |

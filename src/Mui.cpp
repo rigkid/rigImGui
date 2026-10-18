@@ -494,7 +494,8 @@ void Mui::render() {
 
 	// Workspace ini swap must also stay outside the frame. A file with
 	// [Docking] is a full snapshot - drop one-shot builders so they do not
-	// rebuild over it. Visibility-only presets re-seed via the named builder (Vector / Pixel / ...).
+	// rebuild over it. Visibility-only presets re-seed via the named builder (Vector / Pixel /
+	// ...).
 	if (!m_pendingWorkspaceLoad.empty()) {
 		const std::string path = m_pendingWorkspaceLoad;
 		m_pendingWorkspaceLoad.clear();
@@ -658,6 +659,7 @@ void Mui::setImGuiTheme(ImGuiTheme theme) {
 			ImGuiStyleKit::loadStyleFromFile(resolved, ImGui::GetStyle(), nullptr);
 		}
 	}
+	ImGuiStyleKit::shiftStyleHue(ImGui::GetStyle(), m_uiPrefs.hueShift);
 	applyDpiStyle();
 	if (changed && m_engine) {
 		if (auto* settings = m_engine->getSettingsManager()) {
@@ -669,8 +671,10 @@ void Mui::setImGuiTheme(ImGuiTheme theme) {
 bool Mui::saveCurrentTheme(const std::string& path, bool notify) {
 	const std::string resolved =
 		ImGuiStyleKit::themePathForSave(path.empty() ? "custom.json" : path);
-	const bool ok = ImGuiStyleKit::saveStyleToFile(resolved, ImGui::GetStyle(),
-												   static_cast<int>(m_currentTheme));
+	ImGuiStyle toSave = ImGui::GetStyle();
+	ImGuiStyleKit::shiftStyleHue(toSave, -m_uiPrefs.hueShift);
+	const bool ok =
+		ImGuiStyleKit::saveStyleToFile(resolved, toSave, static_cast<int>(m_currentTheme));
 	if (ok) {
 		m_uiPrefs.themeFile = themeNameForPrefs(resolved);
 		if (m_engine) {
@@ -704,9 +708,10 @@ bool Mui::loadTheme(const std::string& path, bool notify) {
 		}
 		return false;
 	}
+	m_uiPrefs.themeFile = themeNameForPrefs(resolved);
 	m_currentTheme = clampImGuiTheme(baseTheme);
 	m_uiPrefs.theme = static_cast<int>(m_currentTheme);
-	m_uiPrefs.themeFile = themeNameForPrefs(resolved);
+	ImGuiStyleKit::shiftStyleHue(style, m_uiPrefs.hueShift);
 	// Themes are saved from the live style (already DPI-baked). Mark scale so
 	// applyDpiStyle does not multiply padding again.
 	style._MainScale = (m_dpiScale > 0.01f) ? m_dpiScale : 1.f;
@@ -743,13 +748,18 @@ void Mui::applyUiPrefs() {
 	if (m_imguiReady) {
 		syncViewportsFromPrefs();
 	}
-	const bool fontChanged = m_uiPrefs.fontFile != m_appliedFontFile ||
-							 m_uiPrefs.fontSize != m_appliedFontSize ||
-							 m_uiPrefs.fontWeight != m_appliedFontWeight;
-	if (fontChanged) {
+	// File and weight rebuild the atlas. Size is the live font size, applied next frame.
+	const bool fontSourceChanged =
+		m_uiPrefs.fontFile != m_appliedFontFile || m_uiPrefs.fontWeight != m_appliedFontWeight;
+	if (fontSourceChanged) {
 		reloadFonts();
 	} else {
 		bindChromeKerning();
+	}
+	if (m_imguiReady) {
+		const float size = std::clamp(m_uiPrefs.fontSize, 8.f, 128.f);
+		ImGui::GetStyle()._NextFrameFontSizeBase = size;
+		m_appliedFontSize = m_uiPrefs.fontSize;
 	}
 	syncProgressFromPrefs();
 	syncFpsChromeFromPrefs();
@@ -1482,6 +1492,21 @@ ImGuiKey keyFromToken(std::string token) {
 	if (token == "SPACE") {
 		return ImGuiKey_Space;
 	}
+	if (token == "ENTER" || token == "RETURN") {
+		return ImGuiKey_Enter;
+	}
+	if (token == "LEFT") {
+		return ImGuiKey_LeftArrow;
+	}
+	if (token == "RIGHT") {
+		return ImGuiKey_RightArrow;
+	}
+	if (token == "UP") {
+		return ImGuiKey_UpArrow;
+	}
+	if (token == "DOWN") {
+		return ImGuiKey_DownArrow;
+	}
 	if (token == "DELETE" || token == "DEL") {
 		return ImGuiKey_Delete;
 	}
@@ -1510,7 +1535,8 @@ bool parseMenuChord(const std::string& text, ImGuiKey& key, bool& ctrl, bool& sh
 				c = static_cast<char>(c - 'A' + 'a');
 			}
 		}
-		if (lower == "ctrl" || lower == "control" || lower == "ctr") {
+		if (lower == "ctrl" || lower == "control" || lower == "ctr" || lower == "cmd" ||
+			lower == "command" || lower == "super") {
 			ctrl = true;
 		} else if (lower == "shift") {
 			shift = true;
@@ -1844,7 +1870,7 @@ void Mui::renderMainViewOverlays() {
 		size.y -= m_statusBarHeight;
 	}
 
-	if (m_rulersVisible) {
+	if (m_rulersVisible && view2DChrome()) {
 		ImVec2 rulerOrigin = origin;
 		ImVec2 rulerSize = size;
 		if (m_dockPassthroughCentral && m_centralValid) {
@@ -1907,7 +1933,7 @@ void Mui::renderMainViewOverlays() {
 		ImGui::End();
 	}
 
-	if (m_handles2D && m_engine && m_engine->getECSManager()) {
+	if (m_handles2D && view2DChrome() && m_engine && m_engine->getECSManager()) {
 		float hx = origin.x;
 		float hy = origin.y;
 		float hs = 1.f;
@@ -1984,21 +2010,25 @@ void Mui::installDefaultShortcuts() {
 		m_shortcuts.bind({"view.edit_mode", kEditModeStatus, ImGuiKey_E, true, false, false,
 						  [this] { setEditMode(!m_editMode); }});
 	}
-	m_shortcuts.bind({"view.rulers", "Rulers", ImGuiKey_F2, false, false, false,
-					  [this] { m_rulersVisible = !m_rulersVisible; }});
+	if (gizmoChrome()) {
+		m_shortcuts.bind({"tools.select", "Select", ImGuiKey_V, false, false, false,
+						  [this] { m_gizmoOp = GizmoOp::Select; }});
+		m_shortcuts.bind({"tools.move", "Move", ImGuiKey_W, false, false, false,
+						  [this] { m_gizmoOp = GizmoOp::Translate; }});
+		m_shortcuts.bind({"tools.rotate", "Rotate", ImGuiKey_E, false, false, false,
+						  [this] { m_gizmoOp = GizmoOp::Rotate; }});
+		m_shortcuts.bind({"tools.scale", "Scale", ImGuiKey_R, false, false, false,
+						  [this] { m_gizmoOp = GizmoOp::Scale; }});
+	}
+	if (view2DChrome()) {
+		m_shortcuts.bind({"view.rulers", "Rulers", ImGuiKey_F2, false, false, false,
+						  [this] { m_rulersVisible = !m_rulersVisible; }});
+	}
 	m_shortcuts.bind({"view.fullscreen", "Full Screen", ImGuiKey_F11, false, false, false, [this] {
 						  if (m_engine) {
 							  m_engine->toggleFullscreen();
 						  }
 					  }});
-	m_shortcuts.bind({"tools.select", "Select", ImGuiKey_V, false, false, false,
-					  [this] { m_gizmoOp = GizmoOp::Select; }});
-	m_shortcuts.bind({"tools.move", "Move", ImGuiKey_W, false, false, false,
-					  [this] { m_gizmoOp = GizmoOp::Translate; }});
-	m_shortcuts.bind({"tools.rotate", "Rotate", ImGuiKey_E, false, false, false,
-					  [this] { m_gizmoOp = GizmoOp::Rotate; }});
-	m_shortcuts.bind({"tools.scale", "Scale", ImGuiKey_R, false, false, false,
-					  [this] { m_gizmoOp = GizmoOp::Scale; }});
 
 	if (m_engine) {
 		if (auto* settings = m_engine->getSettingsManager()) {
