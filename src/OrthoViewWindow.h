@@ -11,8 +11,8 @@ class Mui;
 /**
  * @brief Instantiable ortho camera panel — one `COrthoView` entity to an FBO.
  * @details Apps register the View menu with `registerOrthoViewMenu`, or spawn a
- * window with `openOrthoView` / `createWindow<OrthoViewWindow>`. Needs
- * **rigRender3D** at link time. Pan (MMB / Alt+LMB) and wheel zoom write
+ * window with `openOrthoView` / `createWindow<OrthoViewWindow>`. Callers
+ * link `SMeshPresent3D`. Pan (MMB / Alt+LMB) and wheel zoom write
  * `COrthoView::target` / `CCamera::orthoHeight`.
  */
 class OrthoViewWindow : public IWindow {

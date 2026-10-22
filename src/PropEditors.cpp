@@ -565,8 +565,8 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 			return false;
 		}
 	}
-	// Scope widget IDs per component so equal labels (e.g. "Inset (mm)" on both
-	// CropmarkSettings and BorderSettings) do not collide in the same window.
+	// Scope widget IDs per component so equal labels on two components
+	// do not collide in the same window.
 	ImGui::PushID(headerName ? headerName : "props");
 	PropDragSource patchSrc(entityId);
 

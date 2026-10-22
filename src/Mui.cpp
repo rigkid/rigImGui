@@ -1361,8 +1361,7 @@ void Mui::setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows) 
 
 		ImGuiID left = 0, center = 0, right = 0, bottom = 0;
 		ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.22f, &left, &center);
-		// Right strip holds Properties (+ app extras like Show Control /
-		// ColorEdit).
+		// Right strip holds Properties and any extra windows the app passed in.
 		ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.36f, &right, &center);
 		ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.28f, &bottom, &center);
 

@@ -249,7 +249,7 @@ class Mui : public IMui {
 	}
 
 	/**
-	 * @brief Dock seed for a named workspace (Vector, Pixel, ...).
+	 * @brief Dock seed for a named workspace.
 	 * @details Used when `loadWorkspace` applies an ini that has no `[Docking]`
 	 * tree - visibility-only presets still get a correct first layout. Pass an
 	 * empty function to remove a seed. Names match workspace files
@@ -269,8 +269,8 @@ class Mui : public IMui {
 	/**
 	 * @brief One-shot host dock layout used to seed `Standard.ini` when missing.
 	 * @details No-ops when a dock split already exists (restored ini / prior seed).
-	 * @param extraRightWindows Optional titles docked with Properties on the right
-	 * (e.g. app "Show Control"). Call after those windows exist.
+	 * @param extraRightWindows Optional titles docked with Properties on the right.
+	 * Call after those windows exist.
 	 */
 	void setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows = {});
 
@@ -320,7 +320,7 @@ class Mui : public IMui {
 	GizmoOp gizmoOp() const override { return m_gizmoOp; }
 
 	/**
-	 * @brief Extra fonts for packs (e.g. monospace code editor).
+	 * @brief Extra font-atlas hooks registered by the host.
 	 * @details Called during font load / reload, before the atlas is used.
 	 * Multiple packs may register; order is FIFO.
 	 */
@@ -338,10 +338,10 @@ class Mui : public IMui {
 
 	/**
 	 * @brief Extra Preferences sections (ImGui draw; not MSettings persistence).
-	 * @details Use for project-scoped UI (e.g. plot Document/Canvas) that should
-	 * appear under App to Preferences without writing rigkit_settings.json.
-	 * A non-empty @p group nests the drawer as a collapsing header inside that
-	 * group's page (e.g. "Audio") instead of adding a sidebar entry.
+	 * @details Use for project-scoped UI that should appear under App >
+	 * Preferences without writing rigkit_settings.json. A non-empty @p group
+	 * nests the drawer as a collapsing header inside that group's page
+	 * instead of adding a sidebar entry.
 	 */
 	void registerPreferencesDrawer(const std::string& id, const std::string& label,
 								   std::function<void()> draw, const std::string& group = {});

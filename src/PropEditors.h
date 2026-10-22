@@ -34,8 +34,8 @@ using PropCommitFn = std::function<void(const PropCommit&)>;
 
 /**
  * @brief "No entity" sentinel for the prop-drag API (`entt::to_integral(entt::null)`).
- * @details Entity id 0 is a real entt entity (the first one created - e.g. the
- * PixelPlotter scene), so 0 must NOT be used to mean "none".
+ * @details Entity id 0 is a real entt entity (the first one created), so 0
+ * must NOT be used to mean "none".
  */
 inline constexpr uint32_t kPropDragNoEntity = 0xFFFFFFFFu;
 

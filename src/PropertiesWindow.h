@@ -19,7 +19,7 @@ class PropertiesWindow : public IWindow {
 	/** @brief Optional - when set, the inline editor shows "Open in Code Editor". */
 	using OpenCodeEditorFn = std::function<void(uint32_t entity)>;
 	/**
-	 * @brief Optional highlighted light editor (e.g. from rigCodeEditor).
+	 * @brief Optional highlighted light editor supplied by the host.
 	 * @return true when @p text was modified.
 	 */
 	using CodeLightEditDrawFn =
@@ -43,12 +43,12 @@ class PropertiesWindow : public IWindow {
 	/** @brief Invoke the Open-in-Code-Editor hook when one is registered. */
 	void openInCodeEditor(uint32_t entity);
 
-	/// Pack-owned inspectors (e.g. selected node graph params).
+	/// Pack-owned inspectors drawn with the stock property list.
 	void addExtraDrawer(ExtraDrawer drawer);
 
 	/**
 	 * @brief Called after a component header's stock props, while that header is open.
-	 * @details Use this to replace a string field with a catalog combo (PlotLayer tool).
+	 * @details Use this to replace a string field with a catalog combo.
 	 */
 	using AfterComponentFn =
 		std::function<void(const std::string& component, MEcs& ecs, entt::entity entity)>;

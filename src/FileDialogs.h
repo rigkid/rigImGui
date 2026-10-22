@@ -136,7 +136,7 @@ class FileDialogs {
 	 * persists viewMode() when this fires. */
 	bool consumeViewModeChanged();
 
-	/** @brief Pack-registered CPU decoder (e.g. rigSvg for `.svg`). */
+	/** @brief Pack-registered CPU decoder for one file extension. */
 	void registerThumbnailDecoder(const std::string& extension,
 								  IMui::FileThumbnailDecoder decoder);
 

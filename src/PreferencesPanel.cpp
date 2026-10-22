@@ -176,7 +176,7 @@ void PreferencesPanel::renderContents() {
 					}
 					ImGui::PopID();
 				}
-				// Custom drawers targeting this group (e.g. KidVJ's Audio Test).
+				// Custom drawers targeting this group.
 				if (mui) {
 					for (const auto& drawer : mui->preferencesDrawers()) {
 						if (drawer.group != selected->group || !drawer.draw) {
