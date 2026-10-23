@@ -1423,6 +1423,11 @@ void Mui::saveFileDialog(const std::string& title, std::vector<std::string> filt
 	m_fileDialogs.save(title, std::move(filters), std::move(onSelected));
 }
 
+void Mui::openFolderDialog(const std::string& title, FileDialogCallback onSelected,
+						   const std::string& startDir) {
+	m_fileDialogs.openFolder(title, std::move(onSelected), startDir);
+}
+
 void Mui::registerFileThumbnailDecoder(const std::string& extension,
 									   IMui::FileThumbnailDecoder decoder) {
 	m_fileDialogs.registerThumbnailDecoder(extension, std::move(decoder));

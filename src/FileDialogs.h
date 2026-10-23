@@ -116,6 +116,8 @@ class FileDialogs {
 	/** @param defaultName Pre-filled file name (Save As suggests the current one). */
 	void save(const std::string& title, std::vector<std::string> filters, Callback onSelected,
 			  const std::string& defaultName = {});
+	/** @param startDir Directory the browser opens in. Empty keeps the last one. */
+	void openFolder(const std::string& title, Callback onSelected, const std::string& startDir = {});
 
 	/** @brief Draw browsers and fire callback when a path is chosen. */
 	void tick();
@@ -147,10 +149,11 @@ class FileDialogs {
 	 * No double suffix. */
 	std::string withSaveExtension(std::filesystem::path path) const;
 
-	enum class Mode { None, Open, Save };
+	enum class Mode { None, Open, Save, Folder };
 
 	ImGui::FileBrowser m_open;
 	ImGui::FileBrowser m_save;
+	ImGui::FileBrowser m_folder;
 	ThumbnailCache m_thumbs;
 	Mode m_mode = Mode::None;
 	Callback m_callback;

@@ -22,7 +22,7 @@ inline constexpr const char* kRigGraphNodePayload = "RIG_GRAPH_NODE";
  * ImGui: `PropDragSource src(entityId);` widget;
  * `offerScenePropDrag("Width", EPT_INT);` then drag the field name (or Alt-drag
  * the value) onto the Node Editor or a Patch Destination. Alt+drop adds an LFO
- * on floats.
+ * through a Map onto the slider range (floats only).
  */
 struct RigScenePropPayload {
 	uint32_t entity = 0;
@@ -32,6 +32,11 @@ struct RigScenePropPayload {
 	/// drags so an editor bound to another ECS rejects the drop - entt ids
 	/// are only unique within one registry.
 	const void* ecsTag = nullptr;
+	/// Slider limits of the field that was dragged. Alt+drop uses them as the
+	/// Map output range in front of an LFO. False when the widget has no range.
+	bool hasRange = false;
+	float rangeMin = 0.f;
+	float rangeMax = 1.f;
 };
 
 /**

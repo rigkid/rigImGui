@@ -287,6 +287,8 @@ class Mui : public IMui {
 						FileDialogCallback onSelected) override;
 	void saveFileDialog(const std::string& title, std::vector<std::string> filters,
 						FileDialogCallback onSelected) override;
+	void openFolderDialog(const std::string& title, FileDialogCallback onSelected,
+						  const std::string& startDir = {}) override;
 	std::vector<std::string> fileDialogPinnedFolders() const override;
 	void setFileDialogPinnedFolders(const std::vector<std::string>& paths) override;
 	std::string fileDialogView() const override;

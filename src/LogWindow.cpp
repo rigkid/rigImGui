@@ -1,8 +1,9 @@
 #include "LogWindow.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <chrono>
-#include <imgui.h>
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -16,11 +17,11 @@ namespace rigkit {
 // Custom spdlog sink that forwards messages to LogWindow
 class LogWindowSink : public spdlog::sinks::base_sink<std::mutex> {
   public:
-	LogWindowSink(LogWindow *logWindow) : m_logWindow(logWindow) {}
+	LogWindowSink(LogWindow* logWindow) : m_logWindow(logWindow) {}
 	void detach() { m_logWindow = nullptr; }
 
   protected:
-	void sink_it_(const spdlog::details::log_msg &msg) override {
+	void sink_it_(const spdlog::details::log_msg& msg) override {
 		if (!m_logWindow)
 			return;
 		// Map spdlog level to LogLevel
@@ -49,12 +50,12 @@ class LogWindowSink : public spdlog::sinks::base_sink<std::mutex> {
 	void flush_() override {}
 
   private:
-	LogWindow *m_logWindow;
+	LogWindow* m_logWindow;
 };
 
 class StdTeeBuf : public std::streambuf {
   public:
-	StdTeeBuf(std::streambuf *orig, LogWindow *log, LogLevel level)
+	StdTeeBuf(std::streambuf* orig, LogWindow* log, LogLevel level)
 		: m_orig(orig), m_log(log), m_level(level) {}
 
   protected:
@@ -93,22 +94,21 @@ class StdTeeBuf : public std::streambuf {
 		m_line.clear();
 	}
 
-	std::streambuf *m_orig = nullptr;
-	LogWindow *m_log = nullptr;
+	std::streambuf* m_orig = nullptr;
+	LogWindow* m_log = nullptr;
 	LogLevel m_level = LogLevel::Info;
 	std::string m_line;
 };
 
-LogWindow::LogWindow(const std::string &title, ImGuiWindowFlags flags)
-	: IWindow(title, flags) {}
+LogWindow::LogWindow(const std::string& title, ImGuiWindowFlags flags) : IWindow(title, flags) {}
 
 LogWindow::~LogWindow() {
 	releaseStdStreams();
-	if (auto *self = dynamic_cast<LogWindowSink *>(m_spdlogSink.get())) {
+	if (auto* self = dynamic_cast<LogWindowSink*>(m_spdlogSink.get())) {
 		self->detach();
 	}
 	if (auto logger = spdlog::default_logger()) {
-		auto &sinks = logger->sinks();
+		auto& sinks = logger->sinks();
 		sinks.erase(std::remove(sinks.begin(), sinks.end(), m_spdlogSink), sinks.end());
 	}
 	m_spdlogSink.reset();
@@ -154,8 +154,19 @@ void LogWindow::setupSpdlogSink() {
 	captureStdStreams();
 }
 
-void LogWindow::addLogFromSink(LogLevel level, const std::string &message,
-							   const std::string &timestamp) {
+void LogWindow::addLogFromSink(LogLevel level, const std::string& message,
+							   const std::string& timestamp) {
+	// One huge line (a shader log, a dumped buffer) would layout for long
+	// enough that Windows treats the window as hung. The cout tee already
+	// splits near this size.
+	constexpr size_t kMaxLogMessage = 4000;
+	const std::string* text = &message;
+	std::string trimmed;
+	if (message.size() > kMaxLogMessage) {
+		trimmed.assign(message.data(), kMaxLogMessage);
+		trimmed.append("...");
+		text = &trimmed;
+	}
 	std::lock_guard<std::mutex> lock(m_logMutex);
 	if (m_collapseDuplicates) {
 		// Only recent repeats collapse. Scanning the whole buffer per
@@ -164,26 +175,31 @@ void LogWindow::addLogFromSink(LogLevel level, const std::string &message,
 		const size_t scanFloor =
 			m_logEntries.size() > 64 ? m_logEntries.size() - 64 : 0;
 		for (size_t i = m_logEntries.size(); i-- > scanFloor;) {
-			LogEntry &prev = m_logEntries[i];
-			if (prev.level == level && prev.message == message) {
+			LogEntry& prev = m_logEntries[i];
+			if (prev.level == level && prev.message == *text) {
 				++prev.count;
 				prev.timestamp = timestamp;
+				++m_revision;
 				// The row stays where it is, so leave the view where it is too.
 				return;
 			}
 		}
 	}
-	m_logEntries.emplace_back(level, message, timestamp);
+	m_logEntries.emplace_back(level, *text, timestamp);
 	if (m_logEntries.size() > m_maxLogLines) {
 		m_logEntries.erase(m_logEntries.begin());
 	}
 	m_scrollToBottom = true;
+	++m_revision;
 }
 
 void LogWindow::clearLog() {
-	std::lock_guard<std::mutex> lock(m_logMutex);
-	m_logEntries.clear();
-	// Optionally, log this event via spdlog
+	{
+		std::lock_guard<std::mutex> lock(m_logMutex);
+		m_logEntries.clear();
+		++m_revision;
+	}
+	// After the lock. The sink calls back into addLogFromSink on this thread.
 	spdlog::info("Log cleared.");
 }
 
@@ -191,6 +207,42 @@ void LogWindow::dismissEntry(size_t index) {
 	std::lock_guard<std::mutex> lock(m_logMutex);
 	if (index < m_logEntries.size()) {
 		m_logEntries.erase(m_logEntries.begin() + static_cast<std::ptrdiff_t>(index));
+		++m_revision;
+	}
+}
+
+void LogWindow::dismissDrawn(size_t index) {
+	if (index >= m_drawEntries.size()) {
+		return;
+	}
+	const LogLevel level = m_drawEntries[index].level;
+	const std::string message = m_drawEntries[index].message;
+	{
+		std::lock_guard<std::mutex> lock(m_logMutex);
+		for (size_t i = 0; i < m_logEntries.size(); ++i) {
+			const LogEntry& entry = m_logEntries[i];
+			if (entry.level == level && entry.message == message) {
+				m_logEntries.erase(m_logEntries.begin() + static_cast<std::ptrdiff_t>(i));
+				++m_revision;
+				break;
+			}
+		}
+	}
+	m_drawEntries.erase(m_drawEntries.begin() + static_cast<std::ptrdiff_t>(index));
+}
+
+bool LogWindow::showsLevel(LogLevel level) const {
+	switch (level) {
+	case LogLevel::Debug:
+		return m_showDebug;
+	case LogLevel::Info:
+		return m_showInfo;
+	case LogLevel::Warning:
+		return m_showWarning;
+	case LogLevel::Error:
+		return m_showError;
+	default:
+		return false;
 	}
 }
 
@@ -231,62 +283,64 @@ void LogWindow::renderFilterControls() {
 void LogWindow::renderLogEntries() {
 	// Set black background for log text area only
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 1));
-	ImGui::BeginChild("LogEntries", ImVec2(0, 0), true);
-	std::unique_lock<std::mutex> lock(m_logMutex);
-	// Erasing mid-loop would invalidate the row we are drawing.
-	size_t dismiss = m_logEntries.size();
-	for (size_t i = 0; i < m_logEntries.size(); ++i) {
-		const LogEntry &entry = m_logEntries[i];
-		bool shouldShow = false;
-		switch (entry.level) {
-		case LogLevel::Debug:
-			shouldShow = m_showDebug;
-			break;
-		case LogLevel::Info:
-			shouldShow = m_showInfo;
-			break;
-		case LogLevel::Warning:
-			shouldShow = m_showWarning;
-			break;
-		case LogLevel::Error:
-			shouldShow = m_showError;
-			break;
+	ImGui::BeginChild("LogEntries", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+
+	bool scroll = false;
+	{
+		std::lock_guard<std::mutex> lock(m_logMutex);
+		if (m_revision != m_drawnRevision) {
+			m_drawEntries = m_logEntries;
+			m_drawnRevision = m_revision;
 		}
-		if (!shouldShow)
-			continue;
-		ImGui::PushID(static_cast<int>(i));
-		if (ImGui::SmallButton("x")) {
-			dismiss = i;
-		}
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Dismiss this line");
-		}
-		ImGui::SameLine();
-		ImGui::PushStyleColor(ImGuiCol_Text, getLogColor(entry.level));
-		std::string header;
-		if (m_showTimestamps) {
-			header = "[" + entry.timestamp + "] [" +
-					 getLogLevelString(entry.level) + "] ";
-		} else {
-			header = "[" + getLogLevelString(entry.level) + "] ";
-		}
-		if (entry.count > 1) {
-			header += "x" + std::to_string(entry.count) + " ";
-		}
-		ImGui::TextUnformatted(header.c_str());
-		ImGui::SameLine();
-		ImGui::TextWrapped("%s", entry.message.c_str());
-		ImGui::PopStyleColor();
-		ImGui::PopID();
-	}
-	if (dismiss < m_logEntries.size()) {
-		lock.unlock();
-		dismissEntry(dismiss);
-		lock.lock();
-	}
-	if (m_scrollToBottom) {
-		ImGui::SetScrollHereY(1.0f);
+		scroll = m_scrollToBottom;
 		m_scrollToBottom = false;
+	}
+
+	m_visibleRows.clear();
+	for (size_t i = 0; i < m_drawEntries.size(); ++i) {
+		if (showsLevel(m_drawEntries[i].level)) {
+			m_visibleRows.push_back(i);
+		}
+	}
+
+	// One row per message, so the clipper's even-height assumption holds.
+	// TextWrapped on a full buffer layouts every line on the UI thread.
+	size_t dismiss = m_drawEntries.size();
+	ImGuiListClipper clipper;
+	clipper.Begin(static_cast<int>(m_visibleRows.size()));
+	while (clipper.Step()) {
+		for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+			const size_t i = m_visibleRows[static_cast<size_t>(row)];
+			const LogEntry& entry = m_drawEntries[i];
+			ImGui::PushID(static_cast<int>(i));
+			if (ImGui::SmallButton("x")) {
+				dismiss = i;
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("Dismiss this line");
+			}
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Text, getLogColor(entry.level));
+			std::string header;
+			if (m_showTimestamps) {
+				header = "[" + entry.timestamp + "] [" + getLogLevelString(entry.level) + "] ";
+			} else {
+				header = "[" + getLogLevelString(entry.level) + "] ";
+			}
+			if (entry.count > 1) {
+				header += "x" + std::to_string(entry.count) + " ";
+			}
+			header += entry.message;
+			ImGui::TextUnformatted(header.c_str());
+			ImGui::PopStyleColor();
+			ImGui::PopID();
+		}
+	}
+	if (dismiss < m_drawEntries.size()) {
+		dismissDrawn(dismiss);
+	}
+	if (scroll) {
+		ImGui::SetScrollHereY(1.0f);
 	}
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
@@ -323,13 +377,22 @@ std::string LogWindow::getLogLevelString(LogLevel level) {
 }
 
 std::string LogWindow::getCurrentTimestamp() {
-	auto now = std::chrono::system_clock::now();
-	auto time_t = std::chrono::system_clock::to_time_t(now);
-	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-				  now.time_since_epoch()) %
-			  1000;
+	const auto now = std::chrono::system_clock::now();
+	const std::time_t time = std::chrono::system_clock::to_time_t(now);
+	const auto ms =
+		std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+	std::tm tm{};
+#if defined(_WIN32)
+	if (localtime_s(&tm, &time) != 0) {
+		return {};
+	}
+#else
+	if (localtime_r(&time, &tm) == nullptr) {
+		return {};
+	}
+#endif
 	std::stringstream ss;
-	ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
+	ss << std::put_time(&tm, "%H:%M:%S");
 	ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
 	return ss.str();
 }

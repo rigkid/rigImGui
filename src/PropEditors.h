@@ -89,7 +89,8 @@ void offerScenePropDrag(const char* propName, int propType);
  * as a zero-drag alternative to drag-drop. The Node Editor drains the queue once
  * per frame via `takeScenePropPatchRequests` and spawns the matching `ref.*` node
  * (plus a wired LFO when @ref withLfo is set, matching Alt+drop, or the catalog
- * node in @ref sourceType / @ref sourcePin — Sound uses `mod.audio`).
+ * node in @ref sourceType / @ref sourcePin. Sound uses `mod.audio`).
+ * An LFO goes through a Map: input is the LFO span, output is the slider range.
  */
 struct ScenePropPatchRequest {
 	uint32_t entity = kPropDragNoEntity;
@@ -100,8 +101,9 @@ struct ScenePropPatchRequest {
 	std::string sourceType;
 	/// Output pin on @ref sourceType (`level`, `bass`, ...). Empty means `out`.
 	std::string sourcePin;
-	/// When set, the Map between a Sound pin and the ref uses this output range
-	/// (the knob's slider limits). Input stays 0..1, matching `mod.audio`.
+	/// When set, the Map in front of the ref uses this output range (the knob's
+	/// slider limits). Sound leaves the Map input at 0..1. An LFO patch sets the
+	/// input from that LFO's span (offset plus or minus amplitude).
 	bool hasMapRange = false;
 	float mapOutMin = 0.f;
 	float mapOutMax = 1.f;
@@ -110,6 +112,9 @@ struct ScenePropPatchRequest {
 	/// Owning ECS (opaque, see `RigScenePropPayload::ecsTag`). Routes the
 	/// request to the editor bound to that ECS; null = any editor.
 	const void* ecsTag = nullptr;
+	/// Existing `mod.lfo` to wire instead of spawning one. 0 spawns a new LFO.
+	/// Ignored unless @ref withLfo is set. The id belongs to @ref ecsTag's graph.
+	uint32_t reuseLfo = 0;
 };
 
 /**
@@ -127,11 +132,30 @@ struct ScenePropPatchSource {
 /** @brief Replace the right-click source list (Sound, and any later groups). */
 void setScenePropPatchSources(std::vector<ScenePropPatchSource> sources);
 
+/**
+ * @brief One existing LFO the property menu can wire instead of spawning.
+ * @details The Node Editor publishes the active graph's `mod.lfo` nodes, keyed
+ * by the same ECS pointer as `RigScenePropPayload::ecsTag`. @ref nodeId is only
+ * meaningful in that graph.
+ */
+struct ScenePropLfoChoice {
+	uint32_t nodeId = 0;
+	std::string label;
+};
+
+/**
+ * @brief Replace the existing-LFO list for @p ecsTag.
+ * @details Pass an empty list when the graph has no LFOs. Other ECS entries
+ * stay. The property menu reads this while it is open.
+ */
+void setScenePropLfoChoices(const void* ecsTag, std::vector<ScenePropLfoChoice> choices);
+
 /** @brief Queue a patch request (no-op when @p entityId is `kPropDragNoEntity`). */
 void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo,
 						   const void* ecsTag = nullptr, const char* sourceType = nullptr,
 						   const char* sourcePin = nullptr, bool hasMapRange = false,
-						   float mapOutMin = 0.f, float mapOutMax = 1.f, bool unpatch = false);
+						   float mapOutMin = 0.f, float mapOutMax = 1.f, bool unpatch = false,
+						   uint32_t reuseLfo = 0);
 
 /**
  * @brief Drain pending patch requests for the editor bound to @p consumerEcs.

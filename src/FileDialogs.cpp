@@ -28,12 +28,17 @@ bool endsWithIgnoreCase(const std::string& s, const std::string& suffix) {
 FileDialogs::FileDialogs()
 	: m_open(ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter),
 	  m_save(ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir |
-			 ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter) {
+			 ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter),
+	  m_folder(ImGuiFileBrowserFlags_SelectDirectory | ImGuiFileBrowserFlags_HideRegularFiles |
+			   ImGuiFileBrowserFlags_CreateNewDir | ImGuiFileBrowserFlags_CloseOnEsc |
+			   ImGuiFileBrowserFlags_ConfirmOnEnter) {
 	// 1x until open()/save() (ImGui context + FontScaleDpi ready).
 	applyFileBrowserLayout(m_open);
 	applyFileBrowserLayout(m_save);
+	applyFileBrowserLayout(m_folder);
 	installFileBrowserQuickAccess(m_open);
 	installFileBrowserQuickAccess(m_save);
+	installFileBrowserQuickAccess(m_folder);
 	const auto thumbs = [this](const std::filesystem::path& path) { return m_thumbs.get(path); };
 	m_open.SetThumbnailProvider(thumbs);
 	m_save.SetThumbnailProvider(thumbs);
@@ -50,6 +55,7 @@ void FileDialogs::shutdown() {
 void FileDialogs::applyLayout() {
 	applyFileBrowserLayout(m_open);
 	applyFileBrowserLayout(m_save);
+	applyFileBrowserLayout(m_folder);
 }
 
 void FileDialogs::open(const std::string& title, std::vector<std::string> filters,
@@ -81,6 +87,24 @@ void FileDialogs::save(const std::string& title, std::vector<std::string> filter
 	m_openedOnce = false;
 }
 
+void FileDialogs::openFolder(const std::string& title, Callback onSelected,
+							 const std::string& startDir) {
+	applyLayout();
+	m_mode = Mode::Folder;
+	m_callback = std::move(onSelected);
+	m_folder.SetTitle(title.empty() ? "Choose folder" : title);
+	if (!startDir.empty()) {
+		std::error_code ec;
+		const std::filesystem::path dir(std::u8string(startDir.begin(), startDir.end()));
+		if (std::filesystem::is_directory(dir, ec)) {
+			m_folder.SetDirectory(dir);
+		}
+	}
+	m_folder.Open();
+	m_skipDisplay = 1;
+	m_openedOnce = false;
+}
+
 std::string FileDialogs::withSaveExtension(std::filesystem::path path) const {
 	// Same as native Save dialogs: append only when the type combo is a real
 	// extension. ".*" (All files) means leave the stem alone. Never double-append
@@ -107,17 +131,34 @@ void FileDialogs::tick() {
 		return;
 	}
 
-	ImGui::FileBrowser& browser = (m_mode == Mode::Open) ? m_open : m_save;
+	ImGui::FileBrowser& browser =
+		m_mode == Mode::Save ? m_save : m_mode == Mode::Folder ? m_folder : m_open;
 	browser.Display();
 
 	if (browser.ConsumePinnedQuickAccessChanged()) {
-		ImGui::FileBrowser& other = (m_mode == Mode::Open) ? m_save : m_open;
-		other.SetPinnedQuickAccess(browser.GetPinnedQuickAccess());
+		const auto pins = browser.GetPinnedQuickAccess();
+		if (&browser != &m_open) {
+			m_open.SetPinnedQuickAccess(pins);
+		}
+		if (&browser != &m_save) {
+			m_save.SetPinnedQuickAccess(pins);
+		}
+		if (&browser != &m_folder) {
+			m_folder.SetPinnedQuickAccess(pins);
+		}
 		m_pinsChanged = true;
 	}
 	if (browser.ConsumeViewModeChanged()) {
-		ImGui::FileBrowser& other = (m_mode == Mode::Open) ? m_save : m_open;
-		other.SetViewMode(browser.GetViewMode());
+		const auto mode = browser.GetViewMode();
+		if (&browser != &m_open) {
+			m_open.SetViewMode(mode);
+		}
+		if (&browser != &m_save) {
+			m_save.SetViewMode(mode);
+		}
+		if (&browser != &m_folder) {
+			m_folder.SetViewMode(mode);
+		}
 		m_viewChanged = true;
 	}
 
@@ -160,6 +201,7 @@ void FileDialogs::setPinnedFolders(const std::vector<std::string>& paths) {
 	}
 	m_open.SetPinnedQuickAccess(fsPaths);
 	m_save.SetPinnedQuickAccess(fsPaths);
+	m_folder.SetPinnedQuickAccess(fsPaths);
 }
 
 std::vector<std::string> FileDialogs::pinnedFolders() const {
@@ -180,6 +222,7 @@ bool FileDialogs::consumePinnedFoldersChanged() {
 void FileDialogs::setViewMode(ImGui::FileBrowser::ViewMode mode) {
 	m_open.SetViewMode(mode);
 	m_save.SetViewMode(mode);
+	m_folder.SetViewMode(mode);
 }
 
 ImGui::FileBrowser::ViewMode FileDialogs::viewMode() const {

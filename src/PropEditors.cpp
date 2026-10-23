@@ -241,6 +241,22 @@ struct PendingPatch {
 std::vector<PendingPatch> g_patchRequests;
 std::vector<ScenePropPatchSource> g_patchSources;
 
+struct LfoShelf {
+	const void* ecsTag = nullptr;
+	std::vector<ScenePropLfoChoice> choices;
+};
+std::vector<LfoShelf> g_lfoShelves;
+
+const std::vector<ScenePropLfoChoice>& lfoChoicesFor(const void* ecsTag) {
+	static const std::vector<ScenePropLfoChoice> kEmpty;
+	for (const LfoShelf& shelf : g_lfoShelves) {
+		if (shelf.ecsTag == ecsTag) {
+			return shelf.choices;
+		}
+	}
+	return kEmpty;
+}
+
 /// Used when the node catalog has not registered outputs yet. Keep in step
 /// with `mod.audio` in NodeCatalog.cpp.
 struct SoundPin {
@@ -306,9 +322,20 @@ void setScenePropPatchSources(std::vector<ScenePropPatchSource> sources) {
 	g_patchSources = std::move(sources);
 }
 
+void setScenePropLfoChoices(const void* ecsTag, std::vector<ScenePropLfoChoice> choices) {
+	for (LfoShelf& shelf : g_lfoShelves) {
+		if (shelf.ecsTag == ecsTag) {
+			shelf.choices = std::move(choices);
+			return;
+		}
+	}
+	g_lfoShelves.push_back(LfoShelf{ecsTag, std::move(choices)});
+}
+
 void requestScenePropPatch(uint32_t entityId, const char* propName, int propType, bool withLfo,
 						   const void* ecsTag, const char* sourceType, const char* sourcePin,
-						   bool hasMapRange, float mapOutMin, float mapOutMax, bool unpatch) {
+						   bool hasMapRange, float mapOutMin, float mapOutMax, bool unpatch,
+						   uint32_t reuseLfo) {
 	if (entityId == kPropDragNoEntity || !propName || propName[0] == '\0') {
 		return;
 	}
@@ -329,6 +356,7 @@ void requestScenePropPatch(uint32_t entityId, const char* propName, int propType
 	p.req.mapOutMax = mapOutMax;
 	p.req.unpatch = unpatch;
 	p.req.ecsTag = ecsTag;
+	p.req.reuseLfo = withLfo ? reuseLfo : 0;
 	p.frame = ImGui::GetFrameCount();
 	g_patchRequests.push_back(std::move(p));
 }
@@ -426,15 +454,18 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType, c
 		payload.entity = entityId;
 		payload.propType = propType;
 		payload.ecsTag = ecsTag;
+		payload.hasRange = hasRange;
+		payload.rangeMin = rangeMin;
+		payload.rangeMax = rangeMax;
 		std::snprintf(payload.name, sizeof(payload.name), "%s", propName);
 		ImGui::SetDragDropPayload(kRigScenePropPayload, &payload, sizeof(payload));
 		ImGui::Text("Patch to %s", propName);
 		ImGui::TextDisabled("Drop on Node Editor or Patch Destination");
-		ImGui::TextDisabled("Alt+drop adds an LFO");
+		ImGui::TextDisabled("Alt+drop adds an LFO, mapped onto this slider");
 		ImGui::EndDragDropSource();
 	} else if (hovered) {
-		ImGui::SetTooltip(
-			"Drag to Node Editor or Patch Destination\nRight-click: LFO, Sound, or Unpatch");
+		ImGui::SetTooltip("Drag to Node Editor or Patch Destination\nRight-click: new or existing "
+						  "LFO, Sound, or Unpatch");
 	}
 	// Zero-drag path: right-click the handle to patch without drag-drop.
 	if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
@@ -447,8 +478,26 @@ void offerScenePropDrag(uint32_t entityId, const char* propName, int propType, c
 			requestScenePropPatch(entityId, propName, propType, false, ecsTag);
 		}
 		const bool floatish = propType != EPT_VEC2 && propType != EPT_VEC4 && propType != EPT_COLOR;
+		// LFO output is bipolar. The Map lands that span on this slider (0..1
+		// when the widget has no limits of its own).
+		const float outMin = hasRange ? rangeMin : 0.f;
+		const float outMax = hasRange ? rangeMax : 1.f;
 		if (floatish && ImGui::MenuItem("Patch with LFO")) {
-			requestScenePropPatch(entityId, propName, propType, true, ecsTag);
+			requestScenePropPatch(entityId, propName, propType, true, ecsTag, nullptr, nullptr,
+								  true, outMin, outMax);
+		}
+		if (floatish) {
+			const std::vector<ScenePropLfoChoice>& lfos = lfoChoicesFor(ecsTag);
+			if (!lfos.empty() && ImGui::BeginMenu("Existing LFO")) {
+				for (const ScenePropLfoChoice& lfo : lfos) {
+					const std::string id = lfo.label + "##" + std::to_string(lfo.nodeId);
+					if (ImGui::MenuItem(id.c_str())) {
+						requestScenePropPatch(entityId, propName, propType, true, ecsTag, nullptr,
+											  nullptr, true, outMin, outMax, false, lfo.nodeId);
+					}
+				}
+				ImGui::EndMenu();
+			}
 		}
 		// Submenu keeps the root menu to a few lines on a small screen.
 		if (floatish) {
