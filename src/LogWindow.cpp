@@ -158,7 +158,12 @@ void LogWindow::addLogFromSink(LogLevel level, const std::string &message,
 							   const std::string &timestamp) {
 	std::lock_guard<std::mutex> lock(m_logMutex);
 	if (m_collapseDuplicates) {
-		for (size_t i = m_logEntries.size(); i-- > 0;) {
+		// Only recent repeats collapse. Scanning the whole buffer per
+		// message turns a chatty failure into O(n) work under the log
+		// mutex on every logging thread.
+		const size_t scanFloor =
+			m_logEntries.size() > 64 ? m_logEntries.size() - 64 : 0;
+		for (size_t i = m_logEntries.size(); i-- > scanFloor;) {
 			LogEntry &prev = m_logEntries[i];
 			if (prev.level == level && prev.message == message) {
 				++prev.count;
