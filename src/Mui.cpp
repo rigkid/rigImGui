@@ -18,8 +18,10 @@
 #include "ExportPng.h"
 #include "Handle2D.h"
 #include "ImGuiStyleKit.h"
+#include "ImMidiMapper.h"
 #include "LayersWindow.h"
 #include "LogWindow.h"
+#include "MidiMapWindow.h"
 #include "PreferencesPanel.h"
 #include "PropertiesWindow.h"
 #include "Rulers.h"
@@ -155,6 +157,10 @@ void Mui::initImGui() {
 	ImGui_ImplOpenGL3_Init("#version 130");
 #endif
 
+	// The mapper installs its widget value callback on the live context, so it
+	// is created here and reset in shutdownImGui() before DestroyContext().
+	m_midiMap = std::make_unique<ImMidiMapper>();
+
 	m_dpiScale = ImGui_ImplGlfw_GetContentScaleForWindow(m_window);
 	if (m_dpiScale < 0.5f) {
 		m_dpiScale = 1.f;
@@ -190,6 +196,7 @@ void Mui::shutdownImGui() {
 	if (!m_imguiReady) {
 		return;
 	}
+	m_midiMap.reset();
 	m_fileDialogs.shutdown();
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
@@ -518,6 +525,11 @@ void Mui::render() {
 	ImGui::NewFrame();
 	m_inImGuiFrame = true;
 
+	// Drain queued MIDI before any widget submits, so mapped values land this frame.
+	if (m_midiMap) {
+		m_midiMap->update();
+	}
+
 	installDefaultShortcuts();
 	m_shortcuts.handleInput();
 	ensureDefaultStatusSlots();
@@ -564,6 +576,10 @@ void Mui::render() {
 		m_gizmoDrawer(gx, gy, gw, gh, m_gizmoOp);
 	}
 	renderMainViewOverlays();
+	if (m_midiMap) {
+		m_midiMap->drawStatus();
+		m_midiMap->flushTwoWay();
+	}
 	renderStatusBar();
 	renderProgressFloating();
 	renderNotifications();
@@ -1238,6 +1254,8 @@ const char* Mui::hostPanelTitle(HostPanel panel) {
 		return "Theme";
 	case HostPanel::Preferences:
 		return "Preferences";
+	case HostPanel::MidiMap:
+		return "MIDI Map";
 	}
 	return "Host";
 }
@@ -1293,6 +1311,9 @@ std::shared_ptr<IWindow> Mui::ensureHostPanel(HostPanel panel) {
 	case HostPanel::Preferences:
 		window = m_windowManager->createWindow<PreferencesPanel>(title);
 		break;
+	case HostPanel::MidiMap:
+		window = m_windowManager->createWindow<MidiMapWindow>(title, this);
+		break;
 	}
 
 	if (window) {
@@ -1327,7 +1348,7 @@ void Mui::addAllHostPanels() {
 		{HostPanel::Log, true},			 {HostPanel::Windows, true},	{HostPanel::Debug, false},
 		{HostPanel::Properties, true},	 {HostPanel::Scene, true},		{HostPanel::Layers, true},
 		{HostPanel::Viewport, false},	 {HostPanel::Shortcuts, false}, {HostPanel::Theme, false},
-		{HostPanel::Preferences, false},
+		{HostPanel::Preferences, false}, {HostPanel::MidiMap, false},
 	};
 	for (const auto& row : defaults) {
 		if (auto window = ensureHostPanel(row.panel)) {
@@ -1339,7 +1360,7 @@ void Mui::addAllHostPanels() {
 		setFirstRunHostDockLayout();
 	}
 	spdlog::info("[rigImGui] Host panels ready (Log, Windows, Debug, Properties, "
-				 "Scene, Layers, Viewport, Shortcuts, Theme, Preferences)");
+				 "Scene, Layers, Viewport, Shortcuts, Theme, Preferences, MIDI Map)");
 }
 
 void Mui::setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows) {

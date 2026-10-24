@@ -25,6 +25,7 @@
 struct GLFWwindow;
 struct ImFontAtlas;
 struct ImGuiContext;
+class ImMidiMapper;
 struct ImGuiSettingsHandler;
 struct ImGuiTextBuffer;
 
@@ -63,7 +64,8 @@ enum class HostPanel {
 	Viewport,
 	Shortcuts,
 	Theme,
-	Preferences
+	Preferences,
+	MidiMap
 };
 
 /// Pack-owned preference POD (registered on MSettings as "rigImGui.ui" / label "Interface").
@@ -335,6 +337,16 @@ class Mui : public IMui {
 
 	Progress* progress() override { return &m_progress; }
 
+	/**
+	 * @brief Shared MIDI mapper owned by the host, or nullptr before the ImGui context exists.
+	 * @details Created in initImGui() so its widget value callback is installed on the
+	 * live context; Mui::render() calls update(), drawStatus() and flushTwoWay() once
+	 * per frame. Apps feed it with pushCC()/pushNoteOn() from their MIDI backend and
+	 * configure output, persistence and editor extras on it. The host opens no MIDI
+	 * device and saves no mapping file - both stay with the app.
+	 */
+	ImMidiMapper* midiMap() { return m_midiMap.get(); }
+
 	void setAboutIntro(std::string text) override { m_aboutIntro = std::move(text); }
 	const std::string& aboutIntro() const override { return m_aboutIntro; }
 
@@ -527,6 +539,7 @@ class Mui : public IMui {
 	std::string m_aboutIntro;
 
 	UndoStack* m_undoStack = nullptr;
+	std::unique_ptr<ImMidiMapper> m_midiMap; ///< Created with the ImGui context, reset before DestroyContext.
 	ShortcutManager m_shortcuts;
 	StatusBar m_statusBar;
 	Progress m_progress;

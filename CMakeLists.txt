@@ -53,6 +53,8 @@ set(PACK_SOURCES
     src/HostMenuBar.h
     src/LogWindow.cpp
     src/LogWindow.h
+    src/MidiMapWindow.cpp
+    src/MidiMapWindow.h
     src/WindowManagerPanel.cpp
     src/WindowManagerPanel.h
     src/ImGuiWindow.cpp
