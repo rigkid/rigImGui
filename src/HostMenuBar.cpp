@@ -357,6 +357,13 @@ void HostMenuBar::renderViewMenu() {
 		return;
 	}
 
+	if (m_ui && (!m_ui->toolActions().empty() || m_ui->gizmoChrome())) {
+		bool rail = m_ui->toolRailVisible();
+		if (ImGui::MenuItem("Toolbar", nullptr, rail)) {
+			m_ui->setToolRailVisible(!rail);
+		}
+	}
+
 	if (m_ui && m_ui->view2DChrome()) {
 		bool rulers = m_ui->rulersVisible();
 		if (ImGui::MenuItem("Rulers", "F2", rulers)) {
@@ -498,7 +505,11 @@ void HostMenuBar::renderToolsMenu() {
 		for (const auto& row : toolRows) {
 			const bool active = row.isActive ? row.isActive() : false;
 			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
-			if (ImGui::MenuItem(row.label.c_str(), chord, active)) {
+			std::string text = row.label;
+			if (!row.icon.empty()) {
+				text = row.icon + "  " + row.label;
+			}
+			if (ImGui::MenuItem(text.c_str(), chord, active)) {
 				if (row.action) {
 					row.action();
 				}

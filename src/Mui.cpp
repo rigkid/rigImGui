@@ -36,6 +36,13 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_internal.h"
 
+#if __has_include("IconsFontAwesome5.h")
+#include "IconsFontAwesome5.h"
+#define RAIL_ICON(x) x
+#else
+#define RAIL_ICON(x) ""
+#endif
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -261,6 +268,224 @@ void Mui::setupDockspace() {
 		}
 	}
 	maybeSeedStandardWorkspace();
+	ImGui::End();
+}
+
+void Mui::renderToolRail() {
+	if (!m_toolRailOpen) {
+		return;
+	}
+	const auto& rows = m_toolActions;
+	const bool gizmos = gizmoChrome();
+	if (rows.empty() && !gizmos) {
+		return;
+	}
+	if (m_windowManager) {
+		for (const auto& name : m_windowManager->getAllWindowNames()) {
+			if (name.rfind("Toolbar", 0) == 0) {
+				return;
+			}
+		}
+	}
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
+	ImGui::SetNextWindowSize(uiSize(52.f, 320.f), ImGuiCond_FirstUseEver);
+	if (vp) {
+		ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + uiPx(8.f), vp->WorkPos.y + uiPx(8.f)),
+								ImGuiCond_FirstUseEver);
+	}
+	if (!ImGui::Begin("Toolbar###host.toolbar", &m_toolRailOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	// Illustrator-style rail: the live window rect says how to flow. A tall
+	// dock (left / right edge) stacks square icon buttons; a wide dock (top /
+	// bottom edge) flows them in a row; a roomy rail adds text labels. Grouped
+	// tools collapse to their active / remembered member with a corner mark -
+	// click arms it, hold or right-click opens the flyout.
+	const ImVec2 winSize = ImGui::GetWindowSize();
+	const bool horizontal = winSize.x > winSize.y;
+	const bool labelled = horizontal ? winSize.y > uiPx(64.f) : winSize.x > uiPx(120.f);
+	const float btn = uiPx(34.f);
+
+	bool firstInFlow = true;
+	auto placeNext = [&](float itemW) {
+		if (firstInFlow) {
+			firstInFlow = false;
+			return;
+		}
+		if (!horizontal) {
+			return; // Buttons stack on their own lines.
+		}
+		const float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+		if (ImGui::GetCursorScreenPos().x + itemW > right) {
+			return; // Wrap to the next row.
+		}
+		ImGui::SameLine();
+	};
+	auto separate = [&]() {
+		if (horizontal) {
+			if (!firstInFlow) {
+				ImGui::SameLine(0.f, uiPx(10.f));
+				firstInFlow = false;
+			}
+		} else if (!firstInFlow) {
+			ImGui::Separator();
+		}
+	};
+
+	auto toolButton = [&](const ToolMenuAction& row, bool active, bool grouped) {
+		std::string display = row.label;
+		if (!row.icon.empty()) {
+			display = labelled ? (row.icon + "  " + row.label) : row.icon;
+		}
+		ImVec2 size = ImVec2(btn, btn);
+		if (labelled) {
+			size = horizontal ? ImVec2(0.f, btn) : ImVec2(-1.f, btn);
+		}
+		placeNext(size.x > 0.f ? size.x : uiTextButtonWidth(display.c_str()));
+		if (active) {
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+		}
+		if (labelled && !horizontal) {
+			ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.f, 0.5f));
+		}
+		const bool hit = ImGui::Button(display.c_str(), size);
+		if (labelled && !horizontal) {
+			ImGui::PopStyleVar();
+		}
+		if (active) {
+			ImGui::PopStyleColor();
+		}
+		if (grouped) {
+			const ImVec2 rmax = ImGui::GetItemRectMax();
+			const float s = uiPx(5.f);
+			ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(rmax.x - s, rmax.y),
+														  ImVec2(rmax.x, rmax.y - s), rmax,
+														  ImGui::GetColorU32(ImGuiCol_Text, 0.75f));
+		}
+		if (ImGui::IsItemHovered()) {
+			std::string tip = row.label;
+			if (!row.shortcut.empty()) {
+				tip += " (" + row.shortcut + ")";
+			}
+			if (grouped) {
+				tip += "\nHold or right-click for more tools";
+			}
+			ImGui::SetTooltip("%s", tip.c_str());
+		}
+		return hit;
+	};
+
+	if (!rows.empty()) {
+		std::string prevGroup;
+		bool havePrev = false;
+		for (size_t i = 0; i < rows.size();) {
+			// One flyout cluster = consecutive rows sharing a group name.
+			size_t j = i + 1;
+			if (!rows[i].group.empty()) {
+				while (j < rows.size() && rows[j].group == rows[i].group) {
+					++j;
+				}
+			}
+			const bool grouped = (j - i) > 1;
+			const std::string& group = rows[i].group;
+			if (havePrev && group != prevGroup) {
+				separate();
+			}
+			havePrev = true;
+			prevGroup = group;
+
+			// Representative: active member, else the remembered flyout
+			// choice, else the first member.
+			const ToolMenuAction* rep = &rows[i];
+			for (size_t k = i; k < j; ++k) {
+				if (rows[k].isActive && rows[k].isActive()) {
+					rep = &rows[k];
+					break;
+				}
+			}
+			if (grouped && !(rep->isActive && rep->isActive())) {
+				const auto choice = m_toolGroupChoice.find(group);
+				if (choice != m_toolGroupChoice.end()) {
+					for (size_t k = i; k < j; ++k) {
+						if (rows[k].id == choice->second) {
+							rep = &rows[k];
+							break;
+						}
+					}
+				}
+			}
+			bool anyActive = false;
+			for (size_t k = i; k < j; ++k) {
+				anyActive = anyActive || (rows[k].isActive && rows[k].isActive());
+			}
+
+			ImGui::PushID(grouped ? group.c_str() : rows[i].id.c_str());
+			const bool hit = toolButton(*rep, anyActive, grouped);
+			if (grouped) {
+				if (ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+					if (m_toolHoldId != group) {
+						m_toolHoldId = group;
+						m_toolHoldSince = ImGui::GetTime();
+						m_toolHoldFired = false;
+					} else if (!m_toolHoldFired && ImGui::GetTime() - m_toolHoldSince > 0.45) {
+						ImGui::OpenPopup("##toolFlyout");
+						m_toolHoldFired = true;
+					}
+				}
+				if (ImGui::BeginPopupContextItem("##toolFlyout",
+												 ImGuiPopupFlags_MouseButtonRight)) {
+					for (size_t k = i; k < j; ++k) {
+						const auto& member = rows[k];
+						std::string text = member.label;
+						if (!member.icon.empty()) {
+							text = member.icon + "  " + member.label;
+						}
+						const bool active = member.isActive && member.isActive();
+						const char* chord =
+							member.shortcut.empty() ? nullptr : member.shortcut.c_str();
+						if (ImGui::MenuItem(text.c_str(), chord, active)) {
+							m_toolGroupChoice[group] = member.id;
+							if (member.action) {
+								member.action();
+							}
+						}
+					}
+					ImGui::EndPopup();
+				}
+			}
+			if (hit && !m_toolHoldFired && rep->action) {
+				if (grouped) {
+					m_toolGroupChoice[group] = rep->id;
+				}
+				rep->action();
+			}
+			ImGui::PopID();
+			i = j;
+		}
+	} else {
+		const auto op = m_gizmoOp;
+		auto gizmoBtn = [&](const char* label, const char* icon, GizmoOp want, const char* chord) {
+			ToolMenuAction row;
+			row.label = label;
+			row.icon = icon;
+			row.shortcut = chord;
+			if (toolButton(row, op == want, false)) {
+				m_gizmoOp = want;
+			}
+		};
+		gizmoBtn("Select", RAIL_ICON(ICON_FA_MOUSE_POINTER), GizmoOp::Select, "V");
+		gizmoBtn("Move", RAIL_ICON(ICON_FA_ARROWS_ALT), GizmoOp::Translate, "W");
+		gizmoBtn("Rotate", RAIL_ICON(ICON_FA_SYNC), GizmoOp::Rotate, "E");
+		gizmoBtn("Scale", RAIL_ICON(ICON_FA_EXPAND_ARROWS_ALT), GizmoOp::Scale, "R");
+	}
+	// Clear the flyout hold only after buttons consumed it this frame, so a
+	// hold-open release does not also arm the representative tool.
+	if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+		m_toolHoldId.clear();
+		m_toolHoldFired = false;
+	}
 	ImGui::End();
 }
 
@@ -557,6 +782,7 @@ void Mui::render() {
 	setupDockspace();
 	applyPendingWindowVisibility();
 	renderAllWindows();
+	renderToolRail();
 	if (m_gizmoDrawer && m_engine) {
 		float gx = 0.f, gy = 0.f, gw = 0.f, gh = 0.f;
 		const ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -1774,18 +2000,21 @@ void Mui::registerExportAction(const std::string& label, std::function<void()> a
 
 void Mui::registerToolAction(const std::string& id, const std::string& label,
 							 const std::string& shortcut, std::function<bool()> isActive,
-							 std::function<void()> action) {
+							 std::function<void()> action, const std::string& icon,
+							 const std::string& group) {
 	for (auto& row : m_toolActions) {
 		if (row.id == id) {
 			row.label = label;
 			row.shortcut = shortcut;
+			row.icon = icon;
+			row.group = group;
 			row.isActive = std::move(isActive);
 			row.action = std::move(action);
 			return;
 		}
 	}
 	m_toolActions.push_back(
-		ToolMenuAction{id, label, shortcut, std::move(isActive), std::move(action)});
+		ToolMenuAction{id, label, shortcut, icon, group, std::move(isActive), std::move(action)});
 }
 
 void Mui::registerEditAction(const std::string& label, const std::string& shortcut,

@@ -158,6 +158,7 @@ class Mui : public IMui {
 	void shutdownImGui();
 	void setupDockspace();
 	void renderAllWindows();
+	void renderToolRail();
 
 	void setImGuiTheme(ImGuiTheme theme);
 	ImGuiTheme getImGuiTheme() const { return m_currentTheme; }
@@ -310,7 +311,8 @@ class Mui : public IMui {
 	void registerExportAction(const std::string& label, std::function<void()> action) override;
 	void registerToolAction(const std::string& id, const std::string& label,
 							const std::string& shortcut, std::function<bool()> isActive,
-							std::function<void()> action) override;
+							std::function<void()> action, const std::string& icon = {},
+							const std::string& group = {}) override;
 	void registerEditAction(const std::string& label, const std::string& shortcut,
 							std::function<bool()> isEnabled, std::function<void()> action) override;
 	void registerEditSubmenu(const std::string& label, std::function<void()> drawContents,
@@ -414,6 +416,9 @@ class Mui : public IMui {
 	/** @brief Select / Move / Rotate / Scale. Edit Mode or a gizmo drawer. */
 	bool gizmoChrome() const { return editModeEnabled() || static_cast<bool>(m_gizmoDrawer); }
 
+	bool toolRailVisible() const { return m_toolRailOpen; }
+	void setToolRailVisible(bool v) { m_toolRailOpen = v; }
+
 	/**
 	 * @brief Bind the central bed's View2D so host rulers / 2D handles match the sheet.
 	 * @details Pass the live view each frame (or a stable pointer). @p contentUnit is
@@ -439,6 +444,8 @@ class Mui : public IMui {
 		std::string id;
 		std::string label;
 		std::string shortcut;
+		std::string icon;  ///< Icon glyph for the rail; empty = label text.
+		std::string group; ///< Flyout group; empty = standalone rail button.
 		std::function<bool()> isActive;
 		std::function<void()> action;
 	};
@@ -539,7 +546,8 @@ class Mui : public IMui {
 	std::string m_aboutIntro;
 
 	UndoStack* m_undoStack = nullptr;
-	std::unique_ptr<ImMidiMapper> m_midiMap; ///< Created with the ImGui context, reset before DestroyContext.
+	std::unique_ptr<ImMidiMapper>
+		m_midiMap; ///< Created with the ImGui context, reset before DestroyContext.
 	ShortcutManager m_shortcuts;
 	StatusBar m_statusBar;
 	Progress m_progress;
@@ -550,6 +558,12 @@ class Mui : public IMui {
 	bool m_defaultStatusReady = false;
 	bool m_rulersVisible = false;
 	bool m_handles2D = true;
+	bool m_toolRailOpen = true;
+	std::string m_toolHoldId;	  ///< Rail button currently held toward a flyout.
+	double m_toolHoldSince = 0.0; ///< ImGui time the hold started.
+	bool m_toolHoldFired = false; ///< Flyout already opened for this hold.
+	/// Last flyout member chosen per group (group -> tool id); rail click re-arms it.
+	std::unordered_map<std::string, std::string> m_toolGroupChoice;
 	const View2D* m_contentView = nullptr;
 	std::string m_contentUnit = "px";
 	bool m_exportPngPending = false;
