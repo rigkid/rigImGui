@@ -99,7 +99,8 @@ void drawControl(MEcs& ecs, entt::entity entity, const ecs::CUiControl& ctrl) {
 		drawReadonly(prop, label.c_str());
 	} else if (!ctrl.options.empty() && prop.type == EPT_STRING) {
 		drawStringOptions(prop, ctrl, label.c_str());
-	} else if ((ctrl.widget == ecs::kUiWidgetSlider || ctrl.widget == ecs::kUiWidgetKnob) &&
+	} else if ((ctrl.widget == ecs::CUiControl::Widget::Slider ||
+				ctrl.widget == ecs::CUiControl::Widget::Knob) &&
 			   (prop.type == EPT_FLOAT || prop.type == EPT_DOUBLE)) {
 		float lo = ctrl.min;
 		float hi = ctrl.max;
@@ -107,15 +108,15 @@ void drawControl(MEcs& ecs, entt::entity entity, const ecs::CUiControl& ctrl) {
 			std::swap(lo, hi);
 		}
 		ImGui::SliderFloat(label.c_str(), static_cast<float*>(prop.data), lo, hi);
-	} else if (ctrl.widget == ecs::kUiWidgetToggle && prop.type == EPT_BOOL) {
+	} else if (ctrl.widget == ecs::CUiControl::Widget::Toggle && prop.type == EPT_BOOL) {
 		ImGui::Checkbox(label.c_str(), static_cast<bool*>(prop.data));
-	} else if (ctrl.widget == ecs::kUiWidgetField &&
+	} else if (ctrl.widget == ecs::CUiControl::Widget::Field &&
 			   (prop.type == EPT_FLOAT || prop.type == EPT_DOUBLE)) {
 		ImGui::InputFloat(label.c_str(), static_cast<float*>(prop.data));
-	} else if (ctrl.widget == ecs::kUiWidgetColor &&
+	} else if (ctrl.widget == ecs::CUiControl::Widget::Color &&
 			   (prop.type == EPT_COLOR || prop.type == EPT_VEC4)) {
 		ImGui::ColorEdit4(label.c_str(), static_cast<float*>(prop.data));
-	} else if (ctrl.widget == ecs::kUiWidgetXy && prop.type == EPT_VEC2) {
+	} else if (ctrl.widget == ecs::CUiControl::Widget::Xy && prop.type == EPT_VEC2) {
 		ImGui::DragFloat2(label.c_str(), static_cast<float*>(prop.data),
 						  ctrl.step > 0.f ? ctrl.step : 0.01f);
 	} else {
@@ -175,7 +176,7 @@ void drawItems(MEcs& ecs, uint32_t panelId, uint32_t groupId, bool horizontal);
 
 void drawGroup(MEcs& ecs, entt::entity entity, const ecs::CUiGroup& group) {
 	const std::string title = itemLabel(ecs, entity, "Group");
-	const bool horizontal = group.orientation == ecs::kUiOrientHorizontal;
+	const bool horizontal = group.orientation == ecs::CUiGroup::Orientation::Horizontal;
 	if (horizontal) {
 		drawItems(ecs, group.panel, entt::to_integral(entity), true);
 		return;
@@ -238,7 +239,7 @@ void presentUiPanels(MEcs& ecs) {
 		title += id;
 
 		ImGuiWindowFlags flags = 0;
-		if (panel.surface == ecs::kUiSurfaceHud) {
+		if (panel.surface == ecs::CUiPanel::Surface::Hud) {
 			flags |= ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize;
 			if (const ImGuiViewport* vp = ImGui::GetMainViewport()) {
 				ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + 12.f, vp->WorkPos.y + 12.f),
