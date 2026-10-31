@@ -13,6 +13,7 @@
 #include "core/IMui.h"
 #include "core/util/AppPaths.h"
 
+#include "IWindow.h"
 #include "ThumbnailCache.h"
 #include "UiDpi.h"
 
@@ -27,8 +28,8 @@ inline constexpr float kFileDialogQuickAccessDesignW = 160.f;
 
 /**
  * @brief DPI-scaled size for any ImGui::FileBrowser (Place / Open / Save / ...).
- * @details Centering is handled in imfilebrowser when no explicit SetWindowPos
- * was set. Call before Open() so Appearing size picks up the new layout.
+ * @details Sidebar width lives here. The IWindow host sets position and size
+ * on Begin. Call before Open() so Appearing size picks up the new layout.
  */
 inline void applyFileBrowserLayout(ImGui::FileBrowser& browser) {
 	int w = 0;
@@ -98,9 +99,31 @@ inline void setFileBrowserFilters(ImGui::FileBrowser& browser,
 }
 
 /**
+ * @brief Viewport-capable chrome for FileDialogs.
+ * @details IWindow::Begin is a regular window, so multi-viewport can tear it
+ * into its own OS window. Listing stays in FileBrowser::DrawContents().
+ */
+class FileDialogWindow : public IWindow {
+  public:
+	FileDialogWindow();
+	void setBrowser(ImGui::FileBrowser* browser);
+	void render() override;
+	/** @brief True after this frame's Begin succeeded and listing was drawn. */
+	bool drewContents() const;
+
+  protected:
+	void renderContents() override;
+
+  private:
+	ImGui::FileBrowser* m_browser = nullptr;
+	bool m_drewContents = false;
+};
+
+/**
  * @brief Open/save browsers for Mui - keeps ImGui::FileBrowser out of IMui.
  * @details Opening size uses uiPx (design × FontScaleDpi), clamped to the
- * work area. Undersized imgui.ini crumbs are bumped up on open.
+ * work area. Undersized imgui.ini crumbs are bumped up on open. Hosted as
+ * FileDialogWindow, not a FileBrowser popup.
  */
 class FileDialogs {
   public:
@@ -154,13 +177,12 @@ class FileDialogs {
 	ImGui::FileBrowser m_open;
 	ImGui::FileBrowser m_save;
 	ImGui::FileBrowser m_folder;
+	FileDialogWindow m_window;
 	ThumbnailCache m_thumbs;
 	Mode m_mode = Mode::None;
 	Callback m_callback;
 	bool m_pinsChanged = false; ///< User pinned/unpinned since last consume.
 	bool m_viewChanged = false; ///< User toggled Details / Icons since last consume.
-	int m_skipDisplay = 0;	 ///< File menu is still a popup this frame - OpenPopup next tick.
-	bool m_openedOnce = false; ///< True after BeginPopupModal succeeded; then !open means cancel.
 };
 
 } // namespace rigkit

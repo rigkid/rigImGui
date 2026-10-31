@@ -23,15 +23,61 @@ bool endsWithIgnoreCase(const std::string& s, const std::string& suffix) {
 	return true;
 }
 
+ImGuiFileBrowserFlags openFlags() {
+	return ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter;
+}
+
+ImGuiFileBrowserFlags saveFlags() {
+	return ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir |
+		   ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter;
+}
+
+ImGuiFileBrowserFlags folderFlags() {
+	return ImGuiFileBrowserFlags_SelectDirectory | ImGuiFileBrowserFlags_HideRegularFiles |
+		   ImGuiFileBrowserFlags_CreateNewDir | ImGuiFileBrowserFlags_CloseOnEsc |
+		   ImGuiFileBrowserFlags_ConfirmOnEnter;
+}
+
 } // namespace
 
+FileDialogWindow::FileDialogWindow()
+	: IWindow("File###FileDialog", ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse) {
+	setVisible(false);
+}
+
+void FileDialogWindow::setBrowser(ImGui::FileBrowser* browser) {
+	m_browser = browser;
+}
+
+bool FileDialogWindow::drewContents() const {
+	return m_drewContents;
+}
+
+void FileDialogWindow::render() {
+	m_drewContents = false;
+	if (!isVisible()) {
+		return;
+	}
+	int w = 0;
+	int h = 0;
+	uiWindowSize(kFileDialogDesignW, kFileDialogDesignH, w, h);
+	ImGui::SetNextWindowSize(ImVec2(static_cast<float>(w), static_cast<float>(h)),
+							 ImGuiCond_Appearing);
+	if (const ImGuiViewport* vp = ImGui::GetMainViewport()) {
+		ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	}
+	IWindow::render();
+}
+
+void FileDialogWindow::renderContents() {
+	m_drewContents = true;
+	if (m_browser) {
+		m_browser->DrawContents();
+	}
+}
+
 FileDialogs::FileDialogs()
-	: m_open(ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter),
-	  m_save(ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir |
-			 ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter),
-	  m_folder(ImGuiFileBrowserFlags_SelectDirectory | ImGuiFileBrowserFlags_HideRegularFiles |
-			   ImGuiFileBrowserFlags_CreateNewDir | ImGuiFileBrowserFlags_CloseOnEsc |
-			   ImGuiFileBrowserFlags_ConfirmOnEnter) {
+	: m_open(openFlags()), m_save(saveFlags()), m_folder(folderFlags()) {
 	// 1x until open()/save() (ImGui context + FontScaleDpi ready).
 	applyFileBrowserLayout(m_open);
 	applyFileBrowserLayout(m_save);
@@ -42,6 +88,9 @@ FileDialogs::FileDialogs()
 	const auto thumbs = [this](const std::filesystem::path& path) { return m_thumbs.get(path); };
 	m_open.SetThumbnailProvider(thumbs);
 	m_save.SetThumbnailProvider(thumbs);
+	m_open.SetWindowHosted(true);
+	m_save.SetWindowHosted(true);
+	m_folder.SetWindowHosted(true);
 }
 
 FileDialogs::~FileDialogs() {
@@ -63,13 +112,12 @@ void FileDialogs::open(const std::string& title, std::vector<std::string> filter
 	applyLayout();
 	m_mode = Mode::Open;
 	m_callback = std::move(onSelected);
-	m_open.SetTitle(title.empty() ? "Open" : title);
+	const std::string label = title.empty() ? "Open" : title;
+	m_open.SetTitle(label);
 	setFileBrowserFilters(m_open, std::move(filters));
+	m_window.setTitle(label + "###FileDialog");
 	m_open.Open();
-	// HostMenuBar: popups cannot open inside a closing File menu. Skip Display
-	// this frame so shouldOpen_ stays set; next tick OpenPopup is at root.
-	m_skipDisplay = 1;
-	m_openedOnce = false;
+	m_window.setVisible(true);
 }
 
 void FileDialogs::save(const std::string& title, std::vector<std::string> filters,
@@ -77,14 +125,15 @@ void FileDialogs::save(const std::string& title, std::vector<std::string> filter
 	applyLayout();
 	m_mode = Mode::Save;
 	m_callback = std::move(onSelected);
-	m_save.SetTitle(title.empty() ? "Save" : title);
+	const std::string label = title.empty() ? "Save" : title;
+	m_save.SetTitle(label);
 	setFileBrowserFilters(m_save, std::move(filters));
 	if (!defaultName.empty()) {
 		m_save.SetInputName(defaultName);
 	}
+	m_window.setTitle(label + "###FileDialog");
 	m_save.Open();
-	m_skipDisplay = 1;
-	m_openedOnce = false;
+	m_window.setVisible(true);
 }
 
 void FileDialogs::openFolder(const std::string& title, Callback onSelected,
@@ -92,7 +141,8 @@ void FileDialogs::openFolder(const std::string& title, Callback onSelected,
 	applyLayout();
 	m_mode = Mode::Folder;
 	m_callback = std::move(onSelected);
-	m_folder.SetTitle(title.empty() ? "Choose folder" : title);
+	const std::string label = title.empty() ? "Choose folder" : title;
+	m_folder.SetTitle(label);
 	if (!startDir.empty()) {
 		std::error_code ec;
 		const std::filesystem::path dir(std::u8string(startDir.begin(), startDir.end()));
@@ -100,9 +150,9 @@ void FileDialogs::openFolder(const std::string& title, Callback onSelected,
 			m_folder.SetDirectory(dir);
 		}
 	}
+	m_window.setTitle(label + "###FileDialog");
 	m_folder.Open();
-	m_skipDisplay = 1;
-	m_openedOnce = false;
+	m_window.setVisible(true);
 }
 
 std::string FileDialogs::withSaveExtension(std::filesystem::path path) const {
@@ -124,16 +174,16 @@ void FileDialogs::tick() {
 	// Flush thumbs doomed last frame after ImGui has already rendered them.
 	m_thumbs.tick();
 	if (m_mode == Mode::None) {
-		return;
-	}
-	if (m_skipDisplay > 0) {
-		--m_skipDisplay;
+		if (m_window.isVisible()) {
+			m_window.setVisible(false);
+		}
 		return;
 	}
 
 	ImGui::FileBrowser& browser =
 		m_mode == Mode::Save ? m_save : m_mode == Mode::Folder ? m_folder : m_open;
-	browser.Display();
+	m_window.setBrowser(&browser);
+	m_window.render();
 
 	if (browser.ConsumePinnedQuickAccessChanged()) {
 		const auto pins = browser.GetPinnedQuickAccess();
@@ -171,21 +221,17 @@ void FileDialogs::tick() {
 		auto cb = std::move(m_callback);
 		m_callback = nullptr;
 		m_mode = Mode::None;
-		m_openedOnce = false;
+		m_window.setVisible(false);
 		m_thumbs.clear();
 		if (cb) {
 			cb(path);
 		}
-	} else if (browser.IsOpened()) {
-		m_openedOnce = true;
-	} else if (m_openedOnce) {
+	} else if (!m_window.isVisible() ||
+			   (m_window.drewContents() && !browser.IsOpened())) {
 		m_callback = nullptr;
 		m_mode = Mode::None;
-		m_openedOnce = false;
+		m_window.setVisible(false);
 		m_thumbs.clear();
-	} else {
-		// Menu ate the first OpenPopup - ask again next frame.
-		browser.Open();
 	}
 }
 

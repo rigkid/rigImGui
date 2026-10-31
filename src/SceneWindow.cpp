@@ -2,6 +2,7 @@
 
 #include "core/IMui.h"
 #include "core/RigKitEngine.h"
+#include "Mui.h"
 #include "ecs/MEcs.h"
 #include "CRelationship.h"
 #include "CSelection.h"
@@ -43,7 +44,7 @@ void SceneWindow::selectOnly(entt::entity e) {
 		sel.selectionIndex = 0;
 		reg.emplace<ecs::CSelection>(e, sel);
 	}
-	if (auto* ui = engine->getUiManager()) {
+	if (auto* ui = dynamic_cast<Mui*>(engine->getUiManager())) {
 		if (auto* wm = ui->getWindowManager()) {
 			if (auto props = wm->getWindow<PropertiesWindow>("Properties")) {
 				props->setSelectedEntity(e == entt::null ? PropertiesWindow::kNoEntity

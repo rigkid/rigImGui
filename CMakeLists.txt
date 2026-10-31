@@ -63,6 +63,8 @@ set(PACK_SOURCES
     src/DebugPanel.h
     src/PropertiesWindow.cpp
     src/PropertiesWindow.h
+    src/PresentUiPanels.cpp
+    src/PresentUiPanels.h
     src/PropEditors.cpp
     src/PropEditors.h
     src/ImGuiExpr.cpp

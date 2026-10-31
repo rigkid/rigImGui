@@ -29,6 +29,7 @@ The pack extends RigKit with a complete UI system built on Dear ImGui. It provid
 - **Host shell**: Edit menu + undo bind, full screen (F11), File > Export PNG, shortcuts panel with remapping (persisted in user settings), status bar, open/save dialogs. Edit Mode (`enableEditMode(true)`; panels hidden until Ctrl+E) adds Scene, Layers, and the Select / Move / Rotate / Scale tools (V W E R). A bound content view adds rulers (F2) and 2D handles. A gizmo drawer adds those same tool rows. Apps register their own Tools rows with `registerToolAction`.
 - **Standard Windows**: Pre-built windows for common tasks (debug, properties, logs)
 - **Custom UI**: Easy creation of custom windows and UI components
+- **Portable panels**: Visible `CUiPanel` / `CUiGroup` / `CUiControl` / `CUiAction` draw as tool windows or HUD overlays (`presentUiPanels`). Controls bind `target` + `propertyKey`. Actions fire `SEvent`.
 - **ECS Integration**: Seamless integration with RigKit's Entity-Component-System
 - **Engine Access**: Windows can access all RigKit managers through the engine
 
@@ -135,7 +136,8 @@ public:
     };
 
     void setup() override {
-        auto windowManager = getUIManager()->getWindowManager();
+        auto* mui = dynamic_cast<rigkit::Mui*>(engine->getUiManager());
+        auto* windowManager = mui ? mui->getWindowManager() : nullptr;
 
         // Create and show custom window
         auto myWindow = std::make_shared<MyCustomWindow>();
@@ -204,7 +206,8 @@ void MyApp::setup() {
 ```cpp
 // In your IApp::setup() method
 void MyApp::setup() {
-    auto windowManager = getUIManager()->getWindowManager();
+    auto* mui = dynamic_cast<rigkit::Mui*>(engine->getUiManager());
+    auto* windowManager = mui ? mui->getWindowManager() : nullptr;
 
     // Create and show a custom window
     auto window = std::make_shared<MyCustomWindow>();

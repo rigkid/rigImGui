@@ -5,6 +5,7 @@
 #include "PrimitiveBounds.h"
 #include "core/util/UndoStack.h"
 
+#include <algorithm>
 #include <cmath>
 #include <imgui.h>
 
@@ -84,23 +85,29 @@ bool drawSelectedHandle2D(MEcs& ecs, float originX, float originY, float scale, 
 	if (!local.valid) {
 		return false;
 	}
-	const float x = originX + (xf.position.x + local.min.x) * scale;
-	const float y = originY + (xf.position.y + local.min.y) * scale;
-	const float w = local.width() * scale;
-	const float h = local.height() * scale;
+	const glm::mat4 m = xf.localMatrix();
+	auto at = [&](float lx, float ly) {
+		const glm::vec4 p = m * glm::vec4(lx, ly, 0.f, 1.f);
+		return ImVec2(originX + p.x * scale, originY + p.y * scale);
+	};
+	const ImVec2 corners[4] = {at(local.min.x, local.min.y), at(local.max.x, local.min.y),
+							   at(local.max.x, local.max.y), at(local.min.x, local.max.y)};
 
 	ImDrawList* dl = ImGui::GetBackgroundDrawList(ImGui::GetMainViewport());
 	if (!dl) {
 		return false;
 	}
-	dl->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(80, 180, 255, 220), 0.f, 0, 1.5f);
+	dl->AddPolyline(corners, 4, IM_COL32(80, 180, 255, 220), ImDrawFlags_Closed, 1.5f);
 
 	const float hs = 6.f;
-	const ImVec2 corners[4] = {{x, y}, {x + w, y}, {x + w, y + h}, {x, y + h}};
 	for (const auto& c : corners) {
 		dl->AddRectFilled(ImVec2(c.x - hs, c.y - hs), ImVec2(c.x + hs, c.y + hs),
 						  IM_COL32(80, 180, 255, 255));
 	}
+	const float x = std::min(std::min(corners[0].x, corners[1].x), std::min(corners[2].x, corners[3].x));
+	const float y = std::min(std::min(corners[0].y, corners[1].y), std::min(corners[2].y, corners[3].y));
+	const float w = std::max(std::max(corners[0].x, corners[1].x), std::max(corners[2].x, corners[3].x)) - x;
+	const float h = std::max(std::max(corners[0].y, corners[1].y), std::max(corners[2].y, corners[3].y)) - y;
 
 	if (op == IMui::GizmoOp::Select || ImGui::GetIO().KeyAlt || ImGui::GetIO().WantCaptureMouse) {
 		return true;

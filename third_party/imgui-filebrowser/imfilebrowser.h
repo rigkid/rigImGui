@@ -82,11 +82,20 @@ namespace ImGui
         // close the browsing window
         void Close();
 
+        // hide the window / popup without clearing a pending selection
+        void Dismiss();
+
         // the browsing window is opened or not
         bool IsOpened() const noexcept;
 
         // display the browsing window if opened
         void Display();
+
+        // listing + OK/Cancel inside an already-open ImGui window (IWindow host)
+        void DrawContents();
+
+        // true: Dismiss() does not CloseCurrentPopup (host owns the window)
+        void SetWindowHosted(bool hosted) noexcept;
 
         // returns true when there is a selected filename
         bool HasSelected() const noexcept;
@@ -280,6 +289,7 @@ namespace ImGui
         bool isOpened_;
         bool isOk_;
         bool isPosSet_;
+        bool windowHosted_;
 
         std::string statusStr_;
 
@@ -357,6 +367,7 @@ inline ImGui::FileBrowser::FileBrowser(ImGuiFileBrowserFlags flags, std::filesys
     , isOpened_(false)
     , isOk_(false)
     , isPosSet_(false)
+    , windowHosted_(false)
     , rangeSelectionStart_(0)
     , editDir_(false)
     , setFocusToEditDir_(false)
@@ -417,6 +428,7 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     isOpened_    = copyFrom.isOpened_;
     isOk_        = copyFrom.isOk_;
     isPosSet_    = copyFrom.isPosSet_;
+    windowHosted_ = copyFrom.windowHosted_;
 
     statusStr_ = "";
 
@@ -517,6 +529,21 @@ inline void ImGui::FileBrowser::Close()
     shouldOpen_ = false;
 }
 
+inline void ImGui::FileBrowser::SetWindowHosted(bool hosted) noexcept
+{
+    windowHosted_ = hosted;
+}
+
+inline void ImGui::FileBrowser::Dismiss()
+{
+    isOpened_ = false;
+    shouldClose_ = true;
+    if(!windowHosted_)
+    {
+        CloseCurrentPopup();
+    }
+}
+
 inline bool ImGui::FileBrowser::IsOpened() const noexcept
 {
     return isOpened_;
@@ -524,12 +551,10 @@ inline bool ImGui::FileBrowser::IsOpened() const noexcept
 
 inline void ImGui::FileBrowser::Display()
 {
-    PushID(this);
     ScopeGuard exitThis([this]
     {
         shouldOpen_ = false;
         shouldClose_ = false;
-        PopID();
     });
 
     PumpListing();
@@ -584,6 +609,21 @@ inline void ImGui::FileBrowser::Display()
 
     isOpened_ = true;
     ScopeGuard endPopup([] { EndPopup(); });
+    DrawContents();
+}
+
+inline void ImGui::FileBrowser::DrawContents()
+{
+    PushID(this);
+    ScopeGuard exitThis([this]
+    {
+        shouldOpen_ = false;
+        shouldClose_ = false;
+        PopID();
+    });
+
+    PumpListing();
+    isOpened_ = true;
 
 #ifdef _WIN32
     ReapDriveScan();
@@ -1117,7 +1157,7 @@ inline void ImGui::FileBrowser::Display()
         if(okClicked)
         {
             isOk_ = true;
-            CloseCurrentPopup();
+            Dismiss();
         }
 
         SameLine();
@@ -1128,7 +1168,7 @@ inline void ImGui::FileBrowser::Display()
              IsKeyPressed(ImGuiKey_Escape));
         if(shouldClose)
         {
-            CloseCurrentPopup();
+            Dismiss();
         }
     }
 }
@@ -1439,7 +1479,7 @@ inline void ImGui::FileBrowser::HandleRecordActivate(
         {
             selectedFilenames_ = { rsc.name };
             isOk_ = true;
-            CloseCurrentPopup();
+            Dismiss();
         }
     }
     else if(IsKeyPressed(ImGuiKey_GamepadFaceDown) && IsItemHovered())
@@ -1454,7 +1494,7 @@ inline void ImGui::FileBrowser::HandleRecordActivate(
         {
             selectedFilenames_ = { rsc.name };
             isOk_ = true;
-            CloseCurrentPopup();
+            Dismiss();
         }
     }
 }

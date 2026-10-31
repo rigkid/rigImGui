@@ -111,7 +111,7 @@ bool drawOneControl(MEcs& ecs, entt::entity e, ecs::CUiControl& c, const UiContr
 			const auto cur = ecs::readEntityProperty(ecs, target, c.propertyKey);
 			float v = cur.value_or(0.f);
 			const float step = c.step > 0.f ? c.step : 0.01f;
-			if (c.widget == "slider") {
+			if (c.widget == ecs::kUiWidgetSlider || c.widget == ecs::kUiWidgetKnob) {
 				if (ImGui::SliderFloat(id, &v, c.min, c.max)) {
 					ecs::writeEntityProperty(ecs, target, c.propertyKey, v);
 					changed = true;

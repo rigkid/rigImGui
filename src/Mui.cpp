@@ -23,6 +23,7 @@
 #include "LogWindow.h"
 #include "MidiMapWindow.h"
 #include "PreferencesPanel.h"
+#include "PresentUiPanels.h"
 #include "PropertiesWindow.h"
 #include "Rulers.h"
 #include "SceneWindow.h"
@@ -782,6 +783,9 @@ void Mui::render() {
 	setupDockspace();
 	applyPendingWindowVisibility();
 	renderAllWindows();
+	if (m_engine && m_engine->getECSManager()) {
+		presentUiPanels(*m_engine->getECSManager());
+	}
 	renderToolRail();
 	if (m_gizmoDrawer && m_engine) {
 		float gx = 0.f, gy = 0.f, gw = 0.f, gh = 0.f;

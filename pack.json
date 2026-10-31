@@ -2,7 +2,7 @@
   "name": "rigImGui",
   "url": "https://github.com/rigkid/rigImGui.git",
   "ref": "main",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Rigkid",
   "license": "MIT Rigkid Contributors",
   "description": "rigImGui: RigKit UI pack (Dear ImGui + StyleKit). Implements IMui.",

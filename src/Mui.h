@@ -144,6 +144,8 @@ class Mui : public IMui {
 	void render() override;
 	void setRigKitEngine(RigKitEngine* engine) override;
 
+	const char* chromeId() const override { return "imgui"; }
+
 	RigKitEngine* getRigKitEngine() const override { return m_engine; }
 
 	void setWindowVisibility(const std::string& windowName, bool visible) override;
@@ -151,8 +153,8 @@ class Mui : public IMui {
 	bool getWindowVisibility(const std::string& windowName) const override;
 	std::vector<std::string> getAllWindowNames() const override;
 
-	MWindow* getWindowManager() override;
-	const MWindow* getWindowManager() const override;
+	MWindow* getWindowManager();
+	const MWindow* getWindowManager() const;
 
 	void initImGui();
 	void shutdownImGui();
