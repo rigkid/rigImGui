@@ -290,10 +290,25 @@ class Mui : public IMui {
 
 	void openFileDialog(const std::string& title, std::vector<std::string> filters,
 						FileDialogCallback onSelected) override;
+	/**
+	 * @brief Open dialog that can return more than one file.
+	 * @details Ctrl+click, Shift+click, and Ctrl+A. Save and folder dialogs stay
+	 * single-path. Cancel runs no callback. Lives on Mui: a second chrome is not
+	 * expected to grow a multi-path dialog.
+	 */
+	void openFilesDialog(const std::string& title, std::vector<std::string> filters,
+						 std::function<void(const std::vector<std::string>&)> onSelected);
 	void saveFileDialog(const std::string& title, std::vector<std::string> filters,
 						FileDialogCallback onSelected) override;
 	void openFolderDialog(const std::string& title, FileDialogCallback onSelected,
 						  const std::string& startDir = {}) override;
+	/**
+	 * @brief Files dropped on the window while no file dialog is open.
+	 * @details The open dialog still takes a drop when it is showing. Paths
+	 * match Open. An empty handler clears it.
+	 */
+	void setUnclaimedFileDropHandler(
+		std::function<void(const std::vector<std::string>& paths)> handler);
 	std::vector<std::string> fileDialogPinnedFolders() const override;
 	void setFileDialogPinnedFolders(const std::vector<std::string>& paths) override;
 	std::string fileDialogView() const override;

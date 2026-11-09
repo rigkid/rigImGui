@@ -76,6 +76,9 @@ namespace ImGui
         // set the window title text
         void SetTitle(std::string title);
 
+        // Ctrl+click, Shift+click, and Ctrl+A. Off for save and single-file dialogs.
+        void SetMultipleSelection(bool enabled) noexcept;
+
         // open the browsing window
         void Open();
 
@@ -102,6 +105,11 @@ namespace ImGui
 
         // set current browsing directory
         bool SetDirectory(const std::filesystem::path &dir = std::filesystem::current_path());
+
+        // Jump to a dropped file or folder. A folder becomes the current
+        // directory. A file opens its parent and is selected (and, on a save
+        // dialog, fills the file name). Does not confirm the dialog.
+        void RevealPath(const std::filesystem::path &path);
 
         // legacy interface. use SetDirectory instead.
         bool SetPwd(const std::filesystem::path &dir = std::filesystem::current_path())
@@ -235,6 +243,8 @@ namespace ImGui
             const std::filesystem::path &dir,
             const std::filesystem::path &preferredFallback);
 
+        void ApplyPendingReveal();
+
         bool IsExtensionMatched(const std::filesystem::path &extension) const;
 
         void ClearRangeSelectionState();
@@ -319,6 +329,10 @@ namespace ImGui
 
         unsigned int                    rangeSelectionStart_; // enable range selection when shift is pressed
         std::set<std::filesystem::path> selectedFilenames_;
+        // File name to select once the listing has finished (OS file drop).
+        std::filesystem::path           pendingRevealName_;
+        // fileRecords_ is a finished listing, not the parent-only placeholder.
+        bool                            listingReady_ = false;
 
         std::string       openNewDirLabel_;
         std::vector<char> newDirNameBuffer_;
@@ -476,6 +490,8 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     typeAheadTime_   = -1.0;
     typeAheadIndex_  = -1;
     typeAheadScroll_ = false;
+    pendingRevealName_.clear();
+    listingReady_ = copyFrom.listingReady_;
 
     return *this;
 }
@@ -501,6 +517,18 @@ inline void ImGui::FileBrowser::SetTitle(std::string title)
     const std::string thisPtrStr = std::to_string(reinterpret_cast<size_t>(this));
     openLabel_ = title_ + "##filebrowser_" + thisPtrStr;
     openNewDirLabel_ = "new dir##new_dir_" + thisPtrStr;
+}
+
+inline void ImGui::FileBrowser::SetMultipleSelection(bool enabled) noexcept
+{
+    if(enabled)
+    {
+        flags_ |= ImGuiFileBrowserFlags_MultipleSelection;
+    }
+    else
+    {
+        flags_ &= ~ImGuiFileBrowserFlags_MultipleSelection;
+    }
 }
 
 inline void ImGui::FileBrowser::Open()
@@ -1135,6 +1163,13 @@ inline void ImGui::FileBrowser::DrawContents()
         TextUnformatted(statusStr_.c_str());
         SameLine();
     }
+    else if((flags_ & ImGuiFileBrowserFlags_MultipleSelection) &&
+            !(flags_ & ImGuiFileBrowserFlags_NoStatusBar))
+    {
+        AlignTextToFramePadding();
+        TextUnformatted("Ctrl+click for several");
+        SameLine();
+    }
 
     {
         const ImGuiStyle &st = GetStyle();
@@ -1559,6 +1594,8 @@ inline void ImGui::FileBrowser::DisplayDetailsTable(
         needSort_ = false;
     }
 
+    ApplyPendingReveal();
+
     for(unsigned int rscIndex = 0; rscIndex < fileRecords_.size(); ++rscIndex)
     {
         const auto &rsc = fileRecords_[rscIndex];
@@ -1692,6 +1729,7 @@ inline void ImGui::FileBrowser::DrawIconTile(
 inline void ImGui::FileBrowser::DisplayIconsGrid(
     bool &shouldSetNewDir, std::filesystem::path &newDir)
 {
+    ApplyPendingReveal();
     RebuildVisibleRecords();
     if(visibleRecords_.empty())
     {
@@ -2140,6 +2178,7 @@ inline std::vector<ImGui::FileBrowser::FileRecord> ImGui::FileBrowser::CollectFi
 
 inline void ImGui::FileBrowser::ShowListingPlaceholder()
 {
+    listingReady_ = false;
     FileRecord parent;
     parent.isDir = true;
     parent.name = "..";
@@ -2159,6 +2198,7 @@ inline void ImGui::FileBrowser::ReapListing()
 
 inline void ImGui::FileBrowser::RequestListing()
 {
+    listingReady_ = false;
     listingGen_.fetch_add(1, std::memory_order_acq_rel);
     if(listingBusy_.load(std::memory_order_acquire))
     {
@@ -2224,6 +2264,7 @@ inline void ImGui::FileBrowser::PumpListing()
             needSort_ = true;
             SortFileRecords(nullptr);
             ClearRangeSelectionState();
+            listingReady_ = true;
             statusStr_.clear();
             typeAheadBuffer_.clear();
             typeAheadIndex_ = -1;
@@ -2232,6 +2273,8 @@ inline void ImGui::FileBrowser::PumpListing()
         else
         {
             statusStr_ = std::string("error: ") + pending.error;
+            pendingRevealName_.clear();
+            listingReady_ = false;
             if(!listingFallback_.empty() && listingFallback_ != listingPath_)
             {
                 listingPath_ = listingFallback_;
@@ -2256,6 +2299,7 @@ inline void ImGui::FileBrowser::UpdateFileRecords()
 
 inline void ImGui::FileBrowser::SetCurrentDirectoryUncatched(const std::filesystem::path &pwd)
 {
+    pendingRevealName_.clear();
     listingPath_ = pwd;
     currentDirectory_ = pwd;
     ShowListingPlaceholder();
@@ -2286,6 +2330,114 @@ inline bool ImGui::FileBrowser::SetCurrentDirectoryInternal(
     listingFallback_ = preferredFallback;
     SetCurrentDirectoryUncatched(dir);
     return true;
+}
+
+inline void ImGui::FileBrowser::RevealPath(const std::filesystem::path &path)
+{
+    if(path.empty())
+    {
+        return;
+    }
+
+    std::error_code ec;
+    if(!std::filesystem::exists(path, ec) || ec)
+    {
+        statusStr_ = "cannot open " + u8StrToStr(path.u8string());
+        return;
+    }
+
+    const bool isDir = std::filesystem::is_directory(path, ec);
+    if(ec)
+    {
+        statusStr_ = "cannot open " + u8StrToStr(path.u8string());
+        return;
+    }
+
+    std::filesystem::path dir = isDir ? path : path.parent_path();
+    if(dir.empty())
+    {
+        statusStr_ = "cannot open " + u8StrToStr(path.u8string());
+        return;
+    }
+
+    // Folder dialogs confirm the current directory. Selecting a file there
+    // would make OK return that file, so only open its parent.
+    std::filesystem::path selectName;
+    if(!isDir && !(flags_ & ImGuiFileBrowserFlags_SelectDirectory))
+    {
+        selectName = path.filename();
+        if(!selectName.empty() && !IsExtensionMatched(path.extension()))
+        {
+            for(unsigned int i = 0; i < static_cast<unsigned int>(typeFilters_.size()); ++i)
+            {
+                if(typeFilters_[i] == ".*")
+                {
+                    typeFilterIndex_ = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    editDir_ = false;
+    statusStr_.clear();
+
+    std::error_code sameEc;
+    const bool same = std::filesystem::equivalent(currentDirectory_, dir, sameEc) && !sameEc;
+    if(!same)
+    {
+        SetDirectory(dir);
+    }
+    pendingRevealName_ = std::move(selectName);
+}
+
+inline void ImGui::FileBrowser::ApplyPendingReveal()
+{
+    if(pendingRevealName_.empty() || !listingReady_ ||
+       listingBusy_.load(std::memory_order_acquire))
+    {
+        return;
+    }
+
+    const std::filesystem::path want = pendingRevealName_;
+    pendingRevealName_.clear();
+
+    const std::string wantText = u8StrToStr(want.u8string());
+#ifdef _WIN32
+    const std::string wantLower = ToLower(wantText);
+#endif
+
+    for(unsigned int i = 0; i < static_cast<unsigned int>(fileRecords_.size()); ++i)
+    {
+        const FileRecord &rec = fileRecords_[i];
+        if(rec.name == "..")
+        {
+            continue;
+        }
+
+        const std::string gotText = u8StrToStr(rec.name.u8string());
+        bool match = (rec.name == want) || gotText == wantText;
+#ifdef _WIN32
+        if(!match)
+        {
+            match = ToLower(gotText) == wantLower;
+        }
+#endif
+        if(!match)
+        {
+            continue;
+        }
+
+        selectedFilenames_ = { rec.name };
+        rangeSelectionStart_ = i;
+        typeAheadIndex_ = static_cast<int>(i);
+        typeAheadScroll_ = true;
+        if(flags_ & ImGuiFileBrowserFlags_EnterNewFilename)
+        {
+            AssignToArrayStyleString(inputNameBuffer_, gotText);
+        }
+        return;
+    }
 }
 
 inline bool ImGui::FileBrowser::IsExtensionMatched(const std::filesystem::path &_extension) const

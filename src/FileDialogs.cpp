@@ -1,9 +1,51 @@
 #include "FileDialogs.h"
 
+#include <GLFW/glfw3.h>
+
 #include <cctype>
 
 namespace rigkit {
 namespace {
+
+std::vector<std::filesystem::path> g_osDrops;
+
+std::filesystem::path pathFromUtf8(const char* text) {
+	const std::string bytes(text);
+	return std::filesystem::path(std::u8string(bytes.begin(), bytes.end()));
+}
+
+void osDropCallback(GLFWwindow*, int count, const char** paths) {
+	if (!paths) {
+		return;
+	}
+	for (int i = 0; i < count; ++i) {
+		if (paths[i] && paths[i][0]) {
+			g_osDrops.push_back(pathFromUtf8(paths[i]));
+		}
+	}
+}
+
+std::vector<std::filesystem::path> takeOsDrops() {
+	std::vector<std::filesystem::path> out;
+	out.swap(g_osDrops);
+	return out;
+}
+
+// Explorer drag often moves the cursor without ImGui marking a window hovered.
+// Trust the window rectangle when nothing else is hovered.
+bool cursorOverFileDialog() {
+	const ImGuiHoveredFlags flags =
+		ImGuiHoveredFlags_RootAndChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem;
+	if (ImGui::IsWindowHovered(flags)) {
+		return true;
+	}
+	const ImVec2 mouse = ImGui::GetIO().MousePos;
+	const ImVec2 pos = ImGui::GetWindowPos();
+	const ImVec2 size = ImGui::GetWindowSize();
+	const bool inside = mouse.x >= pos.x && mouse.y >= pos.y && mouse.x < pos.x + size.x &&
+						mouse.y < pos.y + size.y;
+	return inside && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+}
 
 bool isConcreteExtension(const std::string& f) {
 	return f.size() >= 2 && f[0] == '.' && f != ".*" && f.find(',') == std::string::npos;
@@ -45,17 +87,18 @@ FileDialogWindow::FileDialogWindow()
 	setVisible(false);
 }
 
-void FileDialogWindow::setBrowser(ImGui::FileBrowser* browser) {
-	m_browser = browser;
+void FileDialogWindow::setBrowser(ImGui::FileBrowser* browser) { m_browser = browser; }
+
+void FileDialogWindow::offerDroppedPath(std::filesystem::path path) {
+	m_droppedPath = std::move(path);
 }
 
-bool FileDialogWindow::drewContents() const {
-	return m_drewContents;
-}
+bool FileDialogWindow::drewContents() const { return m_drewContents; }
 
 void FileDialogWindow::render() {
 	m_drewContents = false;
 	if (!isVisible()) {
+		m_droppedPath.clear();
 		return;
 	}
 	int w = 0;
@@ -67,17 +110,21 @@ void FileDialogWindow::render() {
 		ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 	}
 	IWindow::render();
+	m_droppedPath.clear();
 }
 
 void FileDialogWindow::renderContents() {
 	m_drewContents = true;
+	if (m_browser && !m_droppedPath.empty() && cursorOverFileDialog()) {
+		m_browser->RevealPath(m_droppedPath);
+	}
+	m_droppedPath.clear();
 	if (m_browser) {
 		m_browser->DrawContents();
 	}
 }
 
-FileDialogs::FileDialogs()
-	: m_open(openFlags()), m_save(saveFlags()), m_folder(folderFlags()) {
+FileDialogs::FileDialogs() : m_open(openFlags()), m_save(saveFlags()), m_folder(folderFlags()) {
 	// 1x until open()/save() (ImGui context + FontScaleDpi ready).
 	applyFileBrowserLayout(m_open);
 	applyFileBrowserLayout(m_save);
@@ -93,13 +140,9 @@ FileDialogs::FileDialogs()
 	m_folder.SetWindowHosted(true);
 }
 
-FileDialogs::~FileDialogs() {
-	shutdown();
-}
+FileDialogs::~FileDialogs() { shutdown(); }
 
-void FileDialogs::shutdown() {
-	m_thumbs.shutdown();
-}
+void FileDialogs::shutdown() { m_thumbs.shutdown(); }
 
 void FileDialogs::applyLayout() {
 	applyFileBrowserLayout(m_open);
@@ -107,11 +150,11 @@ void FileDialogs::applyLayout() {
 	applyFileBrowserLayout(m_folder);
 }
 
-void FileDialogs::open(const std::string& title, std::vector<std::string> filters,
-					   Callback onSelected) {
+void FileDialogs::showOpen(const std::string& title, std::vector<std::string> filters, bool many) {
 	applyLayout();
 	m_mode = Mode::Open;
-	m_callback = std::move(onSelected);
+	m_multi = many;
+	m_open.SetMultipleSelection(many);
 	const std::string label = title.empty() ? "Open" : title;
 	m_open.SetTitle(label);
 	setFileBrowserFilters(m_open, std::move(filters));
@@ -120,10 +163,26 @@ void FileDialogs::open(const std::string& title, std::vector<std::string> filter
 	m_window.setVisible(true);
 }
 
+void FileDialogs::open(const std::string& title, std::vector<std::string> filters,
+					   Callback onSelected) {
+	m_multiCallback = nullptr;
+	m_callback = std::move(onSelected);
+	showOpen(title, std::move(filters), false);
+}
+
+void FileDialogs::openMany(const std::string& title, std::vector<std::string> filters,
+						   MultiCallback onSelected) {
+	m_callback = nullptr;
+	m_multiCallback = std::move(onSelected);
+	showOpen(title, std::move(filters), true);
+}
+
 void FileDialogs::save(const std::string& title, std::vector<std::string> filters,
 					   Callback onSelected, const std::string& defaultName) {
 	applyLayout();
 	m_mode = Mode::Save;
+	m_multi = false;
+	m_multiCallback = nullptr;
 	m_callback = std::move(onSelected);
 	const std::string label = title.empty() ? "Save" : title;
 	m_save.SetTitle(label);
@@ -140,6 +199,8 @@ void FileDialogs::openFolder(const std::string& title, Callback onSelected,
 							 const std::string& startDir) {
 	applyLayout();
 	m_mode = Mode::Folder;
+	m_multi = false;
+	m_multiCallback = nullptr;
 	m_callback = std::move(onSelected);
 	const std::string label = title.empty() ? "Choose folder" : title;
 	m_folder.SetTitle(label);
@@ -170,19 +231,53 @@ std::string FileDialogs::withSaveExtension(std::filesystem::path path) const {
 	return path.string();
 }
 
+void FileDialogs::installDropTarget(GLFWwindow* window) {
+	if (window) {
+		glfwSetDropCallback(window, osDropCallback);
+	}
+	if (!ImGui::GetCurrentContext()) {
+		return;
+	}
+	ImGuiPlatformIO& platform = ImGui::GetPlatformIO();
+	for (int i = 0; i < platform.Viewports.Size; ++i) {
+		ImGuiViewport* viewport = platform.Viewports[i];
+		if (!viewport || !viewport->PlatformHandle) {
+			continue;
+		}
+		glfwSetDropCallback(static_cast<GLFWwindow*>(viewport->PlatformHandle), osDropCallback);
+	}
+}
+
+void FileDialogs::setUnclaimedFileDropHandler(DropHandler handler) {
+	m_unclaimedDrop = std::move(handler);
+}
+
 void FileDialogs::tick() {
 	// Flush thumbs doomed last frame after ImGui has already rendered them.
+	std::vector<std::filesystem::path> dropped = takeOsDrops();
 	m_thumbs.tick();
 	if (m_mode == Mode::None) {
 		if (m_window.isVisible()) {
 			m_window.setVisible(false);
 		}
+		if (m_unclaimedDrop && !dropped.empty()) {
+			std::vector<std::string> paths;
+			paths.reserve(dropped.size());
+			for (const auto& path : dropped) {
+				paths.push_back(path.string());
+			}
+			m_unclaimedDrop(paths);
+		}
 		return;
 	}
 
-	ImGui::FileBrowser& browser =
-		m_mode == Mode::Save ? m_save : m_mode == Mode::Folder ? m_folder : m_open;
+	ImGui::FileBrowser& browser = m_mode == Mode::Save	   ? m_save
+								  : m_mode == Mode::Folder ? m_folder
+														   : m_open;
 	m_window.setBrowser(&browser);
+	if (!dropped.empty()) {
+		m_window.offerDroppedPath(std::move(dropped.front()));
+	}
 	m_window.render();
 
 	if (browser.ConsumePinnedQuickAccessChanged()) {
@@ -213,22 +308,36 @@ void FileDialogs::tick() {
 	}
 
 	if (browser.HasSelected()) {
-		std::string path = browser.GetSelected().string();
-		if (m_mode == Mode::Save) {
-			path = withSaveExtension(browser.GetSelected());
+		std::vector<std::string> many;
+		std::string path;
+		if (m_mode == Mode::Open && m_multi) {
+			for (const auto& picked : browser.GetMultiSelected()) {
+				many.push_back(picked.string());
+			}
+		} else {
+			path = browser.GetSelected().string();
+			if (m_mode == Mode::Save) {
+				path = withSaveExtension(browser.GetSelected());
+			}
 		}
 		browser.ClearSelected();
 		auto cb = std::move(m_callback);
+		auto multi = std::move(m_multiCallback);
 		m_callback = nullptr;
+		m_multiCallback = nullptr;
+		m_multi = false;
 		m_mode = Mode::None;
 		m_window.setVisible(false);
 		m_thumbs.clear();
-		if (cb) {
+		if (multi) {
+			multi(many);
+		} else if (cb) {
 			cb(path);
 		}
-	} else if (!m_window.isVisible() ||
-			   (m_window.drewContents() && !browser.IsOpened())) {
+	} else if (!m_window.isVisible() || (m_window.drewContents() && !browser.IsOpened())) {
 		m_callback = nullptr;
+		m_multiCallback = nullptr;
+		m_multi = false;
 		m_mode = Mode::None;
 		m_window.setVisible(false);
 		m_thumbs.clear();
@@ -271,9 +380,7 @@ void FileDialogs::setViewMode(ImGui::FileBrowser::ViewMode mode) {
 	m_folder.SetViewMode(mode);
 }
 
-ImGui::FileBrowser::ViewMode FileDialogs::viewMode() const {
-	return m_open.GetViewMode();
-}
+ImGui::FileBrowser::ViewMode FileDialogs::viewMode() const { return m_open.GetViewMode(); }
 
 bool FileDialogs::consumeViewModeChanged() {
 	const bool changed = m_viewChanged;

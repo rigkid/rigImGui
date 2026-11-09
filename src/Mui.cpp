@@ -197,6 +197,7 @@ void Mui::initImGui() {
 	m_imguiReady = true;
 	loadChromeKernTable();
 	bindChromeKerning();
+	m_fileDialogs.installDropTarget(m_window);
 	spdlog::info("[rigImGui] ImGui context ready (dpi scale {:.2f})", m_dpiScale);
 }
 
@@ -832,6 +833,9 @@ void Mui::render() {
 		ImGui::RenderPlatformWindowsDefault();
 		glfwMakeContextCurrent(backup);
 	}
+	// Viewport OS windows are created above. The drop callback has to be on
+	// those windows too, before the next poll.
+	m_fileDialogs.installDropTarget(m_window);
 	flushExportPng();
 }
 
@@ -1669,6 +1673,11 @@ void Mui::openFileDialog(const std::string& title, std::vector<std::string> filt
 	m_fileDialogs.open(title, std::move(filters), std::move(onSelected));
 }
 
+void Mui::openFilesDialog(const std::string& title, std::vector<std::string> filters,
+						  std::function<void(const std::vector<std::string>&)> onSelected) {
+	m_fileDialogs.openMany(title, std::move(filters), std::move(onSelected));
+}
+
 void Mui::saveFileDialog(const std::string& title, std::vector<std::string> filters,
 						 FileDialogCallback onSelected) {
 	m_fileDialogs.save(title, std::move(filters), std::move(onSelected));
@@ -1677,6 +1686,11 @@ void Mui::saveFileDialog(const std::string& title, std::vector<std::string> filt
 void Mui::openFolderDialog(const std::string& title, FileDialogCallback onSelected,
 						   const std::string& startDir) {
 	m_fileDialogs.openFolder(title, std::move(onSelected), startDir);
+}
+
+void Mui::setUnclaimedFileDropHandler(
+	std::function<void(const std::vector<std::string>&)> handler) {
+	m_fileDialogs.setUnclaimedFileDropHandler(std::move(handler));
 }
 
 void Mui::registerFileThumbnailDecoder(const std::string& extension,
@@ -2317,6 +2331,13 @@ void Mui::syncFpsChromeFromPrefs() {
 	m_statusBar.removeSlot("fps");
 }
 
+namespace {
+
+// ImGui marches an indeterminate bar only when the negative fraction itself changes.
+float progressBarFraction(float stored) { return stored < 0.f ? -ImGui::GetTime() : stored; }
+
+} // namespace
+
 void Mui::drawProgressInStatusBar(bool sameLine) {
 	if (!m_progress.useStatusBar()) {
 		return;
@@ -2333,7 +2354,7 @@ void Mui::drawProgressInStatusBar(bool sameLine) {
 	ImGui::SameLine(0, 10.f);
 
 	const float barW = std::max(160.f, ImGui::GetContentRegionAvail().x * 0.42f);
-	ImGui::ProgressBar(snap.progress, ImVec2(barW, 0.f));
+	ImGui::ProgressBar(progressBarFraction(snap.progress), ImVec2(barW, 0.f));
 
 	ImGui::SameLine(0, 10.f);
 	ImGui::TextUnformatted(snap.label.c_str());
@@ -2376,7 +2397,7 @@ void Mui::renderProgressFloating() {
 	}
 
 	ImGui::TextUnformatted(snap.title.c_str());
-	ImGui::ProgressBar(snap.progress, ImVec2(-1.f, 0.f));
+	ImGui::ProgressBar(progressBarFraction(snap.progress), ImVec2(-1.f, 0.f));
 	ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 400.f);
 	ImGui::TextWrapped("%s", snap.label.c_str());
 	ImGui::PopTextWrapPos();

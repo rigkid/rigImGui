@@ -17,6 +17,8 @@
 #include "ThumbnailCache.h"
 #include "UiDpi.h"
 
+struct GLFWwindow;
+
 namespace rigkit {
 
 /** Design (1x) size of the open/save browser - pass through uiPx at open.
@@ -83,8 +85,7 @@ inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
  * glob. Callers pass preferred types first; all-files is appended when missing
  * so the directory listing can still show everything.
  */
-inline void setFileBrowserFilters(ImGui::FileBrowser& browser,
-								  std::vector<std::string> filters) {
+inline void setFileBrowserFilters(ImGui::FileBrowser& browser, std::vector<std::string> filters) {
 	for (auto& f : filters) {
 		if (f == "*.*") {
 			f = ".*";
@@ -107,6 +108,8 @@ class FileDialogWindow : public IWindow {
   public:
 	FileDialogWindow();
 	void setBrowser(ImGui::FileBrowser* browser);
+	/** @brief Path dropped on the browser this frame. Empty skips. */
+	void offerDroppedPath(std::filesystem::path path);
 	void render() override;
 	/** @brief True after this frame's Begin succeeded and listing was drawn. */
 	bool drewContents() const;
@@ -117,6 +120,7 @@ class FileDialogWindow : public IWindow {
   private:
 	ImGui::FileBrowser* m_browser = nullptr;
 	bool m_drewContents = false;
+	std::filesystem::path m_droppedPath;
 };
 
 /**
@@ -128,6 +132,7 @@ class FileDialogWindow : public IWindow {
 class FileDialogs {
   public:
 	using Callback = std::function<void(const std::string& path)>;
+	using MultiCallback = std::function<void(const std::vector<std::string>& paths)>;
 
 	FileDialogs();
 	~FileDialogs();
@@ -136,14 +141,41 @@ class FileDialogs {
 	void shutdown();
 
 	void open(const std::string& title, std::vector<std::string> filters, Callback onSelected);
+	/**
+	 * @brief Open dialog that can return more than one file.
+	 * @details Ctrl+click, Shift+click, and Ctrl+A. One file still confirms.
+	 * Does not apply to save or folder dialogs. Cancel runs no callback.
+	 */
+	void openMany(const std::string& title, std::vector<std::string> filters,
+				  MultiCallback onSelected);
 	/** @param defaultName Pre-filled file name (Save As suggests the current one). */
 	void save(const std::string& title, std::vector<std::string> filters, Callback onSelected,
 			  const std::string& defaultName = {});
 	/** @param startDir Directory the browser opens in. Empty keeps the last one. */
-	void openFolder(const std::string& title, Callback onSelected, const std::string& startDir = {});
+	void openFolder(const std::string& title, Callback onSelected,
+					const std::string& startDir = {});
 
 	/** @brief Draw browsers and fire callback when a path is chosen. */
 	void tick();
+
+	/**
+	 * @brief Route OS file drops to the open browser.
+	 * @details Installs the GLFW drop callback on @p window and on ImGui
+	 * viewport windows. Call after the GLFW window exists, and again after
+	 * viewports are created. A drop whose cursor is over the browser jumps
+	 * to that folder, or to a file's parent and selects the file. The dialog
+	 * stays open. A multi-file drop uses the first path. Drops while no
+	 * dialog is open go to setUnclaimedFileDropHandler.
+	 */
+	void installDropTarget(GLFWwindow* window = nullptr);
+
+	/**
+	 * @brief Receive OS file drops while no open/save/folder dialog is open.
+	 * @details Paths are native narrow strings, the same form Open returns.
+	 * An empty handler clears it. The open dialog still consumes a drop.
+	 */
+	using DropHandler = std::function<void(const std::vector<std::string>& paths)>;
+	void setUnclaimedFileDropHandler(DropHandler handler);
 
 	/** @brief Replace the user-pinned Quick access folders on both browsers.
 	 * @param paths UTF-8 folder paths; missing folders are skipped. */
@@ -162,11 +194,11 @@ class FileDialogs {
 	bool consumeViewModeChanged();
 
 	/** @brief Pack-registered CPU decoder for one file extension. */
-	void registerThumbnailDecoder(const std::string& extension,
-								  IMui::FileThumbnailDecoder decoder);
+	void registerThumbnailDecoder(const std::string& extension, IMui::FileThumbnailDecoder decoder);
 
   private:
 	void applyLayout();
+	void showOpen(const std::string& title, std::vector<std::string> filters, bool many);
 	/** @brief Append the active type-filter extension when the name lacks it.
 	 * @details Concrete combo only (for example `.svg`); all-files skips.
 	 * No double suffix. */
@@ -180,7 +212,10 @@ class FileDialogs {
 	FileDialogWindow m_window;
 	ThumbnailCache m_thumbs;
 	Mode m_mode = Mode::None;
+	bool m_multi = false;
 	Callback m_callback;
+	MultiCallback m_multiCallback;
+	DropHandler m_unclaimedDrop;
 	bool m_pinsChanged = false; ///< User pinned/unpinned since last consume.
 	bool m_viewChanged = false; ///< User toggled Details / Icons since last consume.
 };
