@@ -3,13 +3,13 @@
 #include <imgui.h>
 
 #include "core/U_core.h"
-#include "packs/rigImGui/src/IWindow.h"
+#include "packs/rigImGui/src/ImGuiPanel.h"
 
 class HostShellApp : public rigkit::IApp {
   public:
-	class WidgetsWindow : public rigkit::IWindow {
+	class WidgetsWindow : public rigkit::ImGuiPanel {
 	  public:
-		WidgetsWindow() : IWindow("Widgets") {}
+		WidgetsWindow() : ImGuiPanel("Widgets") {}
 		void renderContents() override;
 
 	  private:

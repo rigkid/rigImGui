@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/util/View2D.h"
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 namespace rigkit {
 
@@ -10,7 +10,7 @@ namespace rigkit {
  * @details Apps set content size and optionally a GL texture id to display.
  * Multi-FBO authoring can bind a Canvas texture here; default is empty grid.
  */
-class ViewportWindow : public IWindow {
+class ViewportWindow : public ImGuiPanel {
   public:
 	explicit ViewportWindow(const std::string& title = "Viewport");
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <memory>
 #include <string>
@@ -33,7 +33,7 @@ class MWindow {
 		return window;
 	}
 
-	// Get specific typed window (including IWindow for base interface)
+	// Get specific typed window (including ImGuiPanel for base interface)
 	template <typename T>
 	std::shared_ptr<T> getWindow(const std::string &title) {
 		auto it = m_windowMap.find(title);
@@ -57,7 +57,7 @@ class MWindow {
 	bool getWindowVisibility(const std::string &title);
 
   private:
-	std::unordered_map<std::string, std::shared_ptr<IWindow>> m_windowMap;
+	std::unordered_map<std::string, std::shared_ptr<ImGuiPanel>> m_windowMap;
 	RigKitEngine *m_engine = nullptr;
 };
 

@@ -10,10 +10,10 @@ class RigKitEngine;
 
 namespace rigkit {
 
-class IWindow {
+class ImGuiPanel {
   public:
-	IWindow(const std::string& title, ImGuiWindowFlags flags = 0);
-	virtual ~IWindow() = default;
+	ImGuiPanel(const std::string& title, ImGuiWindowFlags flags = 0);
+	virtual ~ImGuiPanel() = default;
 
 	// Engine access - allows windows to access managers through normal RigKit
 	// patterns
@@ -47,7 +47,7 @@ class IWindow {
 
 	/**
 	 * @brief Optional strip glued to this window's bottom edge.
-	 * @details Empty default. Override with footerHeight() > 0; IWindow then
+	 * @details Empty default. Override with footerHeight() > 0; ImGuiPanel then
 	 *          reserves that strip so contents cannot scroll it away.
 	 */
 	virtual void renderFooter() {}

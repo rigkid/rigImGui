@@ -1,9 +1,10 @@
 #include "DebugPanel.h"
 
-#include "core/IMui.h"
 #include "core/RigKitEngine.h"
 #include "core/util/Progress.h"
 #include "ecs/MEcs.h"
+#include "Mui.h"
+#include "rigImGui.h"
 
 #include <cstdio>
 #include <imgui.h>
@@ -58,7 +59,7 @@ bool readProcessRssMb(double& outMb) {
 
 
 DebugPanel::DebugPanel(const std::string &title, ImGuiWindowFlags flags)
-	: IWindow(title, flags) {}
+	: ImGuiPanel(title, flags) {}
 
 void DebugPanel::renderContents() {
 	if (m_engine) {
@@ -79,7 +80,7 @@ void DebugPanel::renderDebugInfo() {
 	ImGui::Text("Debug Info:");
 	ImGui::Text("  Delta Time: %.3f ms", deltaTime * 1000.0f);
 	ImGui::Text("  Frame Rate: %.1f FPS", 1.0f / deltaTime);
-	if (IMui* ui = m_engine->getUiManager()) {
+	if (Mui* ui = authorMui(*m_engine)) {
 		ImGui::Text("  Chrome kerning: %s (%d kern pairs)", ui->chromeKerning() ? "on" : "off",
 					ui->chromeKernPairCount());
 		ImGui::TextUnformatted("  AV To LiveFace");

@@ -1494,16 +1494,16 @@ const char* Mui::hostPanelTitle(HostPanel panel) {
 	return "Host";
 }
 
-std::shared_ptr<IWindow> Mui::ensureHostPanel(HostPanel panel) {
+std::shared_ptr<ImGuiPanel> Mui::ensureHostPanel(HostPanel panel) {
 	if (!m_windowManager) {
 		return nullptr;
 	}
 	const char* title = hostPanelTitle(panel);
-	if (auto existing = m_windowManager->getWindow<IWindow>(title)) {
+	if (auto existing = m_windowManager->getWindow<ImGuiPanel>(title)) {
 		return existing;
 	}
 
-	std::shared_ptr<IWindow> window;
+	std::shared_ptr<ImGuiPanel> window;
 	switch (panel) {
 	case HostPanel::Log: {
 		auto log = m_windowManager->createWindow<LogWindow>(title, ImGuiWindowFlags_MenuBar);
@@ -1699,37 +1699,39 @@ void Mui::registerFileThumbnailDecoder(const std::string& extension,
 }
 
 void Mui::registerFileAction(const std::string& label, std::function<void()> action,
-							 const std::string& shortcut) {
-	m_fileActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
-}
-
-void Mui::registerFileSubmenu(const std::string& label, std::function<void()> drawContents) {
-	m_fileActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
-}
-
-void Mui::registerAppAction(const std::string& label, std::function<void()> action,
-							const std::string& shortcut) {
-	m_appActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
-}
-
-void Mui::registerAppSubmenu(const std::string& label, std::function<void()> drawContents) {
-	m_appActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
-}
-
-void Mui::registerViewSubmenu(const std::string& label, std::function<void()> drawContents) {
-	m_viewActions.push_back(FileMenuAction{label, {}, std::move(drawContents), true});
-}
-
-void Mui::registerViewAction(const std::string& label, std::function<void()> action,
-							 const std::string& shortcut) {
-	for (auto& row : m_viewActions) {
-		if (!row.submenu && row.label == label) {
+							 const std::string& shortcut, const std::string& group) {
+	for (auto& row : m_fileActions) {
+		if (row.label == label && row.group == group) {
 			row.shortcut = shortcut;
 			row.action = std::move(action);
 			return;
 		}
 	}
-	m_viewActions.push_back(FileMenuAction{label, shortcut, std::move(action), false});
+	m_fileActions.push_back(FileMenuAction{label, shortcut, group, std::move(action)});
+}
+
+void Mui::registerAppAction(const std::string& label, std::function<void()> action,
+							const std::string& shortcut, const std::string& group) {
+	for (auto& row : m_appActions) {
+		if (row.label == label && row.group == group) {
+			row.shortcut = shortcut;
+			row.action = std::move(action);
+			return;
+		}
+	}
+	m_appActions.push_back(FileMenuAction{label, shortcut, group, std::move(action)});
+}
+
+void Mui::registerViewAction(const std::string& label, std::function<void()> action,
+							 const std::string& shortcut, const std::string& group) {
+	for (auto& row : m_viewActions) {
+		if (row.label == label && row.group == group) {
+			row.shortcut = shortcut;
+			row.action = std::move(action);
+			return;
+		}
+	}
+	m_viewActions.push_back(FileMenuAction{label, shortcut, group, std::move(action)});
 }
 
 namespace {
@@ -2036,9 +2038,10 @@ void Mui::registerToolAction(const std::string& id, const std::string& label,
 }
 
 void Mui::registerEditAction(const std::string& label, const std::string& shortcut,
-							 std::function<bool()> isEnabled, std::function<void()> action) {
+							 std::function<bool()> isEnabled, std::function<void()> action,
+							 const std::string& group) {
 	for (auto& row : m_editActions) {
-		if (row.label == label) {
+		if (row.label == label && row.group == group) {
 			row.shortcut = shortcut;
 			row.isEnabled = std::move(isEnabled);
 			row.action = std::move(action);
@@ -2046,20 +2049,7 @@ void Mui::registerEditAction(const std::string& label, const std::string& shortc
 		}
 	}
 	m_editActions.push_back(
-		EditMenuAction{label, shortcut, std::move(isEnabled), std::move(action)});
-}
-
-void Mui::registerEditSubmenu(const std::string& label, std::function<void()> drawContents,
-							  std::function<bool()> isEnabled) {
-	for (auto& row : m_editActions) {
-		if (row.submenu && row.label == label) {
-			row.isEnabled = std::move(isEnabled);
-			row.action = std::move(drawContents);
-			return;
-		}
-	}
-	m_editActions.push_back(
-		EditMenuAction{label, {}, std::move(isEnabled), std::move(drawContents), true});
+		EditMenuAction{label, shortcut, group, std::move(isEnabled), std::move(action)});
 }
 
 void Mui::registerPreferencesDrawer(const std::string& id, const std::string& label,

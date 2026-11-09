@@ -1,12 +1,12 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <imgui.h>
 
 namespace rigkit {
 
-class ThemePanel : public IWindow {
+class ThemePanel : public ImGuiPanel {
   public:
 	ThemePanel(const std::string& title = "Theme Panel###ThemePanel",
 			   ImGuiWindowFlags flags = 0);

@@ -7,7 +7,7 @@ namespace rigkit {
 WindowManagerPanel::WindowManagerPanel(const std::string &title,
 									   MWindow *windowManager,
 									   ImGuiWindowFlags flags)
-	: IWindow(title, flags), m_windowManager(windowManager) {}
+	: ImGuiPanel(title, flags), m_windowManager(windowManager) {}
 
 void WindowManagerPanel::renderContents() {
 	if (!m_windowManager) {

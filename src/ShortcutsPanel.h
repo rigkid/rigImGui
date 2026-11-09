@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <string>
 
@@ -9,7 +9,7 @@ namespace rigkit {
 class ShortcutManager;
 
 /** @brief Lists named Kit shortcuts and captures remaps. */
-class ShortcutsPanel : public IWindow {
+class ShortcutsPanel : public ImGuiPanel {
   public:
 	explicit ShortcutsPanel(const std::string& title = "Shortcuts");
 	void setShortcutManager(ShortcutManager* shortcuts) { m_shortcuts = shortcuts; }

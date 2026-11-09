@@ -3,12 +3,12 @@
 #include <string>
 #include <vector>
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 #include "MWindow.h"
 
 namespace rigkit {
 
-class WindowManagerPanel : public IWindow {
+class WindowManagerPanel : public ImGuiPanel {
   public:
 	WindowManagerPanel(const std::string &title, MWindow *windowManager,
 					   ImGuiWindowFlags flags = 0);

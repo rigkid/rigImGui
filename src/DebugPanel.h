@@ -6,11 +6,11 @@ namespace rigkit {
 class MEcs;
 }
 #include <imgui.h>
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 namespace rigkit {
 
-class DebugPanel : public IWindow {
+class DebugPanel : public ImGuiPanel {
   public:
 	DebugPanel(const std::string &title = "Debug Panel###DebugPanel",
 			   ImGuiWindowFlags flags = 0);

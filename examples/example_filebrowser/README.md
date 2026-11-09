@@ -4,7 +4,7 @@
 
 `Mui::openFileDialog` (imgui-filebrowser) - opens on launch; **Open Dialog** again from the demo panel.
 
-ImGui for this demo lives in an `IWindow` (inside `Mui::render` after `NewFrame`), not in `IApp::draw()`.
+ImGui for this demo lives in an `ImGuiPanel` (inside `Mui::render` after `NewFrame`), not in `IApp::draw()`.
 
 ```bash
 cmake -S . -B build

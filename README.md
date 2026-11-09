@@ -37,14 +37,14 @@ Apps wire 3D gizmos with `Mui::setGizmoDrawer` (see `example-lowpoly`). Undo his
 
 ## Core Components
 
-### `IWindow` - Window Interface
-The base interface for all ImGui windows. Provides:
+### `ImGuiPanel` - dock panel base
+Dear ImGui panel base (fulfillment type — not a RigKit host `I*`). Provides:
 - Immediate mode rendering with `render()` method
 - Visibility control with `setVisible()` and `isVisible()`
 - Engine access through `setEngine()` and `getEngine()`
 
 ### `MWindow` - Window Manager
-Manages all `IWindow` instances:
+Manages all `ImGuiPanel` instances:
 - Window creation and destruction
 - Visibility management
 - Workspace save/load functionality
@@ -123,9 +123,9 @@ void MyApp::setup() {
 class MyApp : public rigkit::IApp {
 public:
     // Custom window as nested class
-    class MyCustomWindow : public rigkit::IWindow {
+    class MyCustomWindow : public rigkit::ImGuiPanel {
     public:
-        MyCustomWindow() : IWindow("My Window", ImGuiWindowFlags_None) {}
+        MyCustomWindow() : ImGuiPanel("My Window", ImGuiWindowFlags_None) {}
 
         void renderContents() override {
             ImGui::Text("Hello from my custom window!");
@@ -153,13 +153,13 @@ public:
 class MyApp : public rigkit::IApp {
 public:
     // Advanced custom window as nested class
-    class AdvancedWindow : public rigkit::IWindow {
+    class AdvancedWindow : public rigkit::ImGuiPanel {
     private:
         float m_value = 0.0f;
         std::string m_text;
 
     public:
-        AdvancedWindow() : IWindow("Advanced Window", ImGuiWindowFlags_MenuBar) {}
+        AdvancedWindow() : ImGuiPanel("Advanced Window", ImGuiWindowFlags_MenuBar) {}
 
         void renderContents() override {
             // Menu bar
@@ -264,7 +264,7 @@ Named dock layouts, Photoshop-style: snapshot the current layout **and window vi
 On startup, rigImGui restores the session autosave (`imgui.ini`) - you get back exactly the windows and docks you quit with. Named workspaces are explicit presets: they apply only via **App > Workspace** (or `loadWorkspace`), except on the very first launch, where the last used name (settings key `workspace`) or **`Standard`** seeds the session. If `Standard.ini` is missing too, a one-shot dock builder (host `setFirstRunHostDockLayout` and/or the app’s `setDockLayoutBuilder`) seeds it from the first settled split, then that file becomes the durable default - not a hardcoded layout forever. A visibility-only preset (no `[Docking]` section) still rebuilds docks from seed registered with `Mui::setWorkspaceDockBuilder`. Workspace names match files on disk case-insensitively, so Windows and Pi agree on one file per name.
 
 ```cpp
-// Snapshot the current dock layout + which IWindows are visible
+// Snapshot the current dock layout + which ImGuiPanels are visible
 uiManager->saveWorkspace("plotting");
 
 // Apply a saved layout (deferred to the next frame boundary)

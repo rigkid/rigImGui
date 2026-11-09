@@ -7,6 +7,7 @@
 #include "FontPicker.h"
 #include "ImGuiStyleKit.h"
 #include "Mui.h"
+#include "rigImGui.h"
 #include "ThemePicker.h"
 
 #include <cstdio>
@@ -23,7 +24,7 @@
 namespace rigkit {
 
 ThemePanel::ThemePanel(const std::string& title, ImGuiWindowFlags flags)
-	: IWindow(title, flags) {}
+	: ImGuiPanel(title, flags) {}
 
 void ThemePanel::renderContents() {
 	renderThemeControls();
@@ -37,10 +38,7 @@ void ThemePanel::renderContents() {
 
 void ThemePanel::renderThemeControls() {
 	ImGui::TextUnformatted("Base");
-	Mui* ui = nullptr;
-	if (getEngine() && getEngine()->getUiManager()) {
-		ui = dynamic_cast<Mui*>(getEngine()->getUiManager());
-	}
+	Mui* ui = getEngine() ? authorMui(*getEngine()) : nullptr;
 
 	const int current = ui ? static_cast<int>(ui->getImGuiTheme()) : -1;
 
@@ -71,10 +69,7 @@ void ThemePanel::renderThemeControls() {
 }
 
 void ThemePanel::renderThemeFileControls() {
-	Mui* ui = nullptr;
-	if (getEngine() && getEngine()->getUiManager()) {
-		ui = dynamic_cast<Mui*>(getEngine()->getUiManager());
-	}
+	Mui* ui = getEngine() ? authorMui(*getEngine()) : nullptr;
 	if (!ui) {
 		return;
 	}
@@ -109,10 +104,7 @@ void ThemePanel::renderThemeFileControls() {
 }
 
 void ThemePanel::renderFontControls() {
-	Mui* ui = nullptr;
-	if (getEngine() && getEngine()->getUiManager()) {
-		ui = dynamic_cast<Mui*>(getEngine()->getUiManager());
-	}
+	Mui* ui = getEngine() ? authorMui(*getEngine()) : nullptr;
 	if (!ui) {
 		return;
 	}

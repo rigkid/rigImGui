@@ -6,6 +6,7 @@
 #include "CSelection.h"
 #include "CTransform.h"
 #include "Mui.h"
+#include "rigImGui.h"
 #include "UiDpi.h"
 #include "core/RigKitEngine.h"
 #include "ecs/MEcs.h"
@@ -114,7 +115,7 @@ void frameOrthoView(rigkit::MEcs& ecs, entt::entity cam, float aspect) {
 namespace rigkit {
 
 OrthoViewWindow::OrthoViewWindow(const std::string& title, std::string cameraName)
-	: IWindow(title, ImGuiWindowFlags_NoScrollbar), m_cameraName(std::move(cameraName)) {
+	: ImGuiPanel(title, ImGuiWindowFlags_NoScrollbar), m_cameraName(std::move(cameraName)) {
 	setCategory("Camera");
 }
 
@@ -151,7 +152,7 @@ void OrthoViewWindow::renderContents() {
 	}
 
 	float dpi = 1.f;
-	if (auto* mui = dynamic_cast<Mui*>(engine->getUiManager())) {
+	if (auto* mui = authorMui(*engine)) {
 		dpi = mui->dpiScale();
 	}
 	int tw = static_cast<int>(avail.x * dpi + 0.5f);
@@ -232,20 +233,14 @@ entt::entity openOrthoView(Mui& ui, ecs::COrthoView::Face face) {
 }
 
 void registerOrthoViewMenu(Mui& ui) {
-	ui.registerViewSubmenu("Camera", [&ui] {
-		if (ImGui::MenuItem("Top")) {
-			openOrthoView(ui, ecs::COrthoView::Face::Top);
-		}
-		if (ImGui::MenuItem("Bottom")) {
-			openOrthoView(ui, ecs::COrthoView::Face::Bottom);
-		}
-		if (ImGui::MenuItem("Left")) {
-			openOrthoView(ui, ecs::COrthoView::Face::Left);
-		}
-		if (ImGui::MenuItem("Right")) {
-			openOrthoView(ui, ecs::COrthoView::Face::Right);
-		}
-	});
+	ui.registerViewAction(
+		"Top", [&ui] { openOrthoView(ui, ecs::COrthoView::Face::Top); }, {}, "Camera");
+	ui.registerViewAction(
+		"Bottom", [&ui] { openOrthoView(ui, ecs::COrthoView::Face::Bottom); }, {}, "Camera");
+	ui.registerViewAction(
+		"Left", [&ui] { openOrthoView(ui, ecs::COrthoView::Face::Left); }, {}, "Camera");
+	ui.registerViewAction(
+		"Right", [&ui] { openOrthoView(ui, ecs::COrthoView::Face::Right); }, {}, "Camera");
 }
 
 } // namespace rigkit

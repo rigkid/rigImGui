@@ -1,12 +1,12 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <functional>
 
 namespace rigkit {
 
-class ImGuiWindow : public IWindow {
+class ImGuiWindow : public ImGuiPanel {
   public:
 	ImGuiWindow(const std::string &title, ImGuiWindowFlags flags = 0);
 	virtual ~ImGuiWindow() = default;

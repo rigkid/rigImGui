@@ -7,13 +7,13 @@
 #include <vector>
 
 #include "ecs/MEcs.h"
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 namespace rigkit {
 
 class MSettings;
 
-class PropertiesWindow : public IWindow {
+class PropertiesWindow : public ImGuiPanel {
   public:
 	using ExtraDrawer = std::function<void(MEcs& ecs, entt::entity entity)>;
 	/** @brief Optional - when set, the inline editor shows "Open in Code Editor". */

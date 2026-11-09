@@ -2,7 +2,7 @@
 
 #include <string>
 #include "COrthoView.h"
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 #include "SMeshPresent3D.h"
 
 namespace rigkit {
@@ -15,7 +15,7 @@ class Mui;
  * link `SMeshPresent3D`. Pan (MMB / Alt+LMB) and wheel zoom write
  * `COrthoView::target` / `CCamera::orthoHeight`.
  */
-class OrthoViewWindow : public IWindow {
+class OrthoViewWindow : public ImGuiPanel {
   public:
 	OrthoViewWindow(const std::string& title, std::string cameraName);
 

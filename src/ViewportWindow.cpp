@@ -3,6 +3,7 @@
 #include "core/RigKitEngine.h"
 #include "core/util/MSettings.h"
 #include "Mui.h"
+#include "rigImGui.h"
 #include "Rulers.h"
 #include "UiDpi.h"
 
@@ -10,7 +11,7 @@
 
 namespace rigkit {
 
-ViewportWindow::ViewportWindow(const std::string& title) : IWindow(title) {
+ViewportWindow::ViewportWindow(const std::string& title) : ImGuiPanel(title) {
 	setCategory("Host");
 }
 
@@ -72,10 +73,7 @@ void ViewportWindow::renderContents() {
 					"No texture - call ViewportWindow::setTexture");
 	}
 
-	Mui* ui = nullptr;
-	if (getEngine() && getEngine()->getUiManager()) {
-		ui = dynamic_cast<Mui*>(getEngine()->getUiManager());
-	}
+	Mui* ui = getEngine() ? authorMui(*getEngine()) : nullptr;
 	const float dpi = ui ? ui->dpiScale() : 1.f;
 	int localUnit = 0;
 	int& rulerUnit = ui ? ui->uiPrefs().rulerUnit : localUnit;

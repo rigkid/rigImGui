@@ -3,14 +3,14 @@
 #include <string>
 
 #include "core/U_core.h"
-#include "packs/rigImGui/src/IWindow.h"
+#include "packs/rigImGui/src/ImGuiPanel.h"
 
 class FileBrowserApp : public rigkit::IApp {
   public:
-	class DemoWindow : public rigkit::IWindow {
+	class DemoWindow : public rigkit::ImGuiPanel {
 	  public:
 		explicit DemoWindow(FileBrowserApp* app)
-			: IWindow("File Browser Demo"), m_app(app) {}
+			: ImGuiPanel("File Browser Demo"), m_app(app) {}
 		void renderContents() override;
 
 	  private:

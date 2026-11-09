@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <entt/entt.hpp>
 
@@ -9,7 +9,7 @@ namespace rigkit {
 /**
  * @brief Entity list / hierarchy over CRelationship + CSelection.
  */
-class SceneWindow : public IWindow {
+class SceneWindow : public ImGuiPanel {
   public:
 	explicit SceneWindow(const std::string& title = "Scene");
 

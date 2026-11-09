@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <string>
 
@@ -14,7 +14,7 @@ class Mui;
  * this window only gives that editor a dockable host home. MIDI input, persistence
  * and output routing stay with the app - the host never opens a MIDI device.
  */
-class MidiMapWindow : public IWindow {
+class MidiMapWindow : public ImGuiPanel {
   public:
 	MidiMapWindow(const std::string& title, Mui* mui);
 

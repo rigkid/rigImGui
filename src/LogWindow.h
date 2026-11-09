@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <imgui.h>
 #include <cstdint>
@@ -30,7 +30,7 @@ struct LogEntry {
 		: level(lvl), message(msg), timestamp(time) {}
 };
 
-class LogWindow : public IWindow {
+class LogWindow : public ImGuiPanel {
   public:
 	LogWindow(const std::string& title = "Log###Log", ImGuiWindowFlags flags = 0);
 	~LogWindow() override;

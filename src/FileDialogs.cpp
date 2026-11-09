@@ -83,7 +83,7 @@ ImGuiFileBrowserFlags folderFlags() {
 } // namespace
 
 FileDialogWindow::FileDialogWindow()
-	: IWindow("File###FileDialog", ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse) {
+	: ImGuiPanel("File###FileDialog", ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse) {
 	setVisible(false);
 }
 
@@ -109,7 +109,7 @@ void FileDialogWindow::render() {
 	if (const ImGuiViewport* vp = ImGui::GetMainViewport()) {
 		ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 	}
-	IWindow::render();
+	ImGuiPanel::render();
 	m_droppedPath.clear();
 }
 

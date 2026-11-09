@@ -5,25 +5,25 @@
 namespace rigkit {
 
 void MWindow::showWindow(const std::string &title) {
-	if (auto window = getWindow<IWindow>(title)) {
+	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(true);
 	}
 }
 
 void MWindow::hideWindow(const std::string &title) {
-	if (auto window = getWindow<IWindow>(title)) {
+	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(false);
 	}
 }
 
 void MWindow::setWindowVisible(const std::string &title, bool visible) {
-	if (auto window = getWindow<IWindow>(title)) {
+	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(visible);
 	}
 }
 
 void MWindow::toggleWindow(const std::string &title) {
-	if (auto window = getWindow<IWindow>(title)) {
+	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(!window->isVisible());
 	}
 }
@@ -55,7 +55,7 @@ void MWindow::clear() { m_windowMap.clear(); }
 size_t MWindow::getWindowCount() const { return m_windowMap.size(); }
 
 bool MWindow::getWindowVisibility(const std::string &title) {
-	if (auto window = getWindow<IWindow>(title)) {
+	if (auto window = getWindow<ImGuiPanel>(title)) {
 		return window->isVisible();
 	}
 	return false;

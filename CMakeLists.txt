@@ -47,8 +47,8 @@ set(PACK_SOURCES
     src/ImGuiStyleKit.h
     src/MWindow.cpp
     src/MWindow.h
-    src/IWindow.cpp
-    src/IWindow.h
+    src/ImGuiPanel.cpp
+    src/ImGuiPanel.h
     src/HostMenuBar.cpp
     src/HostMenuBar.h
     src/LogWindow.cpp

@@ -11,6 +11,7 @@
 #include "CDriveHint.h"
 #include "CSelection.h"
 #include "CTransform.h"
+#include "EntityPick.h"
 #include "PropEditors.h"
 #include "UiDpi.h"
 
@@ -104,7 +105,7 @@ void applyPropValue(MEcs& ecs, uint32_t entityId, const std::string& component, 
 } // namespace
 
 PropertiesWindow::PropertiesWindow(const std::string& title, ImGuiWindowFlags flags)
-	: IWindow(title, flags) {}
+	: ImGuiPanel(title, flags) {}
 
 void PropertiesWindow::setSelectedEntity(uint32_t entity) {
 	if (m_selectedEntity == entity) {
@@ -154,6 +155,18 @@ void PropertiesWindow::setAfterComponentDraw(AfterComponentFn fn) {
 }
 
 void PropertiesWindow::renderContents() {
+	if (getEngine()) {
+		if (auto* ecs = getEngine()->getECSManager()) {
+			m_selectedEntity = kNoEntity;
+			for (auto e : ecs->view<ecs::CSelection>()) {
+				if (ecs->getComponent<ecs::CSelection>(e).isSelected &&
+					ecs->registry().valid(e)) {
+					m_selectedEntity = entt::to_integral(e);
+					break;
+				}
+			}
+		}
+	}
 	renderEntityList();
 	if (m_selectedEntity != kNoEntity && getEngine()) {
 		renderAllComponentProperties();
@@ -194,6 +207,7 @@ void PropertiesWindow::renderEntityList() {
 				 static_cast<unsigned>(entt::to_integral(entity)));
 		bool isSelected = (entt::to_integral(entity) == m_selectedEntity);
 		if (ImGui::Selectable(label, isSelected)) {
+			selectEntityOnly(*ecs, entity);
 			setSelectedEntity(entt::to_integral(entity));
 		}
 	}
@@ -366,19 +380,9 @@ void PropertiesWindow::renderAllComponentProperties() {
 	if (!ecs)
 		return;
 
+	// m_selectedEntity was synced from CSelection in renderContents.
 	entt::entity entity = static_cast<entt::entity>(m_selectedEntity);
-	if (!ecs->registry().valid(entity)) {
-		// Id 0 is a real entity (first created). A stale 0 / empty sentinel
-		// should still follow CSelection so the first Scene item can inspect.
-		for (auto e : ecs->view<ecs::CSelection>()) {
-			if (ecs->getComponent<ecs::CSelection>(e).isSelected && ecs->registry().valid(e)) {
-				entity = e;
-				m_selectedEntity = entt::to_integral(e);
-				break;
-			}
-		}
-	}
-	if (!ecs->registry().valid(entity)) {
+	if (m_selectedEntity == kNoEntity || !ecs->registry().valid(entity)) {
 		ImGui::TextDisabled("No entity");
 		return;
 	}

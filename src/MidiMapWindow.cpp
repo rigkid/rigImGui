@@ -7,7 +7,7 @@
 
 namespace rigkit {
 
-MidiMapWindow::MidiMapWindow(const std::string& title, Mui* mui) : IWindow(title), m_mui(mui) {}
+MidiMapWindow::MidiMapWindow(const std::string& title, Mui* mui) : ImGuiPanel(title), m_mui(mui) {}
 
 void MidiMapWindow::renderContents() {
 	ImMidiMapper* mapper = m_mui ? m_mui->midiMap() : nullptr;

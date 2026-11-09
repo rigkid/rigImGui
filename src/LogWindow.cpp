@@ -100,7 +100,7 @@ class StdTeeBuf : public std::streambuf {
 	std::string m_line;
 };
 
-LogWindow::LogWindow(const std::string& title, ImGuiWindowFlags flags) : IWindow(title, flags) {}
+LogWindow::LogWindow(const std::string& title, ImGuiWindowFlags flags) : ImGuiPanel(title, flags) {}
 
 LogWindow::~LogWindow() {
 	releaseStdStreams();

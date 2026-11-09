@@ -41,7 +41,7 @@ bool tryCaptureChord(ShortcutChord& out) {
 
 } // namespace
 
-ShortcutsPanel::ShortcutsPanel(const std::string& title) : IWindow(title) {
+ShortcutsPanel::ShortcutsPanel(const std::string& title) : ImGuiPanel(title) {
 	setCategory("Host");
 }
 

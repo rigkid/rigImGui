@@ -13,8 +13,53 @@
 #include <imgui.h>
 #include <filesystem>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 namespace rigkit {
+namespace {
+
+void emitFileMenuItem(const Mui::FileMenuAction& row) {
+	const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+	if (ImGui::MenuItem(row.label.c_str(), chord) && row.action) {
+		row.action();
+	}
+}
+
+void emitEditMenuItem(const Mui::EditMenuAction& row) {
+	const bool enabled = !row.isEnabled || row.isEnabled();
+	const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
+	if (ImGui::MenuItem(row.label.c_str(), chord, false, enabled) && row.action) {
+		row.action();
+	}
+}
+
+/// Flat rows stay in order; first sight of a @c group opens one submenu for all its members.
+template <typename Row, typename EmitFn>
+void emitMenuRows(const std::vector<Row>& rows, EmitFn emitItem) {
+	std::unordered_set<std::string> emittedGroups;
+	for (size_t i = 0; i < rows.size(); ++i) {
+		const auto& row = rows[i];
+		if (row.group.empty()) {
+			emitItem(row);
+			continue;
+		}
+		if (!emittedGroups.insert(row.group).second) {
+			continue;
+		}
+		if (!ImGui::BeginMenu(row.group.c_str())) {
+			continue;
+		}
+		for (size_t j = i; j < rows.size(); ++j) {
+			if (rows[j].group == row.group) {
+				emitItem(rows[j]);
+			}
+		}
+		ImGui::EndMenu();
+	}
+}
+
+} // namespace
 
 HostMenuBar::HostMenuBar(Mui* ui) : m_ui(ui) {}
 
@@ -164,23 +209,7 @@ void HostMenuBar::renderAppMenu() {
 	}
 	if (m_ui) {
 		const auto& rows = m_ui->appActions();
-		for (const auto& row : rows) {
-			if (row.submenu) {
-				if (ImGui::BeginMenu(row.label.c_str())) {
-					if (row.action) {
-						row.action();
-					}
-					ImGui::EndMenu();
-				}
-				continue;
-			}
-			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
-			if (ImGui::MenuItem(row.label.c_str(), chord)) {
-				if (row.action) {
-					row.action();
-				}
-			}
-		}
+		emitMenuRows(rows, emitFileMenuItem);
 		if (!rows.empty()) {
 			ImGui::Separator();
 		}
@@ -206,23 +235,7 @@ void HostMenuBar::renderFileMenu() {
 	}
 	if (m_ui) {
 		const auto& rows = m_ui->fileActions();
-		for (const auto& row : rows) {
-			if (row.submenu) {
-				if (ImGui::BeginMenu(row.label.c_str())) {
-					if (row.action) {
-						row.action();
-					}
-					ImGui::EndMenu();
-				}
-				continue;
-			}
-			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
-			if (ImGui::MenuItem(row.label.c_str(), chord)) {
-				if (row.action) {
-					row.action();
-				}
-			}
-		}
+		emitMenuRows(rows, emitFileMenuItem);
 		if (!rows.empty()) {
 			ImGui::Separator();
 		}
@@ -323,22 +336,7 @@ void HostMenuBar::renderEditMenu() {
 
 	if (m_ui && !m_ui->editActions().empty()) {
 		ImGui::Separator();
-		for (const auto& row : m_ui->editActions()) {
-			const bool enabled = !row.isEnabled || row.isEnabled();
-			if (row.submenu) {
-				if (ImGui::BeginMenu(row.label.c_str(), enabled)) {
-					if (row.action) {
-						row.action();
-					}
-					ImGui::EndMenu();
-				}
-				continue;
-			}
-			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
-			if (ImGui::MenuItem(row.label.c_str(), chord, false, enabled) && row.action) {
-				row.action();
-			}
-		}
+		emitMenuRows(m_ui->editActions(), emitEditMenuItem);
 	}
 
 	if (m_ui && m_ui->editModeEnabled()) {
@@ -411,21 +409,7 @@ void HostMenuBar::renderViewMenu() {
 
 	if (m_ui && !m_ui->viewActions().empty()) {
 		ImGui::Separator();
-		for (const auto& row : m_ui->viewActions()) {
-			if (row.submenu) {
-				if (ImGui::BeginMenu(row.label.c_str())) {
-					if (row.action) {
-						row.action();
-					}
-					ImGui::EndMenu();
-				}
-			} else {
-				const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
-				if (ImGui::MenuItem(row.label.c_str(), chord) && row.action) {
-					row.action();
-				}
-			}
-		}
+		emitMenuRows(m_ui->viewActions(), emitFileMenuItem);
 	}
 
 	if (ImGui::BeginMenu("Windows")) {

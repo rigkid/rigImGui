@@ -1,13 +1,10 @@
 #include "SceneWindow.h"
 
-#include "core/IMui.h"
 #include "core/RigKitEngine.h"
-#include "Mui.h"
 #include "ecs/MEcs.h"
 #include "CRelationship.h"
 #include "CSelection.h"
-#include "MWindow.h"
-#include "PropertiesWindow.h"
+#include "EntityPick.h"
 #include "SceneDragPayload.h"
 
 #include <cstdio>
@@ -18,7 +15,7 @@
 
 namespace rigkit {
 
-SceneWindow::SceneWindow(const std::string& title) : IWindow(title) {
+SceneWindow::SceneWindow(const std::string& title) : ImGuiPanel(title) {
 	setCategory("Host");
 }
 
@@ -31,27 +28,7 @@ void SceneWindow::selectOnly(entt::entity e) {
 	if (!ecs) {
 		return;
 	}
-	auto& reg = ecs->registry();
-	for (auto ent : reg.view<ecs::CSelection>()) {
-		auto& sel = reg.get<ecs::CSelection>(ent);
-		sel.isSelected = (ent == e);
-		sel.isMultiSelected = false;
-		sel.selectionIndex = (ent == e) ? 0 : -1;
-	}
-	if (e != entt::null && !reg.all_of<ecs::CSelection>(e)) {
-		ecs::CSelection sel;
-		sel.isSelected = true;
-		sel.selectionIndex = 0;
-		reg.emplace<ecs::CSelection>(e, sel);
-	}
-	if (auto* ui = dynamic_cast<Mui*>(engine->getUiManager())) {
-		if (auto* wm = ui->getWindowManager()) {
-			if (auto props = wm->getWindow<PropertiesWindow>("Properties")) {
-				props->setSelectedEntity(e == entt::null ? PropertiesWindow::kNoEntity
-														 : entt::to_integral(e));
-			}
-		}
-	}
+	selectEntityOnly(*ecs, e);
 }
 
 void SceneWindow::renderContents() {

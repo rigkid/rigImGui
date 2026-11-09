@@ -13,7 +13,7 @@
 #include "core/IMui.h"
 #include "core/util/AppPaths.h"
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 #include "ThumbnailCache.h"
 #include "UiDpi.h"
 
@@ -30,7 +30,7 @@ inline constexpr float kFileDialogQuickAccessDesignW = 160.f;
 
 /**
  * @brief DPI-scaled size for any ImGui::FileBrowser (Place / Open / Save / ...).
- * @details Sidebar width lives here. The IWindow host sets position and size
+ * @details Sidebar width lives here. The ImGuiPanel host sets position and size
  * on Begin. Call before Open() so Appearing size picks up the new layout.
  */
 inline void applyFileBrowserLayout(ImGui::FileBrowser& browser) {
@@ -101,10 +101,10 @@ inline void setFileBrowserFilters(ImGui::FileBrowser& browser, std::vector<std::
 
 /**
  * @brief Viewport-capable chrome for FileDialogs.
- * @details IWindow::Begin is a regular window, so multi-viewport can tear it
+ * @details ImGuiPanel::Begin is a regular window, so multi-viewport can tear it
  * into its own OS window. Listing stays in FileBrowser::DrawContents().
  */
-class FileDialogWindow : public IWindow {
+class FileDialogWindow : public ImGuiPanel {
   public:
 	FileDialogWindow();
 	void setBrowser(ImGui::FileBrowser* browser);

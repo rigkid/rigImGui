@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IWindow.h"
+#include "ImGuiPanel.h"
 
 #include <imgui.h>
 #include <string>
@@ -9,7 +9,7 @@ namespace rigkit {
 
 /// Catalog-driven editor for MSettings preference sections.
 /// Left: category list. Right: options for the selected category.
-class PreferencesPanel : public IWindow {
+class PreferencesPanel : public ImGuiPanel {
   public:
 	PreferencesPanel(const std::string& title = "Preferences",
 					 ImGuiWindowFlags flags = 0);

@@ -317,11 +317,11 @@ class Mui : public IMui {
 									  IMui::FileThumbnailDecoder decoder) override;
 
 	void registerFileAction(const std::string& label, std::function<void()> action,
-							const std::string& shortcut = {}) override;
-	void registerFileSubmenu(const std::string& label, std::function<void()> drawContents) override;
+							const std::string& shortcut = {},
+							const std::string& group = {}) override;
 	void registerAppAction(const std::string& label, std::function<void()> action,
-						   const std::string& shortcut = {}) override;
-	void registerAppSubmenu(const std::string& label, std::function<void()> drawContents) override;
+						   const std::string& shortcut = {},
+						   const std::string& group = {}) override;
 	void noteRecentFile(const std::string& path) override;
 	void clearRecentFiles() override;
 	void setRecentFileOpenHandler(std::function<void(const std::string& path)> handler) override;
@@ -331,12 +331,11 @@ class Mui : public IMui {
 							std::function<void()> action, const std::string& icon = {},
 							const std::string& group = {}) override;
 	void registerEditAction(const std::string& label, const std::string& shortcut,
-							std::function<bool()> isEnabled, std::function<void()> action) override;
-	void registerEditSubmenu(const std::string& label, std::function<void()> drawContents,
-							 std::function<bool()> isEnabled = {}) override;
-	void registerViewSubmenu(const std::string& label, std::function<void()> drawContents) override;
+							std::function<bool()> isEnabled, std::function<void()> action,
+							const std::string& group = {}) override;
 	void registerViewAction(const std::string& label, std::function<void()> action,
-							const std::string& shortcut = {}) override;
+							const std::string& shortcut = {},
+							const std::string& group = {}) override;
 	void registerShortcut(const std::string& id, const std::string& label, const std::string& chord,
 						  std::function<void()> action) override;
 	void setGizmoOp(GizmoOp op) override { m_gizmoOp = op; }
@@ -349,10 +348,19 @@ class Mui : public IMui {
 	 */
 	void registerFontAtlasHook(std::function<void(ImFontAtlas& atlas)> hook);
 
-	void setChromeKerning(bool enabled) override;
-	bool chromeKerning() const override { return m_uiPrefs.chromeKerning; }
-	void setChromeKernFn(ChromeKernFn fn, void* user) override;
-	int chromeKernPairCount() const override { return m_ttfKern.pairCount(); }
+	/**
+	 * @brief Extra advance (pixels at `sizePx`) for a chrome label pair.
+	 * @details 0 = no kern. Bind VarFont `GetKernTablePairPx` /
+	 * `GetGposPairExtraPx` here. Absent = TTF `kern` table when present.
+	 * ImGui-only — not on `IMui`.
+	 */
+	using ChromeKernFn = float (*)(unsigned left, unsigned right, float sizePx, void* user);
+
+	void setChromeKerning(bool enabled);
+	bool chromeKerning() const { return m_uiPrefs.chromeKerning; }
+	void setChromeKernFn(ChromeKernFn fn, void* user);
+	/** @brief Loaded `kern` pairs, or 0 when using a custom fn / none. */
+	int chromeKernPairCount() const { return m_ttfKern.pairCount(); }
 
 	Progress* progress() override { return &m_progress; }
 
@@ -453,8 +461,8 @@ class Mui : public IMui {
 	struct FileMenuAction {
 		std::string label;
 		std::string shortcut;
+		std::string group; ///< Submenu label; empty = top-level row.
 		std::function<void()> action;
-		bool submenu = false; ///< When true, @c action draws nested menu contents.
 	};
 
 	struct ToolMenuAction {
@@ -470,9 +478,9 @@ class Mui : public IMui {
 	struct EditMenuAction {
 		std::string label;
 		std::string shortcut;
+		std::string group; ///< Submenu label; empty = top-level row.
 		std::function<bool()> isEnabled;
 		std::function<void()> action;
-		bool submenu = false; ///< When true, @c action draws nested menu contents.
 	};
 
 	const std::vector<FileMenuAction>& fileActions() const { return m_fileActions; }
@@ -536,7 +544,7 @@ class Mui : public IMui {
 									   ImGuiTextBuffer* out_buf);
 
 	static const char* hostPanelTitle(HostPanel panel);
-	std::shared_ptr<IWindow> ensureHostPanel(HostPanel panel);
+	std::shared_ptr<ImGuiPanel> ensureHostPanel(HostPanel panel);
 	bool statusBarVisible() const { return m_uiPrefs.showStatusBar; }
 	/// 0 Status Bar, 1 Menu Bar, 2 Off
 	int fpsDisplayMode() const {

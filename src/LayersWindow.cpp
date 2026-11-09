@@ -31,7 +31,7 @@ void selectOnly(MEcs& ecs, entt::entity e) {
 
 } // namespace
 
-LayersWindow::LayersWindow(const std::string& title) : IWindow(title) {
+LayersWindow::LayersWindow(const std::string& title) : ImGuiPanel(title) {
 	setCategory("Host");
 }
 

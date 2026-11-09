@@ -5,6 +5,7 @@
 #include "core/util/MSettings.h"
 #include "FontPicker.h"
 #include "Mui.h"
+#include "rigImGui.h"
 #include "PropEditors.h"
 #include "ThemePicker.h"
 #include "UiDpi.h"
@@ -39,7 +40,7 @@ const PrefCategory* findCategory(const std::vector<PrefCategory>& categories,
 } // namespace
 
 PreferencesPanel::PreferencesPanel(const std::string& title, ImGuiWindowFlags flags)
-	: IWindow(title, (flags != 0 ? flags : ImGuiWindowFlags_NoDocking) |
+	: ImGuiPanel(title, (flags != 0 ? flags : ImGuiWindowFlags_NoDocking) |
 						ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse) {}
 
 void PreferencesPanel::render() {
@@ -57,7 +58,7 @@ void PreferencesPanel::render() {
 	const ImVec2 minSz(std::min(uiPx(280.f), maxSz.x), std::min(uiPx(200.f), maxSz.y));
 	ImGui::SetNextWindowSize(want, ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSizeConstraints(minSz, maxSz);
-	IWindow::render();
+	ImGuiPanel::render();
 }
 
 void PreferencesPanel::renderContents() {
@@ -72,7 +73,7 @@ void PreferencesPanel::renderContents() {
 		return;
 	}
 
-	auto* mui = dynamic_cast<Mui*>(engine->getUiManager());
+	auto* mui = authorMui(*engine);
 	std::vector<PrefCategory> categories;
 	if (mui) {
 		for (const auto& drawer : mui->preferencesDrawers()) {
