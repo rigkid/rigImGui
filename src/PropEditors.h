@@ -88,8 +88,8 @@ void offerScenePropDrag(const char* propName, int propType);
  * @details Emitted by the right-click menu on prop drag pins (`offerScenePropDrag`)
  * as a zero-drag alternative to drag-drop. The Node Editor drains the queue once
  * per frame via `takeScenePropPatchRequests` and spawns the matching `ref.*` node
- * (plus a wired LFO when @ref withLfo is set, matching Alt+drop, or the catalog
- * node in @ref sourceType / @ref sourcePin. Sound uses `mod.audio`).
+ * (plus a wired LFO when #withLfo is set, matching Alt+drop, or the catalog
+ * node in #sourceType / #sourcePin. Sound uses `mod.audio`).
  * An LFO goes through a Map: input is the LFO span, output is the slider range.
  */
 struct ScenePropPatchRequest {
@@ -97,9 +97,9 @@ struct ScenePropPatchRequest {
 	std::string name;
 	int propType = 0;
 	bool withLfo = false;
-	/// Catalog node wired into the ref (`mod.audio`, ...). Empty keeps @ref withLfo.
+	/// Catalog node wired into the ref (`mod.audio`, ...). Empty keeps #withLfo.
 	std::string sourceType;
-	/// Output pin on @ref sourceType (`level`, `bass`, ...). Empty means `out`.
+	/// Output pin on #sourceType (`level`, `bass`, ...). Empty means `out`.
 	std::string sourcePin;
 	/// When set, the Map in front of the ref uses this output range (the knob's
 	/// slider limits). Sound leaves the Map input at 0..1. An LFO patch sets the
@@ -113,7 +113,7 @@ struct ScenePropPatchRequest {
 	/// request to the editor bound to that ECS; null = any editor.
 	const void* ecsTag = nullptr;
 	/// Existing `mod.lfo` to wire instead of spawning one. 0 spawns a new LFO.
-	/// Ignored unless @ref withLfo is set. The id belongs to @ref ecsTag's graph.
+	/// Ignored unless #withLfo is set. The id belongs to #ecsTag's graph.
 	uint32_t reuseLfo = 0;
 };
 
@@ -135,7 +135,7 @@ void setScenePropPatchSources(std::vector<ScenePropPatchSource> sources);
 /**
  * @brief One existing LFO the property menu can wire instead of spawning.
  * @details The Node Editor publishes the active graph's `mod.lfo` nodes, keyed
- * by the same ECS pointer as `RigScenePropPayload::ecsTag`. @ref nodeId is only
+ * by the same ECS pointer as `RigScenePropPayload::ecsTag`. #nodeId is only
  * meaningful in that graph.
  */
 struct ScenePropLfoChoice {
