@@ -3,9 +3,9 @@
 #include "core/RigKitEngine.h"
 #include "core/util/MSettings.h"
 #include "Mui.h"
-#include "rigImGui.h"
 #include "Rulers.h"
 #include "UiDpi.h"
+#include "rigImGui.h"
 
 #include <imgui.h>
 

@@ -4,8 +4,7 @@
 
 namespace rigkit {
 
-WindowManagerPanel::WindowManagerPanel(const std::string &title,
-									   MWindow *windowManager,
+WindowManagerPanel::WindowManagerPanel(const std::string& title, MWindow* windowManager,
 									   ImGuiWindowFlags flags)
 	: ImGuiPanel(title, flags), m_windowManager(windowManager) {}
 
@@ -15,7 +14,7 @@ void WindowManagerPanel::renderContents() {
 		return;
 	}
 	auto windowNames = m_windowManager->getAllWindowNames();
-	for (const auto &win : windowNames) {
+	for (const auto& win : windowNames) {
 		bool isVisible = m_windowManager->getWindowVisibility(win);
 		if (ImGui::Checkbox(win.c_str(), &isVisible)) {
 			m_windowManager->setWindowVisible(win, isVisible);

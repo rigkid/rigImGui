@@ -4,7 +4,7 @@
 
 namespace rigkit {
 
-ImGuiWindow::ImGuiWindow(const std::string &title, ImGuiWindowFlags flags)
+ImGuiWindow::ImGuiWindow(const std::string& title, ImGuiWindowFlags flags)
 	: ImGuiPanel(title, flags) {}
 
 void ImGuiWindow::renderContents() {
@@ -16,8 +16,6 @@ void ImGuiWindow::renderContents() {
 	}
 }
 
-void ImGuiWindow::setRenderCallback(std::function<void()> callback) {
-	m_renderCallback = callback;
-}
+void ImGuiWindow::setRenderCallback(std::function<void()> callback) { m_renderCallback = callback; }
 
 } // namespace rigkit

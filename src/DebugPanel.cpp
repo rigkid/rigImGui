@@ -6,8 +6,8 @@
 #include "Mui.h"
 #include "rigImGui.h"
 
-#include <cstdio>
 #include <imgui.h>
+#include <cstdio>
 #include <spdlog/spdlog.h>
 #include <string>
 
@@ -15,8 +15,8 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
 #include <psapi.h>
+#include <windows.h>
 #elif defined(__linux__)
 #include <unistd.h>
 #endif
@@ -27,8 +27,7 @@ namespace {
 bool readProcessRssMb(double& outMb) {
 #if defined(_WIN32)
 	PROCESS_MEMORY_COUNTERS_EX pmc{};
-	if (!GetProcessMemoryInfo(GetCurrentProcess(),
-							  reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
+	if (!GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
 							  sizeof(pmc))) {
 		return false;
 	}
@@ -57,8 +56,7 @@ bool readProcessRssMb(double& outMb) {
 
 } // namespace
 
-
-DebugPanel::DebugPanel(const std::string &title, ImGuiWindowFlags flags)
+DebugPanel::DebugPanel(const std::string& title, ImGuiWindowFlags flags)
 	: ImGuiPanel(title, flags) {}
 
 void DebugPanel::renderContents() {
@@ -91,7 +89,7 @@ void DebugPanel::renderClearShapesButton() {
 	if (!m_engine)
 		return;
 
-	auto *ecs = m_engine->getECSManager();
+	auto* ecs = m_engine->getECSManager();
 	if (!ecs)
 		return;
 
@@ -108,18 +106,16 @@ void DebugPanel::renderEntityInfo() {
 	if (!m_engine)
 		return;
 
-	auto *ecs = m_engine->getECSManager();
+	auto* ecs = m_engine->getECSManager();
 	if (!ecs)
 		return;
 
 	ImGui::Separator();
 	ImGui::Text("Entity Info:");
 	ImGui::Text("  Total Entities: %zu", ecs->getEntityCount());
-	ImGui::Text("  Registered component types: %zu",
-				ecs->componentTypes().size());
-	for (const auto &info : ecs->componentTypes()) {
-		ImGui::BulletText("%s%s", info.name.c_str(),
-						  info.portable ? "" : " (host)");
+	ImGui::Text("  Registered component types: %zu", ecs->componentTypes().size());
+	for (const auto& info : ecs->componentTypes()) {
+		ImGui::BulletText("%s%s", info.name.c_str(), info.portable ? "" : " (host)");
 	}
 }
 
@@ -127,8 +123,8 @@ void DebugPanel::renderProgressDemo() {
 	if (!m_engine)
 		return;
 
-	IMui *ui = m_engine->getUiManager();
-	Progress *progress = ui ? ui->progress() : nullptr;
+	IMui* ui = m_engine->getUiManager();
+	Progress* progress = ui ? ui->progress() : nullptr;
 	if (!progress)
 		return;
 
@@ -191,8 +187,8 @@ void DebugPanel::tickProgressDemo(float dt) {
 	if (!m_engine || m_progressDemo == ProgressDemo::None)
 		return;
 
-	IMui *ui = m_engine->getUiManager();
-	Progress *progress = ui ? ui->progress() : nullptr;
+	IMui* ui = m_engine->getUiManager();
+	Progress* progress = ui ? ui->progress() : nullptr;
 	if (!progress)
 		return;
 

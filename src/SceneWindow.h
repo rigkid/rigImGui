@@ -21,4 +21,3 @@ class SceneWindow : public ImGuiPanel {
 };
 
 } // namespace rigkit
-

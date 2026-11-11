@@ -4,57 +4,55 @@
 
 namespace rigkit {
 
-void MWindow::showWindow(const std::string &title) {
+void MWindow::showWindow(const std::string& title) {
 	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(true);
 	}
 }
 
-void MWindow::hideWindow(const std::string &title) {
+void MWindow::hideWindow(const std::string& title) {
 	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(false);
 	}
 }
 
-void MWindow::setWindowVisible(const std::string &title, bool visible) {
+void MWindow::setWindowVisible(const std::string& title, bool visible) {
 	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(visible);
 	}
 }
 
-void MWindow::toggleWindow(const std::string &title) {
+void MWindow::toggleWindow(const std::string& title) {
 	if (auto window = getWindow<ImGuiPanel>(title)) {
 		window->setVisible(!window->isVisible());
 	}
 }
 
 void MWindow::showAllWindows() {
-	for (auto &pair : m_windowMap) {
+	for (auto& pair : m_windowMap) {
 		pair.second->setVisible(true);
 	}
 }
 
 void MWindow::hideAllWindows() {
-	for (auto &pair : m_windowMap) {
+	for (auto& pair : m_windowMap) {
 		pair.second->setVisible(false);
 	}
 }
 
 void MWindow::renderAllWindows() {
-	for (auto &pair : m_windowMap) {
+	for (auto& pair : m_windowMap) {
 		pair.second->render();
 	}
 }
 
-void MWindow::removeWindow(const std::string &title) {
-	m_windowMap.erase(title);
-}
+void MWindow::removeWindow(const std::string& title) { m_windowMap.erase(title); }
 
 void MWindow::clear() { m_windowMap.clear(); }
 
 size_t MWindow::getWindowCount() const { return m_windowMap.size(); }
 
-bool MWindow::getWindowVisibility(const std::string &title) {
+bool MWindow::getWindowVisibility(const std::string& title) {
 	if (auto window = getWindow<ImGuiPanel>(title)) {
 		return window->isVisible();
 	}
@@ -63,7 +61,7 @@ bool MWindow::getWindowVisibility(const std::string &title) {
 
 std::vector<std::string> MWindow::getAllWindowNames() const {
 	std::vector<std::string> names;
-	for (const auto &pair : m_windowMap) {
+	for (const auto& pair : m_windowMap) {
 		names.push_back(pair.first);
 	}
 	return names;

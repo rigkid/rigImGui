@@ -13,7 +13,6 @@ class UndoStack;
  * @return true if a handle was drawn.
  */
 bool drawSelectedHandle2D(MEcs& ecs, float originX, float originY, float scale,
-						  IMui::GizmoOp op = IMui::GizmoOp::Select,
-						  UndoStack* undo = nullptr);
+						  IMui::GizmoOp op = IMui::GizmoOp::Select, UndoStack* undo = nullptr);
 
 } // namespace rigkit

@@ -5,10 +5,10 @@
 #include "core/util/MSettings.h"
 #include "FontPicker.h"
 #include "Mui.h"
-#include "rigImGui.h"
 #include "PropEditors.h"
 #include "ThemePicker.h"
 #include "UiDpi.h"
+#include "rigImGui.h"
 
 #include <imgui.h>
 #include <algorithm>
@@ -41,7 +41,7 @@ const PrefCategory* findCategory(const std::vector<PrefCategory>& categories,
 
 PreferencesPanel::PreferencesPanel(const std::string& title, ImGuiWindowFlags flags)
 	: ImGuiPanel(title, (flags != 0 ? flags : ImGuiWindowFlags_NoDocking) |
-						ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse) {}
+							ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse) {}
 
 void PreferencesPanel::render() {
 	if (!isVisible()) {

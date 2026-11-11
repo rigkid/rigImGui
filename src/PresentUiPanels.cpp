@@ -1,10 +1,10 @@
 #include "PresentUiPanels.h"
 
+#include "ecs/MEcs.h"
+#include "ecs/systems/SEvent.h"
 #include "CUiPanel.h"
 #include "EntityProperty.h"
 #include "PropEditors.h"
-#include "ecs/MEcs.h"
-#include "ecs/systems/SEvent.h"
 
 #include <imgui.h>
 
@@ -181,8 +181,7 @@ void drawGroup(MEcs& ecs, entt::entity entity, const ecs::CUiGroup& group) {
 		drawItems(ecs, group.panel, entt::to_integral(entity), true);
 		return;
 	}
-	const ImGuiTreeNodeFlags flags =
-		group.collapsed ? 0 : ImGuiTreeNodeFlags_DefaultOpen;
+	const ImGuiTreeNodeFlags flags = group.collapsed ? 0 : ImGuiTreeNodeFlags_DefaultOpen;
 	if (ImGui::CollapsingHeader(title.c_str(), flags)) {
 		drawItems(ecs, group.panel, entt::to_integral(entity), false);
 	}
@@ -197,11 +196,9 @@ void drawItems(MEcs& ecs, uint32_t panelId, uint32_t groupId, bool horizontal) {
 		ImGui::PushID(static_cast<int>(entt::to_integral(item.entity)));
 		if (item.kind == UiItem::Kind::Group && reg.all_of<ecs::CUiGroup>(item.entity)) {
 			drawGroup(ecs, item.entity, reg.get<ecs::CUiGroup>(item.entity));
-		} else if (item.kind == UiItem::Kind::Control &&
-				   reg.all_of<ecs::CUiControl>(item.entity)) {
+		} else if (item.kind == UiItem::Kind::Control && reg.all_of<ecs::CUiControl>(item.entity)) {
 			drawControl(ecs, item.entity, reg.get<ecs::CUiControl>(item.entity));
-		} else if (item.kind == UiItem::Kind::Action &&
-				   reg.all_of<ecs::CUiAction>(item.entity)) {
+		} else if (item.kind == UiItem::Kind::Action && reg.all_of<ecs::CUiAction>(item.entity)) {
 			drawAction(ecs, item.entity, reg.get<ecs::CUiAction>(item.entity));
 		}
 		ImGui::PopID();

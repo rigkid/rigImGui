@@ -1,15 +1,15 @@
 #include "FontPicker.h"
 
+#include "rendering/U_gladGlfw.h"
 #include "core/IMui.h"
 #include "core/util/AppPaths.h"
-#include "rendering/U_gladGlfw.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <functional>
-#include <imgui.h>
 #include <spdlog/spdlog.h>
 #include <vector>
 

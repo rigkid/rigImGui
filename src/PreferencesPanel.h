@@ -11,8 +11,7 @@ namespace rigkit {
 /// Left: category list. Right: options for the selected category.
 class PreferencesPanel : public ImGuiPanel {
   public:
-	PreferencesPanel(const std::string& title = "Preferences",
-					 ImGuiWindowFlags flags = 0);
+	PreferencesPanel(const std::string& title = "Preferences", ImGuiWindowFlags flags = 0);
 	~PreferencesPanel() override = default;
 
 	void render() override;

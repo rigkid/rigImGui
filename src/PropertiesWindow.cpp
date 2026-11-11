@@ -15,10 +15,10 @@
 #include "PropEditors.h"
 #include "UiDpi.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <imgui.h>
 #include <string>
 #include <vector>
 
@@ -72,7 +72,7 @@ int countLines(const std::string& text) {
 
 /**
  * @brief Undo/redo apply for one inspector property.
- * @details Re-resolves the field through registered properties each time  - 
+ * @details Re-resolves the field through registered properties each time  -
  * records hold no raw field pointers, so component storage may move freely.
  */
 void applyPropValue(MEcs& ecs, uint32_t entityId, const std::string& component, uint32_t propId,
@@ -117,9 +117,7 @@ void PropertiesWindow::setSelectedEntity(uint32_t entity) {
 	}
 }
 
-uint32_t PropertiesWindow::getSelectedEntity() const {
-	return m_selectedEntity;
-}
+uint32_t PropertiesWindow::getSelectedEntity() const { return m_selectedEntity; }
 
 void PropertiesWindow::setOnEntitySelected(std::function<void(uint32_t)> callback) {
 	m_onEntitySelected = callback;
@@ -159,8 +157,7 @@ void PropertiesWindow::renderContents() {
 		if (auto* ecs = getEngine()->getECSManager()) {
 			m_selectedEntity = kNoEntity;
 			for (auto e : ecs->view<ecs::CSelection>()) {
-				if (ecs->getComponent<ecs::CSelection>(e).isSelected &&
-					ecs->registry().valid(e)) {
+				if (ecs->getComponent<ecs::CSelection>(e).isSelected && ecs->registry().valid(e)) {
 					m_selectedEntity = entt::to_integral(e);
 					break;
 				}
@@ -194,16 +191,15 @@ void PropertiesWindow::renderEntityList() {
 	}
 
 	// Leave room for the grip plus a few property rows.
-	const float maxHeight = std::max(kEntityListMinHeight,
-									 ImGui::GetContentRegionAvail().y - kEntityListGrip - 60.0f);
+	const float maxHeight =
+		std::max(kEntityListMinHeight, ImGui::GetContentRegionAvail().y - kEntityListGrip - 60.0f);
 	m_entityListHeight = std::clamp(m_entityListHeight, kEntityListMinHeight, maxHeight);
 
 	ImGui::BeginChild("EntityList", ImVec2(0, m_entityListHeight), true);
 	for (auto entity : ecs->getAllEntities()) {
 		const std::string name = ecs->entityName(entity);
 		char label[256];
-		snprintf(label, sizeof(label), "%s###ent_%u",
-				 name.empty() ? "(unnamed)" : name.c_str(),
+		snprintf(label, sizeof(label), "%s###ent_%u", name.empty() ? "(unnamed)" : name.c_str(),
 				 static_cast<unsigned>(entt::to_integral(entity)));
 		bool isSelected = (entt::to_integral(entity) == m_selectedEntity);
 		if (ImGui::Selectable(label, isSelected)) {
@@ -242,7 +238,7 @@ void PropertiesWindow::renderEntityListGrip() {
 	const ImVec2 gripMax = ImGui::GetItemRectMax();
 	const float y = (gripMin.y + gripMax.y) * 0.5f;
 	ImGui::GetWindowDrawList()->AddLine(ImVec2(gripMin.x, y), ImVec2(gripMax.x, y),
-									   ImGui::GetColorU32(style));
+										ImGui::GetColorU32(style));
 }
 
 MSettings* PropertiesWindow::settings() const {
@@ -339,8 +335,7 @@ void PropertiesWindow::renderCodeEditSection(MEcs& ecs, entt::entity entity) {
 	const uint32_t entityId = static_cast<uint32_t>(entity);
 	const bool readOnly = code.readOnly;
 
-	ImGui::TextDisabled("%s · %d lines%s",
-						code.language.empty() ? "plain" : code.language.c_str(),
+	ImGui::TextDisabled("%s · %d lines%s", code.language.empty() ? "plain" : code.language.c_str(),
 						countLines(code.text), code.dirty ? " · dirty" : "");
 	if (m_onOpenCodeEditor) {
 		if (ImGui::Button("Open in Code Editor")) {
@@ -355,12 +350,12 @@ void PropertiesWindow::renderCodeEditSection(MEcs& ecs, entt::entity entity) {
 
 	bool changed = false;
 	if (m_codeLightEditDraw) {
-		changed = m_codeLightEditDraw(entityId, code.text, code.language, m_codeEditHeight,
-									  readOnly);
+		changed =
+			m_codeLightEditDraw(entityId, code.text, code.language, m_codeEditHeight, readOnly);
 	} else {
 		ImGui::PushID("code_light_edit");
-		changed = inputTextMultilineString("##body", code.text, ImVec2(-1.f, m_codeEditHeight),
-										   readOnly);
+		changed =
+			inputTextMultilineString("##body", code.text, ImVec2(-1.f, m_codeEditHeight), readOnly);
 		ImGui::PopID();
 	}
 	if (changed && !readOnly) {
@@ -399,14 +394,14 @@ void PropertiesWindow::renderAllComponentProperties() {
 		}
 		return [ecs, entityId, undoStack, component = std::move(component),
 				cb = m_onPropertyChanged](const PropCommit& c) {
-			undoStack->pushSnapshot(component + " " + c.propName, c.before, c.after,
-									[ecs, entityId, component, propId = c.propId,
-									 cb](const PropValue& v) {
-										applyPropValue(*ecs, entityId, component, propId, v);
-										if (cb) {
-											cb(entityId, component, {});
-										}
-									});
+			undoStack->pushSnapshot(
+				component + " " + c.propName, c.before, c.after,
+				[ecs, entityId, component, propId = c.propId, cb](const PropValue& v) {
+					applyPropValue(*ecs, entityId, component, propId, v);
+					if (cb) {
+						cb(entityId, component, {});
+					}
+				});
 		};
 	};
 
@@ -414,7 +409,8 @@ void PropertiesWindow::renderAllComponentProperties() {
 		const auto& hint = ecs->getComponent<ecs::CDriveHint>(entity);
 		ImGui::TextColored(ImVec4(0.45f, 0.85f, 1.f, 1.f), "Graph drive");
 		ImGui::TextWrapped("%s", hint.label.c_str());
-		ImGui::TextDisabled("Drag a field name into the Node Editor to make a Ref (Alt-drag the value).");
+		ImGui::TextDisabled(
+			"Drag a field name into the Node Editor to make a Ref (Alt-drag the value).");
 		ImGui::Separator();
 	}
 
@@ -439,8 +435,7 @@ void PropertiesWindow::renderAllComponentProperties() {
 				}
 				rest.push_back(p);
 			}
-			const bool changed =
-				RenderProps(nullptr, rest, entityId, makeCommit("PlotLayer"));
+			const bool changed = RenderProps(nullptr, rest, entityId, makeCommit("PlotLayer"));
 			if (m_afterComponent) {
 				m_afterComponent("PlotLayer", *ecs, entity);
 			}

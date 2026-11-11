@@ -1,8 +1,8 @@
 #pragma once
 
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
-#include <imgui.h>
 
 namespace rigkit {
 
@@ -20,9 +20,7 @@ inline float uiDpi() {
 }
 
 /** @brief Design (1x) size to ImGui/Display units. */
-inline float uiPx(float design) {
-	return design * uiDpi();
-}
+inline float uiPx(float design) { return design * uiDpi(); }
 
 /** @brief Design width/height to ImGui/Display ImVec2. */
 inline ImVec2 uiSize(float designW, float designH) {
@@ -65,8 +63,7 @@ inline ImVec2 uiHitSize(ImVec2 size) {
 }
 
 /** @brief Design size to int window size, clamped to the work area. */
-inline void uiWindowSize(int designW, int designH, int& outW, int& outH,
-						 float padDesign = 40.f) {
+inline void uiWindowSize(int designW, int designH, int& outW, int& outH, float padDesign = 40.f) {
 	const ImVec2 clamped =
 		uiClampToWork(uiSize(static_cast<float>(designW), static_cast<float>(designH)), padDesign);
 	outW = std::max(1, static_cast<int>(std::lround(clamped.x)));

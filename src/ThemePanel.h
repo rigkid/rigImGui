@@ -8,8 +8,7 @@ namespace rigkit {
 
 class ThemePanel : public ImGuiPanel {
   public:
-	ThemePanel(const std::string& title = "Theme Panel###ThemePanel",
-			   ImGuiWindowFlags flags = 0);
+	ThemePanel(const std::string& title = "Theme Panel###ThemePanel", ImGuiWindowFlags flags = 0);
 	~ThemePanel() override = default;
 
 	void renderContents() override;

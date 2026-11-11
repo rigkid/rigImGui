@@ -3,7 +3,7 @@
 
 #include <memory>
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 	auto app = std::make_unique<HostShellApp>();
 	rigkit::RigKitEngine engine(std::move(app), {}, argc, argv);
 	engine.run();

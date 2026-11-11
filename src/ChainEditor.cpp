@@ -2,8 +2,8 @@
 
 #include "ReorderDragDrop.h"
 
-#include <algorithm>
 #include <imgui.h>
+#include <algorithm>
 
 #if __has_include("IconsFontAwesome5.h")
 #include "IconsFontAwesome5.h"
@@ -56,8 +56,8 @@ void ChainEditor::draw() {
 				// (cursor-based bounds drift when a grip/checkbox shares the row).
 				const ImVec2 itemMin = ImGui::GetItemRectMin();
 				const ImVec2 itemMax = ImGui::GetItemRectMax();
-				auto drop =
-					ReorderDragDropIndexRow(m_payloadTag, i, label.c_str(), itemMin.y, itemMax.y + 2.f);
+				auto drop = ReorderDragDropIndexRow(m_payloadTag, i, label.c_str(), itemMin.y,
+													itemMax.y + 2.f);
 				if (drop.accepted && drop.dragged != drop.target && m_onMove) {
 					int insert = drop.target;
 					if (drop.zone == DropZone::After) {
@@ -109,8 +109,7 @@ void ChainEditor::draw() {
 		}
 
 		const ImGuiStyle& st = ImGui::GetStyle();
-		const float buttonW =
-			ImGui::CalcTextSize(m_addButtonLabel).x + st.FramePadding.x * 2.f;
+		const float buttonW = ImGui::CalcTextSize(m_addButtonLabel).x + st.FramePadding.x * 2.f;
 		const float spacing = st.ItemSpacing.x;
 		ImGui::SetNextItemWidth(
 			std::max(48.f, ImGui::GetContentRegionAvail().x - buttonW - spacing));

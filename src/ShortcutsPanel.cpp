@@ -102,9 +102,9 @@ void ShortcutsPanel::renderContents() {
 		ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthStretch, 1.f);
 		ImGui::TableSetupColumn("Keys", ImGuiTableColumnFlags_WidthStretch, 1.5f);
 		ImGui::TableSetupColumn("##reset",
-							   ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize |
-								   ImGuiTableColumnFlags_NoHide,
-							   resetW);
+								ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize |
+									ImGuiTableColumnFlags_NoHide,
+								resetW);
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableHeadersRow();
 

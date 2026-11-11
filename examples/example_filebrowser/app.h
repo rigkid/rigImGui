@@ -9,8 +9,7 @@ class FileBrowserApp : public rigkit::IApp {
   public:
 	class DemoWindow : public rigkit::ImGuiPanel {
 	  public:
-		explicit DemoWindow(FileBrowserApp* app)
-			: ImGuiPanel("File Browser Demo"), m_app(app) {}
+		explicit DemoWindow(FileBrowserApp* app) : ImGuiPanel("File Browser Demo"), m_app(app) {}
 		void renderContents() override;
 
 	  private:

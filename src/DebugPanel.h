@@ -12,8 +12,7 @@ namespace rigkit {
 
 class DebugPanel : public ImGuiPanel {
   public:
-	DebugPanel(const std::string &title = "Debug Panel###DebugPanel",
-			   ImGuiWindowFlags flags = 0);
+	DebugPanel(const std::string& title = "Debug Panel###DebugPanel", ImGuiWindowFlags flags = 0);
 	virtual ~DebugPanel() = default;
 
 	// Debug functionality

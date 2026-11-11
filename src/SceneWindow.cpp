@@ -7,17 +7,15 @@
 #include "EntityPick.h"
 #include "SceneDragPayload.h"
 
+#include <imgui.h>
 #include <cstdio>
 #include <functional>
-#include <imgui.h>
 #include <unordered_set>
 #include <vector>
 
 namespace rigkit {
 
-SceneWindow::SceneWindow(const std::string& title) : ImGuiPanel(title) {
-	setCategory("Host");
-}
+SceneWindow::SceneWindow(const std::string& title) : ImGuiPanel(title) { setCategory("Host"); }
 
 void SceneWindow::selectOnly(entt::entity e) {
 	auto* engine = getEngine();
@@ -54,8 +52,7 @@ void SceneWindow::renderContents() {
 			continue;
 		}
 		const std::string name = ecs->entityName(e);
-		if (!name.empty() || reg.all_of<ecs::CSelection>(e) ||
-			reg.all_of<ecs::CRelationship>(e)) {
+		if (!name.empty() || reg.all_of<ecs::CSelection>(e) || reg.all_of<ecs::CRelationship>(e)) {
 			roots.push_back(e);
 		}
 	}
@@ -77,12 +74,12 @@ void SceneWindow::renderContents() {
 					  name.empty() ? "(unnamed)" : name.c_str(),
 					  static_cast<unsigned>(entt::to_integral(e)));
 
-		const bool selected = reg.all_of<ecs::CSelection>(e) &&
-							  reg.get<ecs::CSelection>(e).isSelected;
+		const bool selected =
+			reg.all_of<ecs::CSelection>(e) && reg.get<ecs::CSelection>(e).isSelected;
 
-		ImGuiTreeNodeFlags flags =
-			ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
-			(selected ? ImGuiTreeNodeFlags_Selected : 0);
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
+								   ImGuiTreeNodeFlags_SpanAvailWidth |
+								   (selected ? ImGuiTreeNodeFlags_Selected : 0);
 
 		std::vector<entt::entity> children;
 		for (auto child : reg.view<ecs::CRelationship>()) {
@@ -144,8 +141,7 @@ void SceneWindow::renderContents() {
 			if (reg.all_of<ecs::CRelationship>(dragChild)) {
 				reg.get<ecs::CRelationship>(dragChild).parent = entt::null;
 			}
-		} else if (dropParent != entt::null && dropParent != dragChild &&
-				   reg.valid(dropParent)) {
+		} else if (dropParent != entt::null && dropParent != dragChild && reg.valid(dropParent)) {
 			// Avoid parenting to own descendant (cheap one-level guard via walk).
 			bool cyclic = false;
 			entt::entity walk = dropParent;

@@ -8,7 +8,7 @@ namespace rigkit {
 
 class ImGuiWindow : public ImGuiPanel {
   public:
-	ImGuiWindow(const std::string &title, ImGuiWindowFlags flags = 0);
+	ImGuiWindow(const std::string& title, ImGuiWindowFlags flags = 0);
 	virtual ~ImGuiWindow() = default;
 
 	// Custom render callback

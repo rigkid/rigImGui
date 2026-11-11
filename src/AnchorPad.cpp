@@ -2,17 +2,16 @@
 
 #include "UiDpi.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cstring>
-#include <imgui.h>
 #include <string>
 
 namespace rigkit {
 namespace {
 
-const char* kFaceTips[9] = {"Top Left",	  "Top Center",	  "Top Right",
-							"Middle Left",	  "Center",		  "Middle Right",
-							"Bottom Left", "Bottom Center", "Bottom Right"};
+const char* kFaceTips[9] = {"Top Left",		"Top Center",  "Top Right",		"Middle Left", "Center",
+							"Middle Right", "Bottom Left", "Bottom Center", "Bottom Right"};
 const char* kHeightTips[3] = {"Min Z", "Center Z", "Max Z"};
 
 ImU32 colU32(ImGuiCol idx, float mul = 1.f) {
@@ -79,8 +78,8 @@ bool cellButton(const char* id, ImVec2 size, bool selected, bool depthCol, int f
 								  : ImGui::GetColorU32(ImGuiCol_Border);
 	dl->AddRect(p, q, border, rnd, 0, selected ? 2.f : 1.f);
 
-	const ImU32 pip = selected ? ImGui::GetColorU32(ImGuiCol_Text)
-							  : ImGui::GetColorU32(ImGuiCol_Text, 0.45f);
+	const ImU32 pip =
+		selected ? ImGui::GetColorU32(ImGuiCol_Text) : ImGui::GetColorU32(ImGuiCol_Text, 0.45f);
 	const ImU32 dim = ImGui::GetColorU32(ImGuiCol_Text, 0.16f);
 	if (depthCol) {
 		drawHeightPip(dl, p, q, heightPip, pip, dim);

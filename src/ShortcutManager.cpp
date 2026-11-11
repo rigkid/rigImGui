@@ -175,10 +175,8 @@ void ShortcutManager::notifyChanged() {
 json ShortcutManager::exportOverrides() const {
 	json out = json::object();
 	for (const auto& [id, c] : m_overrides) {
-		out[id] = json{{"key", static_cast<int>(c.key)},
-					   {"ctrl", c.ctrl},
-					   {"shift", c.shift},
-					   {"alt", c.alt}};
+		out[id] = json{
+			{"key", static_cast<int>(c.key)}, {"ctrl", c.ctrl}, {"shift", c.shift}, {"alt", c.alt}};
 	}
 	return out;
 }

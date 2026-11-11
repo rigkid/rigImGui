@@ -1,8 +1,8 @@
 #include "ImGuiStyleKit.h"
 
+#include "imgui.h"
 #include "core/util/AppPaths.h"
 #include "fontRobotoRegular.h"
-#include "imgui.h"
 
 #include <algorithm>
 #include <cctype>
@@ -14,9 +14,9 @@
 #include <vector>
 
 #ifdef IMGUI_ENABLE_FREETYPE
+#include <ft2build.h>
 #include "imgui_freetype.h"
 #include "imgui_internal.h"
-#include <ft2build.h>
 #include FT_FREETYPE_H
 #include <freetype/ftmm.h>
 #endif
@@ -429,9 +429,8 @@ std::vector<ThemeFile> listThemeFiles() {
 	for (auto& kv : byName) {
 		out.push_back(std::move(kv.second));
 	}
-	std::sort(out.begin(), out.end(), [](const ThemeFile& a, const ThemeFile& b) {
-		return a.name < b.name;
-	});
+	std::sort(out.begin(), out.end(),
+			  [](const ThemeFile& a, const ThemeFile& b) { return a.name < b.name; });
 	return out;
 }
 
@@ -813,9 +812,8 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 		io.Fonts->AddFontFromFileTTF(faPath.string().c_str(), uiSize, &icons, ranges);
 		spdlog::info("[rigImGui] Merged Font Awesome from {}", faPath.string());
 	} else {
-		spdlog::warn(
-			"[rigImGui] No {} - IconFont headers present but glyphs inactive",
-			FONT_ICON_FILE_NAME_FAS);
+		spdlog::warn("[rigImGui] No {} - IconFont headers present but glyphs inactive",
+					 FONT_ICON_FILE_NAME_FAS);
 	}
 #else
 	(void)fontsSearchDir;
@@ -823,7 +821,8 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 	return loadedBody;
 }
 
-std::string resolveBodyFontPath(const std::string& fontsSearchDir, const std::string& bodyFontPath) {
+std::string resolveBodyFontPath(const std::string& fontsSearchDir,
+								const std::string& bodyFontPath) {
 	namespace fs = std::filesystem;
 	std::error_code ec;
 	auto existsFile = [&](const fs::path& p) -> std::string {
@@ -862,4 +861,3 @@ std::string resolveBodyFontPath(const std::string& fontsSearchDir, const std::st
 
 } // namespace ImGuiStyleKit
 } // namespace rigkit
-

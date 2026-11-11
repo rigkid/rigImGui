@@ -307,8 +307,8 @@ class Mui : public IMui {
 	 * @details The open dialog still takes a drop when it is showing. Paths
 	 * match Open. An empty handler clears it.
 	 */
-	void setUnclaimedFileDropHandler(
-		std::function<void(const std::vector<std::string>& paths)> handler);
+	void
+	setUnclaimedFileDropHandler(std::function<void(const std::vector<std::string>& paths)> handler);
 	std::vector<std::string> fileDialogPinnedFolders() const override;
 	void setFileDialogPinnedFolders(const std::vector<std::string>& paths) override;
 	std::string fileDialogView() const override;

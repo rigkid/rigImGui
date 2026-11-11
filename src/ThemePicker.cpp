@@ -13,9 +13,8 @@ bool draw(const char* strId, std::string& themeFile) {
 
 	const auto files = ImGuiStyleKit::listThemeFiles();
 	const ThemeFile* current = ImGuiStyleKit::findThemeFile(files, themeFile);
-	const char* preview = themeFile.empty()
-							  ? "None"
-							  : (current ? current->name.c_str() : themeFile.c_str());
+	const char* preview =
+		themeFile.empty() ? "None" : (current ? current->name.c_str() : themeFile.c_str());
 
 	if (ImGui::BeginCombo("Color scheme", preview)) {
 		if (ImGui::Selectable("None", themeFile.empty())) {

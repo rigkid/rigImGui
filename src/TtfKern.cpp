@@ -7,13 +7,9 @@
 namespace rigkit {
 namespace {
 
-uint16_t ru16(const uint8_t* p) {
-	return static_cast<uint16_t>((p[0] << 8) | p[1]);
-}
+uint16_t ru16(const uint8_t* p) { return static_cast<uint16_t>((p[0] << 8) | p[1]); }
 
-int16_t ri16(const uint8_t* p) {
-	return static_cast<int16_t>(ru16(p));
-}
+int16_t ri16(const uint8_t* p) { return static_cast<int16_t>(ru16(p)); }
 
 uint32_t ru32(const uint8_t* p) {
 	return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | uint32_t(p[3]);
@@ -42,9 +38,7 @@ bool findTable(const uint8_t* data, size_t size, uint32_t tag, uint32_t& offset,
 	return false;
 }
 
-uint64_t pairKey(unsigned left, unsigned right) {
-	return (uint64_t(left) << 32) | uint64_t(right);
-}
+uint64_t pairKey(unsigned left, unsigned right) { return (uint64_t(left) << 32) | uint64_t(right); }
 
 } // namespace
 

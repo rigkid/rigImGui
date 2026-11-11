@@ -53,7 +53,8 @@ std::string ThumbnailCache::pathUtf8(const std::filesystem::path& path) {
 	return std::string(u8.begin(), u8.end());
 }
 
-void ThumbnailCache::registerDecoder(const std::string& extension, IMui::FileThumbnailDecoder decoder) {
+void ThumbnailCache::registerDecoder(const std::string& extension,
+									 IMui::FileThumbnailDecoder decoder) {
 	std::string ext = extension;
 	if (!ext.empty() && ext.front() != '.') {
 		ext.insert(ext.begin(), '.');
@@ -147,8 +148,8 @@ bool ThumbnailCache::decodeFile(const std::filesystem::path& path, Raster& out) 
 	int w = 0;
 	int h = 0;
 	int comp = 0;
-	unsigned char* pixels = stbi_load_from_memory(file.data(), static_cast<int>(file.size()), &w, &h,
-												  &comp, 4);
+	unsigned char* pixels =
+		stbi_load_from_memory(file.data(), static_cast<int>(file.size()), &w, &h, &comp, 4);
 	if (!pixels || w < 1 || h < 1) {
 		if (pixels) {
 			stbi_image_free(pixels);

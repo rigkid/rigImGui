@@ -1,8 +1,8 @@
 #include "rigImGui.h"
 
+#include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"
 #include "core/pack/PackRegistry.h"
-#include "core/RigKitEngine.h"
 #include "core/util/MSettings.h"
 
 #include <memory>

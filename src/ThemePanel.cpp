@@ -7,11 +7,11 @@
 #include "FontPicker.h"
 #include "ImGuiStyleKit.h"
 #include "Mui.h"
-#include "rigImGui.h"
 #include "ThemePicker.h"
+#include "rigImGui.h"
 
-#include <cstdio>
 #include <imgui.h>
+#include <cstdio>
 #include <string>
 
 #if __has_include("IconsFontAwesome5.h")

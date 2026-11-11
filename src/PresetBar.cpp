@@ -1,9 +1,9 @@
 #include "PresetBar.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <imgui.h>
 #include <string>
 #include <unordered_map>
 
@@ -81,8 +81,7 @@ Result draw(const char* strId, const char* label, const std::vector<std::string>
 	}
 	ImGui::EndDisabled();
 
-	if (ImGui::BeginPopupModal("##save_preset_name", nullptr,
-							   ImGuiWindowFlags_AlwaysAutoResize)) {
+	if (ImGui::BeginPopupModal("##save_preset_name", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		SaveDraft& draft = draftFor(strId);
 		if (ImGui::IsWindowAppearing()) {
 			std::snprintf(draft.buf, sizeof(draft.buf), "%s", name.c_str());

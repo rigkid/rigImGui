@@ -5,9 +5,9 @@
 #include "CLayer.h"
 #include "CSelection.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cstdio>
-#include <imgui.h>
 #include <vector>
 
 namespace rigkit {
@@ -31,9 +31,7 @@ void selectOnly(MEcs& ecs, entt::entity e) {
 
 } // namespace
 
-LayersWindow::LayersWindow(const std::string& title) : ImGuiPanel(title) {
-	setCategory("Host");
-}
+LayersWindow::LayersWindow(const std::string& title) : ImGuiPanel(title) { setCategory("Host"); }
 
 void LayersWindow::renderContents() {
 	auto* engine = getEngine();
@@ -68,8 +66,8 @@ void LayersWindow::renderContents() {
 		auto e = rows[static_cast<size_t>(i)].e;
 		auto& layer = reg.get<ecs::CLayer>(e);
 		const std::string name = ecs->entityName(e);
-		const bool selected = reg.all_of<ecs::CSelection>(e) &&
-							  reg.get<ecs::CSelection>(e).isSelected;
+		const bool selected =
+			reg.all_of<ecs::CSelection>(e) && reg.get<ecs::CSelection>(e).isSelected;
 
 		ImGui::PushID(static_cast<int>(entt::to_integral(e)));
 		ImGui::Checkbox("##vis", &layer.visible);
@@ -78,8 +76,7 @@ void LayersWindow::renderContents() {
 		ImGui::SameLine();
 
 		char label[256];
-		std::snprintf(label, sizeof(label), "%s###layer",
-					  name.empty() ? "(layer)" : name.c_str());
+		std::snprintf(label, sizeof(label), "%s###layer", name.empty() ? "(layer)" : name.c_str());
 		if (ImGui::Selectable(label, selected)) {
 			selectOnly(*ecs, e);
 		}
@@ -90,8 +87,7 @@ void LayersWindow::renderContents() {
 			ImGui::EndDragDropSource();
 		}
 		if (ImGui::BeginDragDropTarget()) {
-			if (const ImGuiPayload* payload =
-					ImGui::AcceptDragDropPayload("RIG_LAYER_ORDER")) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RIG_LAYER_ORDER")) {
 				dragFrom = *static_cast<const int*>(payload->Data);
 				dragTo = i;
 			}

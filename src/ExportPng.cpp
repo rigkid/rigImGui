@@ -1,7 +1,7 @@
 #include "ExportPng.h"
 
-#include "core/util/AppPaths.h"
 #include "rendering/U_gladGlfw.h"
+#include "core/util/AppPaths.h"
 
 #include <algorithm>
 #include <filesystem>

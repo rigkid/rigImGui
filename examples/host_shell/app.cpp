@@ -1,7 +1,7 @@
 #include "app.h"
 
-#include "core/pack/MPack.h"
 #include "core/RigKitEngine.h"
+#include "core/pack/MPack.h"
 #include "packs/rigComponent/src/CLight.h"
 #include "packs/rigComponent/src/CMesh.h"
 #include "packs/rigComponent/src/CTransform.h"
@@ -39,8 +39,8 @@ entt::entity makeGroundGrid(int halfCells, float step, const rigkit::ecs::CDrawS
 		indices.push_back(i++);
 		indices.push_back(i++);
 	}
-	return rig::makeMesh(std::move(positions), std::move(indices),
-						 rigkit::ecs::CMesh::Mode::Lines, style, "grid");
+	return rig::makeMesh(std::move(positions), std::move(indices), rigkit::ecs::CMesh::Mode::Lines,
+						 style, "grid");
 }
 
 void placeBox(rigkit::MEcs& ecs, entt::entity e, glm::vec3 pos, float scale = 1.f) {
@@ -57,9 +57,8 @@ void placeBox(rigkit::MEcs& ecs, entt::entity e, glm::vec3 pos, float scale = 1.
 HostShellApp::HostShellApp() { settings().appName = "host_shell"; }
 
 void HostShellApp::WidgetsWindow::renderContents() {
-	ImGui::TextWrapped(
-		"Host shell for rigImGui. Open View > Theme for accents; "
-		"Preferences holds the full Style Editor.");
+	ImGui::TextWrapped("Host shell for rigImGui. Open View > Theme for accents; "
+					   "Preferences holds the full Style Editor.");
 	ImGui::Separator();
 	ImGui::Checkbox("Demo checkbox", &m_checked);
 	ImGui::SliderFloat("Slider", &m_slider, 0.f, 1.f);
@@ -130,8 +129,7 @@ void HostShellApp::setup() {
 
 	makeGroundGrid(6, 1.f, rig::stroke(0.45f, 0.48f, 0.52f, 0.85f, 1.f));
 
-	const auto box =
-		rig::makeMeshBox(1.2f, rig::fill(0.25f, 0.55f, 0.90f), "demo-box");
+	const auto box = rig::makeMeshBox(1.2f, rig::fill(0.25f, 0.55f, 0.90f), "demo-box");
 	placeBox(*ecs, box, {-1.4f, 0.6f, 0.2f}, 1.f);
 	placeBox(*ecs, rig::makeMeshBox(0.9f, rig::fill(0.95f, 0.55f, 0.25f), "demo-block"),
 			 {1.2f, 0.45f, -0.6f}, 1.f);

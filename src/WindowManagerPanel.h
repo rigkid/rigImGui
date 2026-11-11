@@ -10,14 +10,14 @@ namespace rigkit {
 
 class WindowManagerPanel : public ImGuiPanel {
   public:
-	WindowManagerPanel(const std::string &title, MWindow *windowManager,
+	WindowManagerPanel(const std::string& title, MWindow* windowManager,
 					   ImGuiWindowFlags flags = 0);
 
   protected:
 	void renderContents() override;
 
   private:
-	MWindow *m_windowManager;
+	MWindow* m_windowManager;
 };
 
 } // namespace rigkit

@@ -1,13 +1,13 @@
 #include "Handle2D.h"
 
+#include "core/util/UndoStack.h"
 #include "CSelection.h"
 #include "CTransform.h"
 #include "PrimitiveBounds.h"
-#include "core/util/UndoStack.h"
 
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
-#include <imgui.h>
 
 namespace rigkit {
 namespace {
@@ -104,18 +104,22 @@ bool drawSelectedHandle2D(MEcs& ecs, float originX, float originY, float scale, 
 		dl->AddRectFilled(ImVec2(c.x - hs, c.y - hs), ImVec2(c.x + hs, c.y + hs),
 						  IM_COL32(80, 180, 255, 255));
 	}
-	const float x = std::min(std::min(corners[0].x, corners[1].x), std::min(corners[2].x, corners[3].x));
-	const float y = std::min(std::min(corners[0].y, corners[1].y), std::min(corners[2].y, corners[3].y));
-	const float w = std::max(std::max(corners[0].x, corners[1].x), std::max(corners[2].x, corners[3].x)) - x;
-	const float h = std::max(std::max(corners[0].y, corners[1].y), std::max(corners[2].y, corners[3].y)) - y;
+	const float x =
+		std::min(std::min(corners[0].x, corners[1].x), std::min(corners[2].x, corners[3].x));
+	const float y =
+		std::min(std::min(corners[0].y, corners[1].y), std::min(corners[2].y, corners[3].y));
+	const float w =
+		std::max(std::max(corners[0].x, corners[1].x), std::max(corners[2].x, corners[3].x)) - x;
+	const float h =
+		std::max(std::max(corners[0].y, corners[1].y), std::max(corners[2].y, corners[3].y)) - y;
 
 	if (op == IMui::GizmoOp::Select || ImGui::GetIO().KeyAlt || ImGui::GetIO().WantCaptureMouse) {
 		return true;
 	}
 
 	const ImVec2 mouse = ImGui::GetIO().MousePos;
-	const bool inside = mouse.x >= x - hs && mouse.x <= x + w + hs && mouse.y >= y - hs &&
-						mouse.y <= y + h + hs;
+	const bool inside =
+		mouse.x >= x - hs && mouse.x <= x + w + hs && mouse.y >= y - hs && mouse.y <= y + h + hs;
 	if (!inside || !ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
 		return true;
 	}

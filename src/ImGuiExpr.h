@@ -12,7 +12,6 @@ namespace rigkit {
  * @param current Value in the field before the edit.
  * @param out Result when the function returns true.
  */
-bool evalNumericExpr(const char *buf, double current, double &out);
+bool evalNumericExpr(const char* buf, double current, double& out);
 
 } // namespace rigkit
-

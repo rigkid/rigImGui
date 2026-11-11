@@ -39,7 +39,8 @@ class ChainEditor {
 	/** @brief Optional hint below the list. */
 	void setFooterHint(std::string hint) { m_footerHint = std::move(hint); }
 
-	/** @brief Add combo: labels[0] is placeholder; `onAdd` receives index >= 1 when Add is clicked. */
+	/** @brief Add combo: labels[0] is placeholder; `onAdd` receives index >= 1 when Add is clicked.
+	 */
 	void setAddTypes(std::vector<std::string> types) { m_addTypes = std::move(types); }
 	void setOnAdd(std::function<void(int typeIndex)> fn) { m_onAdd = std::move(fn); }
 
