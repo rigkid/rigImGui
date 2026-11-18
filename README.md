@@ -11,7 +11,7 @@ cmake -S examples/host_shell -B examples/host_shell/build
 cmake --build examples/host_shell/build --target host_shell
 ```
 
-Format first-party `src/` + `examples/` with `./tools/format.sh` (Windows: `tools\format.bat`). Install the pre-commit hook once: `./tools/install-hooks.sh`. From a RigKit host checkout, `./tools/install-hooks.sh` also wires every other pack git repo.
+Format first-party `src/` + `examples/` with `./tools/format.sh`. Install the pre-commit hook once: `./tools/install-hooks.sh`. From a RigKit host checkout, `./tools/install-hooks.sh` also wires every other pack git repo.
 
 Also: [sample_menubar](examples/sample_menubar/), [example_filebrowser](examples/example_filebrowser/), [example_ImGuizmo](examples/example_ImGuizmo/).
 
@@ -342,12 +342,12 @@ Format first-party `src/` and `examples/` with clang-format before commit (never
 ./tools/install-hooks.sh    # once per clone - pre-commit formats staged C/C++
 ```
 
-Hooks **fail** if you stage C/C++ and `clang-format` is missing. Put it on PATH:
+Hooks only look for `clang-format` on PATH and warn, without formatting, when it is missing. Put it on PATH:
 
 - **Windows:** install [LLVM](https://github.com/llvm/llvm-project/releases) (enable "Add LLVM to the system PATH"), or `winget install LLVM.LLVM`, then open a new shell. Confirm: `clang-format --version`.
 - **macOS:** `brew install clang-format`
 - **Linux:** `sudo apt install clang-format`
 
-From a RigKit host checkout, `tools\install-hooks.bat` / `./tools/install-hooks.sh` wires every pack repo. Full policy: [RigKit packs Style](https://github.com/rigkid/RigKit/blob/main/packs/README.md#style).
+From a RigKit host checkout, `./tools/install-hooks.sh` wires every pack repo. Full policy: [RigKit packs Style](https://github.com/rigkid/RigKit/blob/main/packs/README.md#style).
 
 [API/docs](https://rigkid.github.io/rigImGui/)
