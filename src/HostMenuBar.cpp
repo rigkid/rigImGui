@@ -222,7 +222,9 @@ void HostMenuBar::renderAppMenu() {
 	}
 	ImGui::Separator();
 	if (ImGui::MenuItem("Quit", "Alt+F4")) {
-		if (m_engine && m_engine->getWindow()) {
+		if (m_ui && m_ui->quitHandler()) {
+			m_ui->quitHandler()();
+		} else if (m_engine && m_engine->getWindow()) {
 			glfwSetWindowShouldClose(m_engine->getWindow(), GLFW_TRUE);
 		}
 	}

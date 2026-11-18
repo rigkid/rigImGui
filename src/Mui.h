@@ -493,6 +493,15 @@ class Mui : public IMui {
 		return m_recentOpenHandler;
 	}
 
+	/**
+	 * @brief Let the app answer the Quit menu item (for example to ask about unsaved work).
+	 * @details With a handler set, Quit calls it instead of closing the window; the handler
+	 * closes the window itself once quitting is fine. Does not intercept the window X or
+	 * Alt+F4 - those are the app's to catch through the window close callback.
+	 */
+	void setQuitHandler(std::function<void()> handler) { m_quitHandler = std::move(handler); }
+	const std::function<void()>& quitHandler() const { return m_quitHandler; }
+
 	const std::vector<std::pair<std::string, std::function<void()>>>& exportActions() const {
 		return m_exportActions;
 	}
@@ -609,6 +618,7 @@ class Mui : public IMui {
 	std::vector<PreferencesDrawer> m_preferencesDrawers;
 	std::vector<std::string> m_recentFiles;
 	std::function<void(const std::string&)> m_recentOpenHandler;
+	std::function<void()> m_quitHandler;
 	static constexpr int kMaxRecentFiles = 10;
 
 	void installWorkspaceDockSeed();
