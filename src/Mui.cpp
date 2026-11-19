@@ -157,13 +157,18 @@ void Mui::initImGui() {
 	ImGui_ImplGlfw_InitForOpenGL(m_window, true);
 #if defined(RIGKIT_GLES)
 	// Pi native GLES2 or desktop ANGLE - GLSL ES 1.00.
-	ImGui_ImplOpenGL3_Init("#version 100");
+	const bool glBackendOk = ImGui_ImplOpenGL3_Init("#version 100");
 #elif defined(__APPLE__)
 	// NSGL is core profile only. GLSL 130 needs the compatibility profile.
-	ImGui_ImplOpenGL3_Init("#version 150");
+	const bool glBackendOk = ImGui_ImplOpenGL3_Init("#version 150");
 #else
-	ImGui_ImplOpenGL3_Init("#version 130");
+	const bool glBackendOk = ImGui_ImplOpenGL3_Init("#version 130");
 #endif
+	if (!glBackendOk) {
+		// No renderer backend: shutdown would dereference null backend data,
+		// so say so here instead of crashing on exit.
+		spdlog::error("[rigImGui] ImGui_ImplOpenGL3_Init failed (GL loader?)");
+	}
 
 	// The mapper installs its widget value callback on the live context, so it
 	// is created here and reset in shutdownImGui() before DestroyContext().

@@ -147,6 +147,17 @@ file(GLOB DEP_SOURCES
 )
 target_sources(${PACK_NAME} PRIVATE ${DEP_SOURCES})
 
+# On the host GLES path (Pi native GLES2, desktop ANGLE) the vendored backend
+# must build as ES2: without IMGUI_IMPL_OPENGL_ES2 its loader looks for desktop
+# GL entry points, ImGui_ImplOpenGL3_Init fails, and Mui runs with no renderer
+# backend (shutdown then dereferences the null backend data). Mirrors the
+# RIGKIT_GLES selection in the host CMakeLists; the define only affects this
+# pack's own translation units.
+if(RIGKIT_GLES OR RIGKIT_USE_ANGLE OR
+   (NOT APPLE AND (CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")))
+	target_compile_definitions(${PACK_NAME} PRIVATE IMGUI_IMPL_OPENGL_ES2)
+endif()
+
 find_package(Freetype QUIET)
 if(NOT Freetype_FOUND)
 	find_package(PkgConfig QUIET)
