@@ -46,6 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: pack
+          submodules: recursive
 
       - name: Checkout RigKit host
         uses: actions/checkout@v4
@@ -58,7 +59,11 @@ jobs:
       - name: Overlay pack under test
         run: |
           rm -rf "host/packs/${PACK}"
+          mkdir -p host/packs
           cp -a pack "host/packs/${PACK}"
+          # Overlay replaces the host submodule tree; keep imgui / ImMidiMapper
+          # (and any nested deps) populated for the pack under test.
+          git -C "host/packs/${PACK}" submodule update --init --recursive
 
       - name: Install build dependencies
         run: |
