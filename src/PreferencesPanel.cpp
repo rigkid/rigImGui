@@ -56,7 +56,12 @@ void PreferencesPanel::render() {
 		vp ? ImVec2(std::max(1.f, vp->WorkSize.x - pad), std::max(1.f, vp->WorkSize.y - pad))
 		   : want;
 	const ImVec2 minSz(std::min(uiPx(280.f), maxSz.x), std::min(uiPx(200.f), maxSz.y));
-	ImGui::SetNextWindowSize(want, ImGuiCond_FirstUseEver);
+	// Floating (NoDocking): always re-center when the panel is shown so a stale
+	// imgui.ini position cannot hide it behind docked panels or off-screen.
+	if (vp) {
+		ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	}
+	ImGui::SetNextWindowSize(want, ImGuiCond_Appearing);
 	ImGui::SetNextWindowSizeConstraints(minSz, maxSz);
 	ImGuiPanel::render();
 }

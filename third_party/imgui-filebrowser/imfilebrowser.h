@@ -23,6 +23,7 @@
 #ifndef _WINBASE_
 extern "C" __declspec(dllimport) unsigned long __stdcall GetLogicalDrives(void);
 extern "C" __declspec(dllimport) unsigned int __stdcall GetDriveTypeA(const char *);
+extern "C" __declspec(dllimport) unsigned long __stdcall GetFileAttributesW(const wchar_t *);
 #endif
 #endif
 
@@ -179,6 +180,12 @@ namespace ImGui
         // true once after the user toggled Details / Icons; host mirrors + persists.
         bool ConsumeViewModeChanged();
 
+        // Dotfiles and the Windows hidden attribute. Off hides them.
+        void SetShowHidden(bool show) noexcept;
+        bool GetShowHidden() const noexcept;
+        // true once after the user toggled Hidden files; host mirrors + persists.
+        bool ConsumeShowHiddenChanged();
+
         // Host supplies image thumbs. Empty / returning 0 draws a file glyph.
         void SetThumbnailProvider(std::function<ImTextureID(const std::filesystem::path &)> fn);
 
@@ -205,6 +212,7 @@ namespace ImGui
         struct FileRecord
         {
             bool                  isDir = false;
+            bool                  hidden = false;
             std::filesystem::path name;
             std::string           showName;
             std::filesystem::path extension;
@@ -342,6 +350,10 @@ namespace ImGui
         bool              editDir_;
         bool              setFocusToEditDir_;
         std::vector<char> currDirBuffer_;
+        // Crumb click waits out the double-click window so a double-click can
+        // edit the path instead of navigating.
+        int               pendingCrumbSec_ = -1;
+        double            pendingCrumbTime_ = -1.0;
 
 #ifdef _WIN32
         std::uint32_t                 drives_ = 0;
@@ -358,6 +370,8 @@ namespace ImGui
 
         ViewMode viewMode_ = ViewMode::Details;
         bool     viewModeChanged_ = false;
+        bool     showHidden_ = false;
+        bool     showHiddenChanged_ = false;
         std::function<ImTextureID(const std::filesystem::path &)> thumbnailProvider_;
         std::vector<unsigned int> visibleRecords_;
 
@@ -464,6 +478,8 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
 
     editDir_ = copyFrom.editDir_;
     currDirBuffer_ = copyFrom.currDirBuffer_;
+    pendingCrumbSec_ = -1;
+    pendingCrumbTime_ = -1.0;
 
 #ifdef _WIN32
     ReapDriveScan();
@@ -483,6 +499,8 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
 
     viewMode_            = copyFrom.viewMode_;
     viewModeChanged_     = copyFrom.viewModeChanged_;
+    showHidden_          = copyFrom.showHidden_;
+    showHiddenChanged_   = copyFrom.showHiddenChanged_;
     thumbnailProvider_   = copyFrom.thumbnailProvider_;
     visibleRecords_.clear();
 
@@ -661,6 +679,19 @@ inline void ImGui::FileBrowser::DrawContents()
 
     std::filesystem::path newDir; bool shouldSetNewDir = false;
     bool enteredDirOnEnter = false;
+    bool escapeCancelsPathEdit = false;
+
+    auto beginPathEdit = [&]()
+    {
+        // filesystem::path::u8string is UTF-8. InputText edits those bytes.
+        const auto currDirStr = u8StrToStr(currentDirectory_.u8string());
+        currDirBuffer_.resize(currDirStr.size() + 1);
+        std::memcpy(currDirBuffer_.data(), currDirStr.data(), currDirStr.size());
+        currDirBuffer_.back() = '\0';
+        editDir_ = true;
+        setFocusToEditDir_ = true;
+        pendingCrumbSec_ = -1;
+    };
 
     if(editDir_)
     {
@@ -669,25 +700,45 @@ inline void ImGui::FileBrowser::DrawContents()
             SetKeyboardFocusHere();
         }
 
-        PushItemWidth(-1);
+        const ImGuiStyle &style = GetStyle();
+        auto buttonW = [&](const char *label)
+        {
+            return CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+        };
+        float reserve = style.ItemSpacing.x * 4.0f + 1.0f;
+        reserve += buttonW("Refresh") + style.ItemSpacing.x;
+        reserve += buttonW(viewMode_ == ViewMode::Details ? "Icons" : "Details") + style.ItemSpacing.x;
+        if(flags_ & ImGuiFileBrowserFlags_CreateNewDir)
+        {
+            reserve += buttonW("+") + style.ItemSpacing.x;
+        }
+        reserve += GetFrameHeight() + style.ItemInnerSpacing.x + CalcTextSize("Hidden files").x;
+        const float avail = GetContentRegionAvail().x - reserve;
+        PushItemWidth(avail > GetFontSize() * 8.0f ? avail : -1.0f);
         const bool enter = InputText(
             "##directory", currDirBuffer_.data(), currDirBuffer_.size(),
             ImGuiInputTextFlags_CallbackResize | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll,
             ExpandInputBuffer, &currDirBuffer_);
         PopItemWidth();
 
-        if(!IsItemActive() && !setFocusToEditDir_)
-        {
-            editDir_ = false;
-        }
-        setFocusToEditDir_ = false;
-
         if(enter)
         {
             std::filesystem::path enteredDir = u8StrToPath(currDirBuffer_.data());
             newDir = std::move(enteredDir);
             shouldSetNewDir = true;
+            editDir_ = false;
+            enteredDirOnEnter = true;
         }
+        else if(IsKeyPressed(ImGuiKey_Escape))
+        {
+            editDir_ = false;
+            escapeCancelsPathEdit = true;
+        }
+        else if(!IsItemActive() && !setFocusToEditDir_)
+        {
+            editDir_ = false;
+        }
+        setFocusToEditDir_ = false;
     }
     else
     {
@@ -726,6 +777,10 @@ inline void ImGui::FileBrowser::DrawContents()
 #endif
 
         int secIdx = 0, newDirLastSecIdx = -1;
+        // Address crumbs use the field color so they don't match Refresh.
+        PushStyleColor(ImGuiCol_Button, GetStyleColorVec4(ImGuiCol_FrameBg));
+        PushStyleColor(ImGuiCol_ButtonHovered, GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+        PushStyleColor(ImGuiCol_ButtonActive, GetStyleColorVec4(ImGuiCol_FrameBgActive));
         for(const auto &sec : currentDirectory_)
         {
 #ifdef _WIN32
@@ -743,11 +798,31 @@ inline void ImGui::FileBrowser::DrawContents()
             }
             if(SmallButton(u8StrToStr(sec.u8string()).c_str()))
             {
-                newDirLastSecIdx = secIdx;
+                if(IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                {
+                    beginPathEdit();
+                }
+                else
+                {
+                    pendingCrumbSec_ = secIdx;
+                    pendingCrumbTime_ = GetTime();
+                }
+            }
+            else
+            {
+                ToolTip("Double-click to edit the path");
             }
             PopID();
 
             ++secIdx;
+        }
+        PopStyleColor(3);
+
+        if(pendingCrumbSec_ >= 0 &&
+           GetTime() - pendingCrumbTime_ >= GetIO().MouseDoubleClickTime)
+        {
+            newDirLastSecIdx = pendingCrumbSec_;
+            pendingCrumbSec_ = -1;
         }
 
         if(newDirLastSecIdx >= 0)
@@ -779,13 +854,7 @@ inline void ImGui::FileBrowser::DrawContents()
 
             if(SmallButton("#"))
             {
-                const auto currDirStr = u8StrToStr(currentDirectory_.u8string());
-                currDirBuffer_.resize(currDirStr.size() + 1);
-                std::memcpy(currDirBuffer_.data(), currDirStr.data(), currDirStr.size());
-                currDirBuffer_.back() = '\0';
-
-                editDir_ = true;
-                setFocusToEditDir_ = true;
+                beginPathEdit();
             }
             else
             {
@@ -794,6 +863,17 @@ inline void ImGui::FileBrowser::DrawContents()
         }
     }
 
+    // Path crumbs and the action buttons are both SmallButton. A gap and a
+    // vertical rule keep Refresh from reading as another path segment.
+    SameLine(0.0f, GetStyle().ItemSpacing.x * 3.0f);
+    {
+        const ImVec2 p = GetCursorScreenPos();
+        const float h = GetFrameHeight();
+        GetWindowDrawList()->AddLine(
+            ImVec2(p.x, p.y + 3.0f), ImVec2(p.x, p.y + h - 3.0f),
+            GetColorU32(ImGuiCol_Separator), 1.0f);
+        Dummy(ImVec2(1.0f, h));
+    }
     SameLine();
     if(SmallButton("Refresh"))
     {
@@ -890,6 +970,13 @@ inline void ImGui::FileBrowser::DrawContents()
             }
         }
     }
+
+    SameLine();
+    if(Checkbox("Hidden files", &showHidden_))
+    {
+        showHiddenChanged_ = true;
+    }
+    ToolTip("Show hidden files and folders");
 
     // browse files in a child window
 
@@ -1199,6 +1286,7 @@ inline void ImGui::FileBrowser::DrawContents()
         const bool shouldClose =
             Button("Cancel", ImVec2(cancelW, 0.0f)) || shouldClose_ ||
             ((flags_ & ImGuiFileBrowserFlags_CloseOnEsc) &&
+             !escapeCancelsPathEdit &&
              IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
              IsKeyPressed(ImGuiKey_Escape));
         if(shouldClose)
@@ -1409,6 +1497,23 @@ inline bool ImGui::FileBrowser::ConsumeViewModeChanged()
 {
     const bool changed = viewModeChanged_;
     viewModeChanged_ = false;
+    return changed;
+}
+
+inline void ImGui::FileBrowser::SetShowHidden(bool show) noexcept
+{
+    showHidden_ = show;
+}
+
+inline bool ImGui::FileBrowser::GetShowHidden() const noexcept
+{
+    return showHidden_;
+}
+
+inline bool ImGui::FileBrowser::ConsumeShowHiddenChanged()
+{
+    const bool changed = showHiddenChanged_;
+    showHiddenChanged_ = false;
     return changed;
 }
 
@@ -1837,7 +1942,7 @@ inline bool ImGui::FileBrowser::IsRecordVisible(const FileRecord &record) const
     {
         return false;
     }
-    if(!record.name.empty() && record.name.c_str()[0] == '$')
+    if(record.hidden && !showHidden_)
     {
         return false;
     }
@@ -2113,6 +2218,23 @@ inline std::vector<ImGui::FileBrowser::FileRecord> ImGui::FileBrowser::CollectFi
 
             rcd.extension = p.path().filename().extension();
             rcd.showName = u8StrToStr(p.path().filename().u8string());
+#ifdef _WIN32
+            {
+                // FILE_ATTRIBUTE_HIDDEN. Includes shell junctions such as
+                // Documents\My Music; they stay listed once Hidden files is on.
+                const unsigned long attrs = GetFileAttributesW(p.path().c_str());
+                constexpr unsigned long kFileAttributeHidden = 0x2u;
+                if(attrs != 0xFFFFFFFFul && (attrs & kFileAttributeHidden) != 0)
+                {
+                    rcd.hidden = true;
+                }
+            }
+#endif
+            if(!rcd.showName.empty() &&
+               (rcd.showName.front() == '.' || rcd.showName.front() == '$'))
+            {
+                rcd.hidden = true;
+            }
             if(rcd.isDir)
             {
                 rcd.typeText = "Folder";
@@ -2217,14 +2339,57 @@ inline void ImGui::FileBrowser::RequestListing()
         r.generation = gen;
         try
         {
-            // Follow symlinks/junctions to the real directory. Windows legacy
-            // junctions (Documents\My Music, ...) deny listing on the link
-            // itself but allow traversal, so listing the resolved target is
-            // the only way in.
-            std::error_code canonEc;
-            const auto resolved = std::filesystem::canonical(dir, canonEc);
-            r.directory = canonEc ? std::filesystem::absolute(dir) : resolved;
-            r.records = CollectFileRecords(r.directory, flags);
+            // Keep the path the user opened. canonical() would replace a
+            // symlink or junction with its target and the breadcrumb would
+            // leave that folder. List the target only when the link path
+            // itself cannot be opened.
+            std::error_code absEc;
+            std::filesystem::path shown = std::filesystem::absolute(dir, absEc);
+            if(absEc)
+            {
+                shown = dir;
+            }
+            shown = shown.lexically_normal();
+
+            std::string listError;
+            auto collect = [&](const std::filesystem::path &path)
+            {
+                try
+                {
+                    r.records = CollectFileRecords(path, flags);
+                    listError.clear();
+                    return true;
+                }
+                catch(const std::exception &err)
+                {
+                    listError = err.what();
+                }
+                catch(...)
+                {
+                    listError = "unknown error";
+                }
+                return false;
+            };
+
+            if(!collect(shown))
+            {
+                const std::string firstError = listError;
+                std::error_code canonEc;
+                const auto resolved = std::filesystem::canonical(dir, canonEc);
+                std::error_code sameEc;
+                const bool different = !canonEc && !resolved.empty() &&
+                    !(std::filesystem::equivalent(resolved, shown, sameEc) && !sameEc);
+                if(!different || !collect(resolved))
+                {
+                    listError = firstError;
+                }
+            }
+            r.directory = shown;
+            if(!listError.empty())
+            {
+                r.error = std::move(listError);
+                r.records.clear();
+            }
         }
         catch(const std::exception &err)
         {

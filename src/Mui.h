@@ -92,6 +92,10 @@ struct UiPrefs {
 	int fpsDisplay = 0;
 	/// ImGui multi-viewport: drag panels into their own OS windows. Desktop only.
 	bool detachableWindows = true;
+	/// Corner drags keep the starting aspect. Shift still does this for one gesture.
+	bool keepProportion = false;
+	/// Toolbar icon side, in 1x pixels. The strip clamps this to the space it has.
+	float toolIconSize = 16.f;
 
 	std::vector<sProp> GetProperties() {
 		static constexpr const char* kThemeNames[] = {
@@ -127,6 +131,8 @@ struct UiPrefs {
 #if !defined(RIGKIT_GLES)
 			{17, "Detachable Windows", EPT_BOOL, &detachableWindows},
 #endif
+			{19, "Keep Proportion", EPT_BOOL, &keepProportion},
+			{20, "Tool Icon Size", EPT_FLOAT, &toolIconSize},
 		};
 	}
 };
@@ -330,6 +336,14 @@ class Mui : public IMui {
 							const std::string& shortcut, std::function<bool()> isActive,
 							std::function<void()> action, const std::string& icon = {},
 							const std::string& group = {}) override;
+
+	/**
+	 * @brief Extra widget on the tool rail, same row as the tool buttons.
+	 * @details @p horizontal is true when the rail is wider than it is tall.
+	 * The same @p id replaces a previous accessory. Does not draw tools.
+	 */
+	void addToolRailAccessory(const std::string& id, std::function<void(bool horizontal)> draw);
+	void removeToolRailAccessory(const std::string& id);
 	void registerEditAction(const std::string& label, const std::string& shortcut,
 							std::function<bool()> isEnabled, std::function<void()> action,
 							const std::string& group = {}) override;
@@ -535,6 +549,8 @@ class Mui : public IMui {
 	void persistPinnedFolders();
 	void loadFileBrowserViewFromSettings();
 	void persistFileBrowserView();
+	void loadFileBrowserHiddenFromSettings();
+	void persistFileBrowserHidden();
 	void persistCurrentWorkspace();
 	void registerVisibilitySettingsHandler();
 	void queueStartupWorkspace();
@@ -613,6 +629,11 @@ class Mui : public IMui {
 	std::vector<FileMenuAction> m_appActions;
 	std::vector<FileMenuAction> m_viewActions;
 	std::vector<ToolMenuAction> m_toolActions;
+	struct ToolRailAccessory {
+		std::string id;
+		std::function<void(bool horizontal)> draw;
+	};
+	std::vector<ToolRailAccessory> m_toolRailAccessories;
 	std::vector<EditMenuAction> m_editActions;
 	std::vector<std::pair<std::string, std::function<void()>>> m_exportActions;
 	std::vector<PreferencesDrawer> m_preferencesDrawers;

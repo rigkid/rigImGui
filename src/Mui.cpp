@@ -100,6 +100,7 @@ void Mui::setRigKitEngine(RigKitEngine* engine) {
 		loadRecentFilesFromSettings();
 		loadPinnedFoldersFromSettings();
 		loadFileBrowserViewFromSettings();
+		loadFileBrowserHiddenFromSettings();
 		// Remember the last used workspace name; the first render restores
 		// the session autosave, or falls back to this snapshot when no
 		// session exists yet (queueStartupWorkspace()).
@@ -284,7 +285,7 @@ void Mui::renderToolRail() {
 	}
 	const auto& rows = m_toolActions;
 	const bool gizmos = gizmoChrome();
-	if (rows.empty() && !gizmos) {
+	if (rows.empty() && !gizmos && m_toolRailAccessories.empty()) {
 		return;
 	}
 	if (m_windowManager) {
@@ -295,14 +296,39 @@ void Mui::renderToolRail() {
 		}
 	}
 	const ImGuiViewport* vp = ImGui::GetMainViewport();
-	ImGui::SetNextWindowSize(uiSize(52.f, 320.f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(uiSize(480.f, 36.f), ImGuiCond_FirstUseEver);
 	if (vp) {
 		ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + uiPx(8.f), vp->WorkPos.y + uiPx(8.f)),
 								ImGuiCond_FirstUseEver);
 	}
+	// A lone toolbar is a strip, not a document. The dock tab comes back if
+	// another window shares the node.
+	ImGuiWindowClass toolClass;
+	toolClass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_AutoHideTabBar;
+	ImGui::SetNextWindowClass(&toolClass);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(uiPx(6.f), uiPx(3.f)));
 	if (!ImGui::Begin("Toolbar###host.toolbar", &m_toolRailOpen)) {
+		ImGui::PopStyleVar();
 		ImGui::End();
 		return;
+	}
+	if (ImGuiWindow* toolWindow = ImGui::GetCurrentWindow()) {
+		ImGuiDockNode* node = toolWindow->DockNode;
+		ImGuiDockNode* parent = node ? node->ParentNode : nullptr;
+		if (node && parent && parent->SplitAxis == ImGuiAxis_Y && node->Windows.Size == 1 &&
+			!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+			const float iconDesign = std::clamp(m_uiPrefs.toolIconSize, 12.f, 40.f);
+			const float hug = uiPx(iconDesign + 10.f);
+			if (node->Size.y > hug + uiPx(4.f) && node->Size.y < uiPx(64.f)) {
+				ImGuiDockNode* other =
+					parent->ChildNodes[0] == node ? parent->ChildNodes[1] : parent->ChildNodes[0];
+				const float total = other ? node->Size.y + other->Size.y : 0.f;
+				if (other && total > hug) {
+					node->SizeRef[ImGuiAxis_Y] = hug;
+					other->SizeRef[ImGuiAxis_Y] = total - hug;
+				}
+			}
+		}
 	}
 
 	// Illustrator-style rail: the live window rect says how to flow. A tall
@@ -313,7 +339,24 @@ void Mui::renderToolRail() {
 	const ImVec2 winSize = ImGui::GetWindowSize();
 	const bool horizontal = winSize.x > winSize.y;
 	const bool labelled = horizontal ? winSize.y > uiPx(64.f) : winSize.x > uiPx(120.f);
-	const float btn = uiPx(34.f);
+	const float availH = ImGui::GetContentRegionAvail().y;
+	// Never larger than the strip. A tall dock stops at the design size.
+	const float designBtn = uiPx(std::clamp(m_uiPrefs.toolIconSize, 12.f, 40.f));
+	const float btn = (availH > 1.f) ? (std::min)(designBtn, availH) : designBtn;
+	if (horizontal) {
+		ImGuiDockNode* node = ImGui::GetCurrentWindow()->DockNode;
+		if (node && node->IsHiddenTabBar()) {
+			// The corner triangle that brings the tab bar back sits on the first icon.
+			const float lead = ImTrunc(ImGui::GetFontSize() * 0.80f);
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + lead);
+		}
+	}
+	const bool scaleIcons = !labelled;
+	if (scaleIcons) {
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(uiPx(3.f), uiPx(1.f)));
+		const float glyph = (std::min)(btn, (std::max)(uiPx(8.f), btn - uiPx(4.f)));
+		ImGui::PushFont(nullptr, glyph);
+	}
 
 	bool firstInFlow = true;
 	auto placeNext = [&](float itemW) {
@@ -487,12 +530,34 @@ void Mui::renderToolRail() {
 		gizmoBtn("Rotate", RAIL_ICON(ICON_FA_SYNC), GizmoOp::Rotate, "E");
 		gizmoBtn("Scale", RAIL_ICON(ICON_FA_EXPAND_ARROWS_ALT), GizmoOp::Scale, "R");
 	}
+	{
+		ToolMenuAction row;
+		row.label = "Keep proportion";
+		row.icon = m_uiPrefs.keepProportion ? RAIL_ICON(ICON_FA_LOCK) : RAIL_ICON(ICON_FA_UNLOCK);
+		if (toolButton(row, m_uiPrefs.keepProportion, false)) {
+			m_uiPrefs.keepProportion = !m_uiPrefs.keepProportion;
+		}
+	}
+	for (const auto& accessory : m_toolRailAccessories) {
+		if (!accessory.draw) {
+			continue;
+		}
+		placeNext(btn);
+		ImGui::PushID(accessory.id.c_str());
+		accessory.draw(horizontal);
+		ImGui::PopID();
+	}
 	// Clear the flyout hold only after buttons consumed it this frame, so a
 	// hold-open release does not also arm the representative tool.
 	if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
 		m_toolHoldId.clear();
 		m_toolHoldFired = false;
 	}
+	if (scaleIcons) {
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+	}
+	ImGui::PopStyleVar();
 	ImGui::End();
 }
 
@@ -827,6 +892,9 @@ void Mui::render() {
 	}
 	if (m_fileDialogs.consumeViewModeChanged()) {
 		persistFileBrowserView();
+	}
+	if (m_fileDialogs.consumeShowHiddenChanged()) {
+		persistFileBrowserHidden();
 	}
 
 	ImGui::Render();
@@ -1985,6 +2053,33 @@ void Mui::persistFileBrowserView() {
 	settings->saveToDisk();
 }
 
+void Mui::loadFileBrowserHiddenFromSettings() {
+	if (!m_engine) {
+		return;
+	}
+	auto* settings = m_engine->getSettingsManager();
+	if (!settings) {
+		return;
+	}
+	const json j = settings->getValue("fileBrowserShowHidden");
+	if (!j.is_boolean()) {
+		return;
+	}
+	m_fileDialogs.setShowHidden(j.get<bool>());
+}
+
+void Mui::persistFileBrowserHidden() {
+	if (!m_engine) {
+		return;
+	}
+	auto* settings = m_engine->getSettingsManager();
+	if (!settings) {
+		return;
+	}
+	settings->setValue("fileBrowserShowHidden", m_fileDialogs.showHidden());
+	settings->saveToDisk();
+}
+
 void Mui::noteRecentFile(const std::string& path) {
 	if (path.empty()) {
 		return;
@@ -2021,6 +2116,23 @@ void Mui::setRecentFileOpenHandler(std::function<void(const std::string& path)> 
 
 void Mui::registerExportAction(const std::string& label, std::function<void()> action) {
 	m_exportActions.emplace_back(label, std::move(action));
+}
+
+void Mui::addToolRailAccessory(const std::string& id, std::function<void(bool horizontal)> draw) {
+	for (auto& row : m_toolRailAccessories) {
+		if (row.id == id) {
+			row.draw = std::move(draw);
+			return;
+		}
+	}
+	m_toolRailAccessories.push_back(ToolRailAccessory{id, std::move(draw)});
+}
+
+void Mui::removeToolRailAccessory(const std::string& id) {
+	m_toolRailAccessories.erase(
+		std::remove_if(m_toolRailAccessories.begin(), m_toolRailAccessories.end(),
+					   [&](const ToolRailAccessory& row) { return row.id == id; }),
+		m_toolRailAccessories.end());
 }
 
 void Mui::registerToolAction(const std::string& id, const std::string& label,

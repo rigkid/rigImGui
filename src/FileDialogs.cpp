@@ -66,18 +66,20 @@ bool endsWithIgnoreCase(const std::string& s, const std::string& suffix) {
 }
 
 ImGuiFileBrowserFlags openFlags() {
-	return ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter;
+	return ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter |
+		   ImGuiFileBrowserFlags_SkipItemsCausingError;
 }
 
 ImGuiFileBrowserFlags saveFlags() {
 	return ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir |
-		   ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter;
+		   ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter |
+		   ImGuiFileBrowserFlags_SkipItemsCausingError;
 }
 
 ImGuiFileBrowserFlags folderFlags() {
 	return ImGuiFileBrowserFlags_SelectDirectory | ImGuiFileBrowserFlags_HideRegularFiles |
 		   ImGuiFileBrowserFlags_CreateNewDir | ImGuiFileBrowserFlags_CloseOnEsc |
-		   ImGuiFileBrowserFlags_ConfirmOnEnter;
+		   ImGuiFileBrowserFlags_ConfirmOnEnter | ImGuiFileBrowserFlags_SkipItemsCausingError;
 }
 
 } // namespace
@@ -157,7 +159,7 @@ void FileDialogs::showOpen(const std::string& title, std::vector<std::string> fi
 	m_open.SetMultipleSelection(many);
 	const std::string label = title.empty() ? "Open" : title;
 	m_open.SetTitle(label);
-	setFileBrowserFilters(m_open, std::move(filters));
+	setFileBrowserFilters(m_open, std::move(filters), true);
 	m_window.setTitle(label + "###FileDialog");
 	m_open.Open();
 	m_window.setVisible(true);
@@ -306,6 +308,19 @@ void FileDialogs::tick() {
 		}
 		m_viewChanged = true;
 	}
+	if (browser.ConsumeShowHiddenChanged()) {
+		const bool show = browser.GetShowHidden();
+		if (&browser != &m_open) {
+			m_open.SetShowHidden(show);
+		}
+		if (&browser != &m_save) {
+			m_save.SetShowHidden(show);
+		}
+		if (&browser != &m_folder) {
+			m_folder.SetShowHidden(show);
+		}
+		m_hiddenChanged = true;
+	}
 
 	if (browser.HasSelected()) {
 		std::vector<std::string> many;
@@ -385,6 +400,20 @@ ImGui::FileBrowser::ViewMode FileDialogs::viewMode() const { return m_open.GetVi
 bool FileDialogs::consumeViewModeChanged() {
 	const bool changed = m_viewChanged;
 	m_viewChanged = false;
+	return changed;
+}
+
+void FileDialogs::setShowHidden(bool show) {
+	m_open.SetShowHidden(show);
+	m_save.SetShowHidden(show);
+	m_folder.SetShowHidden(show);
+}
+
+bool FileDialogs::showHidden() const { return m_open.GetShowHidden(); }
+
+bool FileDialogs::consumeShowHiddenChanged() {
+	const bool changed = m_hiddenChanged;
+	m_hiddenChanged = false;
 	return changed;
 }
 

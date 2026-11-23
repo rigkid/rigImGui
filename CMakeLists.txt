@@ -106,6 +106,8 @@ set(PACK_SOURCES
     src/Handle2D.h
     src/AnchorPad.cpp
     src/AnchorPad.h
+    src/InputSpin.cpp
+    src/InputSpin.h
     src/EntityPick.cpp
     src/EntityPick.h
     src/ReorderDragDrop.cpp
@@ -114,6 +116,10 @@ set(PACK_SOURCES
     src/ChainEditor.h
     src/UiControls.cpp
     src/UiControls.h
+    src/DualColorSlots.cpp
+    src/DualColorSlots.h
+    src/LayerEyeLock.cpp
+    src/LayerEyeLock.h
     src/ImMidiMapperImpl.cpp
 )
 

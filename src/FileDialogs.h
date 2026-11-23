@@ -82,10 +82,12 @@ inline void installFileBrowserQuickAccess(ImGui::FileBrowser& browser) {
 /**
  * @brief Apply extension filters and always offer an all-files choice in the combo.
  * @details imgui-filebrowser's any-extension token is not the Windows all-files
- * glob. Callers pass preferred types first; all-files is appended when missing
- * so the directory listing can still show everything.
+ * glob. Callers pass preferred types first; all-files is appended when missing.
+ * @param selectAllFiles When true, the list starts on all files. Save dialogs
+ * leave this false so the chosen type still supplies the file extension.
  */
-inline void setFileBrowserFilters(ImGui::FileBrowser& browser, std::vector<std::string> filters) {
+inline void setFileBrowserFilters(ImGui::FileBrowser& browser, std::vector<std::string> filters,
+								  bool selectAllFiles = false) {
 	for (auto& f : filters) {
 		if (f == "*.*") {
 			f = ".*";
@@ -97,6 +99,15 @@ inline void setFileBrowserFilters(ImGui::FileBrowser& browser, std::vector<std::
 		filters.push_back(".*");
 	}
 	browser.SetTypeFilters(filters);
+	if (!selectAllFiles) {
+		return;
+	}
+	for (int i = 0; i < static_cast<int>(filters.size()); ++i) {
+		if (filters[static_cast<size_t>(i)] == ".*") {
+			browser.SetCurrentTypeFilterIndex(i);
+			break;
+		}
+	}
 }
 
 /**
@@ -193,6 +204,13 @@ class FileDialogs {
 	 * persists viewMode() when this fires. */
 	bool consumeViewModeChanged();
 
+	/** @brief Show or hide dotfiles and Windows hidden files in every browser. */
+	void setShowHidden(bool show);
+	bool showHidden() const;
+	/** @return True once after the user toggled Hidden files. The host persists
+	 * showHidden() when this fires. */
+	bool consumeShowHiddenChanged();
+
 	/** @brief Pack-registered CPU decoder for one file extension. */
 	void registerThumbnailDecoder(const std::string& extension, IMui::FileThumbnailDecoder decoder);
 
@@ -216,8 +234,9 @@ class FileDialogs {
 	Callback m_callback;
 	MultiCallback m_multiCallback;
 	DropHandler m_unclaimedDrop;
-	bool m_pinsChanged = false; ///< User pinned/unpinned since last consume.
-	bool m_viewChanged = false; ///< User toggled Details / Icons since last consume.
+	bool m_pinsChanged = false;	  ///< User pinned/unpinned since last consume.
+	bool m_viewChanged = false;	  ///< User toggled Details / Icons since last consume.
+	bool m_hiddenChanged = false; ///< User toggled Hidden files since last consume.
 };
 
 } // namespace rigkit

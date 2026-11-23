@@ -1,0 +1,114 @@
+#include "InputSpin.h"
+
+#include <imgui.h>
+
+#include <algorithm>
+#include <climits>
+#include <cmath>
+
+namespace rigkit {
+namespace {
+
+void addSaturating(int* v, int delta) {
+	const long long next = static_cast<long long>(*v) + delta;
+	if (next > INT_MAX) {
+		*v = INT_MAX;
+	} else if (next < INT_MIN) {
+		*v = INT_MIN;
+	} else {
+		*v = static_cast<int>(next);
+	}
+}
+
+// One half of the spin column. The mark is drawn, not a glyph, so it fits
+// in half a frame (a full-size "+" is taller than that).
+bool spinHalf(const char* id, ImVec2 size, bool plus, ImDrawFlags corners) {
+	const ImVec2 p = ImGui::GetCursorScreenPos();
+	ImGui::PushID(id);
+	ImGui::PushButtonRepeat(true);
+	const bool pressed = ImGui::InvisibleButton("##h", size);
+	ImGui::PopButtonRepeat();
+	const bool hovered = ImGui::IsItemHovered();
+	const bool held = ImGui::IsItemActive();
+	ImGui::PopID();
+
+	ImDrawList* dl = ImGui::GetWindowDrawList();
+	const ImVec2 q(p.x + size.x, p.y + size.y);
+	ImGuiCol bgCol = ImGuiCol_Button;
+	if (held && hovered) {
+		bgCol = ImGuiCol_ButtonActive;
+	} else if (hovered) {
+		bgCol = ImGuiCol_ButtonHovered;
+	}
+	const ImU32 bg = ImGui::GetColorU32(bgCol);
+	const float rounding = ImGui::GetStyle().FrameRounding;
+	dl->AddRectFilled(p, q, bg, rounding, corners);
+	if (ImGui::GetStyle().FrameBorderSize > 0.f) {
+		dl->AddRect(p, q, ImGui::GetColorU32(ImGuiCol_Border), rounding, corners,
+					ImGui::GetStyle().FrameBorderSize);
+	}
+
+	const float arm = std::max(2.f, size.y * 0.28f);
+	const float thick = std::max(1.f, size.y * 0.12f);
+	const float cx = (p.x + q.x) * 0.5f;
+	const float cy = (p.y + q.y) * 0.5f;
+	const ImU32 fg = ImGui::GetColorU32(ImGuiCol_Text);
+	dl->AddLine(ImVec2(cx - arm, cy), ImVec2(cx + arm, cy), fg, thick);
+	if (plus) {
+		dl->AddLine(ImVec2(cx, cy - arm), ImVec2(cx, cy + arm), fg, thick);
+		dl->AddLine(ImVec2(p.x, q.y), ImVec2(q.x, q.y), ImGui::GetColorU32(ImGuiCol_Border), 1.f);
+	}
+	return pressed;
+}
+
+} // namespace
+
+bool InputSpinInt(const char* label, int* v, int step, int stepFast) {
+	if (!v || !label) {
+		return false;
+	}
+	if (step == 0) {
+		step = 1;
+	}
+
+	const ImGuiStyle& style = ImGui::GetStyle();
+	const float h = ImGui::GetFrameHeight();
+	const float topH = std::floor(h * 0.5f);
+	const float botH = h - topH;
+	const float bw = h;
+	const float gap = style.ItemInnerSpacing.x;
+
+	ImGui::BeginGroup();
+	ImGui::PushID(label);
+	ImGui::SetNextItemWidth(std::max(1.f, ImGui::CalcItemWidth() - bw - gap));
+	bool changed = ImGui::InputInt("##v", v, 0, 0);
+
+	ImGui::SameLine(0.f, gap);
+	ImGui::BeginGroup();
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
+	if (spinHalf("up", ImVec2(bw, topH), true, ImDrawFlags_RoundCornersTop)) {
+		addSaturating(v, ImGui::GetIO().KeyCtrl && stepFast != 0 ? stepFast : step);
+		changed = true;
+	}
+	if (spinHalf("down", ImVec2(bw, botH), false, ImDrawFlags_RoundCornersBottom)) {
+		addSaturating(v, -(ImGui::GetIO().KeyCtrl && stepFast != 0 ? stepFast : step));
+		changed = true;
+	}
+	ImGui::PopStyleVar();
+	ImGui::EndGroup();
+
+	const char* end = label;
+	while (*end && !(end[0] == '#' && end[1] == '#')) {
+		++end;
+	}
+	if (end != label) {
+		ImGui::SameLine(0.f, gap);
+		ImGui::TextUnformatted(label, end);
+	}
+
+	ImGui::PopID();
+	ImGui::EndGroup();
+	return changed;
+}
+
+} // namespace rigkit
