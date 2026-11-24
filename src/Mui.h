@@ -347,6 +347,9 @@ class Mui : public IMui {
 	void registerEditAction(const std::string& label, const std::string& shortcut,
 							std::function<bool()> isEnabled, std::function<void()> action,
 							const std::string& group = {}) override;
+	void registerImageAction(const std::string& label, const std::string& shortcut,
+							 std::function<bool()> isEnabled, std::function<void()> action,
+							 const std::string& group = {}) override;
 	void registerViewAction(const std::string& label, std::function<void()> action,
 							const std::string& shortcut = {},
 							const std::string& group = {}) override;
@@ -502,6 +505,7 @@ class Mui : public IMui {
 	const std::vector<FileMenuAction>& viewActions() const { return m_viewActions; }
 	const std::vector<ToolMenuAction>& toolActions() const { return m_toolActions; }
 	const std::vector<EditMenuAction>& editActions() const { return m_editActions; }
+	const std::vector<EditMenuAction>& imageActions() const { return m_imageActions; }
 	const std::vector<std::string>& recentFiles() const { return m_recentFiles; }
 	const std::function<void(const std::string&)>& recentFileOpenHandler() const {
 		return m_recentOpenHandler;
@@ -635,6 +639,7 @@ class Mui : public IMui {
 	};
 	std::vector<ToolRailAccessory> m_toolRailAccessories;
 	std::vector<EditMenuAction> m_editActions;
+	std::vector<EditMenuAction> m_imageActions;
 	std::vector<std::pair<std::string, std::function<void()>>> m_exportActions;
 	std::vector<PreferencesDrawer> m_preferencesDrawers;
 	std::vector<std::string> m_recentFiles;

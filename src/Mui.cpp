@@ -306,7 +306,11 @@ void Mui::renderToolRail() {
 	ImGuiWindowClass toolClass;
 	toolClass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_AutoHideTabBar;
 	ImGui::SetNextWindowClass(&toolClass);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(uiPx(6.f), uiPx(3.f)));
+	// Left inset is the live style WindowPadding, so the first icon lands on
+	// the same content edge as every other panel. Only the vertical pad is
+	// strip-specific, so the rail still hugs its icons.
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
+						ImVec2(ImGui::GetStyle().WindowPadding.x, uiPx(3.f)));
 	if (!ImGui::Begin("Toolbar###host.toolbar", &m_toolRailOpen)) {
 		ImGui::PopStyleVar();
 		ImGui::End();
@@ -341,21 +345,68 @@ void Mui::renderToolRail() {
 	const bool labelled = horizontal ? winSize.y > uiPx(64.f) : winSize.x > uiPx(120.f);
 	const float availH = ImGui::GetContentRegionAvail().y;
 	// Never larger than the strip. A tall dock stops at the design size.
-	const float designBtn = uiPx(std::clamp(m_uiPrefs.toolIconSize, 12.f, 40.f));
+	const float iconDesign = std::clamp(m_uiPrefs.toolIconSize, 12.f, 40.f);
+	const float designBtn = uiPx(iconDesign);
 	const float btn = (availH > 1.f) ? (std::min)(designBtn, availH) : designBtn;
+	// fitted is 1x pixels. PushFont multiplies by FontScaleDpi, so a uiPx size
+	// draws twice as large and clips flush to the button.
+	const float fitted = (designBtn > 1.f) ? iconDesign * (btn / designBtn) : iconDesign;
+	const float padDesign = std::min(std::max(2.f, std::round(fitted * 0.2f)), fitted * 0.3f);
 	if (horizontal) {
 		ImGuiDockNode* node = ImGui::GetCurrentWindow()->DockNode;
 		if (node && node->IsHiddenTabBar()) {
-			// The corner triangle that brings the tab bar back sits on the first icon.
-			const float lead = ImTrunc(ImGui::GetFontSize() * 0.80f);
-			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + lead);
+			// The corner triangle that brings the tab bar back is drawn from
+			// the node corner at 0.70 x FontSize (imgui.cpp). The standard
+			// WindowPadding above already clears it at normal font sizes, so
+			// only push past it when a large font makes it reach the icon.
+			const float triangle = ImTrunc(ImGui::GetFontSize() * 0.70f);
+			const float lead = (node->Pos.x + triangle) - ImGui::GetCursorScreenPos().x;
+			if (lead > 0.f) {
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + lead);
+			}
 		}
 	}
-	const bool scaleIcons = !labelled;
-	if (scaleIcons) {
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(uiPx(3.f), uiPx(1.f)));
-		const float glyph = (std::min)(btn, (std::max)(uiPx(8.f), btn - uiPx(4.f)));
+	if (labelled) {
+		// Wide rail draws the icon and its label. Height has to follow that
+		// font plus style padding; a square of toolIconSize clips both.
+		ImGui::PushFont(nullptr, fitted);
+	} else {
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(uiPx(padDesign), uiPx(padDesign)));
+		const float glyph = std::max(1.f, fitted - padDesign * 2.f);
 		ImGui::PushFont(nullptr, glyph);
+	}
+
+	// A labelled column only a little wider than the icons still clips the
+	// longest name. Grow that dock to the text while the splitter is idle.
+	if (labelled && !horizontal && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+		float need = 0.f;
+		auto consider = [&](const std::string& text) {
+			need = (std::max)(need, uiTextButtonWidth(text.c_str()));
+		};
+		for (const auto& row : rows) {
+			std::string display = row.label;
+			if (!row.icon.empty()) {
+				display = row.icon + "  " + row.label;
+			}
+			consider(display);
+		}
+		const char* lockIcon =
+			m_uiPrefs.keepProportion ? RAIL_ICON(ICON_FA_LOCK) : RAIL_ICON(ICON_FA_UNLOCK);
+		consider(std::string(lockIcon) + "  Keep proportion");
+		ImGuiWindow* toolWindow = ImGui::GetCurrentWindow();
+		ImGuiDockNode* node = toolWindow ? toolWindow->DockNode : nullptr;
+		ImGuiDockNode* parent = node ? node->ParentNode : nullptr;
+		const float avail = ImGui::GetContentRegionAvail().x;
+		if (node && parent && parent->SplitAxis == ImGuiAxis_X && need > avail + 1.f) {
+			ImGuiDockNode* other =
+				parent->ChildNodes[0] == node ? parent->ChildNodes[1] : parent->ChildNodes[0];
+			const float want = node->Size.x + (need - avail);
+			const float total = other ? node->Size.x + other->Size.x : 0.f;
+			if (other && total > want + uiPx(120.f) && want < uiPx(280.f)) {
+				node->SizeRef[ImGuiAxis_X] = want;
+				other->SizeRef[ImGuiAxis_X] = total - want;
+			}
+		}
 	}
 
 	bool firstInFlow = true;
@@ -391,7 +442,7 @@ void Mui::renderToolRail() {
 		}
 		ImVec2 size = ImVec2(btn, btn);
 		if (labelled) {
-			size = horizontal ? ImVec2(0.f, btn) : ImVec2(-1.f, btn);
+			size = horizontal ? ImVec2(0.f, 0.f) : ImVec2(-1.f, 0.f);
 		}
 		placeNext(size.x > 0.f ? size.x : uiTextButtonWidth(display.c_str()));
 		if (active) {
@@ -553,8 +604,8 @@ void Mui::renderToolRail() {
 		m_toolHoldId.clear();
 		m_toolHoldFired = false;
 	}
-	if (scaleIcons) {
-		ImGui::PopFont();
+	ImGui::PopFont();
+	if (!labelled) {
 		ImGui::PopStyleVar();
 	}
 	ImGui::PopStyleVar();
@@ -898,8 +949,8 @@ void Mui::render() {
 	}
 
 	ImGui::Render();
-	m_inImGuiFrame = false;
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	m_inImGuiFrame = false;
 	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 		GLFWwindow* backup = glfwGetCurrentContext();
 		ImGui::UpdatePlatformWindows();
@@ -2166,6 +2217,21 @@ void Mui::registerEditAction(const std::string& label, const std::string& shortc
 		}
 	}
 	m_editActions.push_back(
+		EditMenuAction{label, shortcut, group, std::move(isEnabled), std::move(action)});
+}
+
+void Mui::registerImageAction(const std::string& label, const std::string& shortcut,
+							  std::function<bool()> isEnabled, std::function<void()> action,
+							  const std::string& group) {
+	for (auto& row : m_imageActions) {
+		if (row.label == label && row.group == group) {
+			row.shortcut = shortcut;
+			row.isEnabled = std::move(isEnabled);
+			row.action = std::move(action);
+			return;
+		}
+	}
+	m_imageActions.push_back(
 		EditMenuAction{label, shortcut, group, std::move(isEnabled), std::move(action)});
 }
 

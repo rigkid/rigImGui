@@ -7,7 +7,7 @@ namespace rigkit {
 class Mui;
 class RigKitEngine;
 
-/// Host menu - App / File / Edit / View / Help. Tools when the app has some.
+/// Host menu - App / File / Edit / View / Help. Image and Tools when the app has some.
 class HostMenuBar {
   public:
 	explicit HostMenuBar(Mui* ui);
@@ -24,6 +24,7 @@ class HostMenuBar {
 	void renderAppMenu();
 	void renderFileMenu();
 	void renderEditMenu();
+	void renderImageMenu();
 	void renderViewMenu();
 	void renderToolsMenu();
 	void renderHelpMenu();

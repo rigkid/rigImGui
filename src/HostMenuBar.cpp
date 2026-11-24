@@ -76,6 +76,7 @@ void HostMenuBar::render() {
 	renderAppMenu();
 	renderFileMenu();
 	renderEditMenu();
+	renderImageMenu();
 	renderViewMenu();
 	renderToolsMenu();
 	renderHelpMenu();
@@ -349,6 +350,17 @@ void HostMenuBar::renderEditMenu() {
 		}
 	}
 
+	ImGui::EndMenu();
+}
+
+void HostMenuBar::renderImageMenu() {
+	if (!m_ui || m_ui->imageActions().empty()) {
+		return;
+	}
+	if (!ImGui::BeginMenu("Image")) {
+		return;
+	}
+	emitMenuRows(m_ui->imageActions(), emitEditMenuItem);
 	ImGui::EndMenu();
 }
 
