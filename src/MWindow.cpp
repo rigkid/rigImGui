@@ -48,6 +48,20 @@ void MWindow::renderAllWindows() {
 
 void MWindow::removeWindow(const std::string& title) { m_windowMap.erase(title); }
 
+void MWindow::retitleWindow(const std::string& oldTitle, const std::string& newTitle) {
+	if (oldTitle.empty() || newTitle.empty() || oldTitle == newTitle) {
+		return;
+	}
+	auto it = m_windowMap.find(oldTitle);
+	if (it == m_windowMap.end()) {
+		return;
+	}
+	auto window = it->second;
+	m_windowMap.erase(it);
+	window->setTitle(newTitle);
+	m_windowMap[newTitle] = std::move(window);
+}
+
 void MWindow::clear() { m_windowMap.clear(); }
 
 size_t MWindow::getWindowCount() const { return m_windowMap.size(); }

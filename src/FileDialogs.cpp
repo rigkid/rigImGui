@@ -169,6 +169,7 @@ void FileDialogs::applyLayout() {
 
 void FileDialogs::showOpen(const std::string& title, std::vector<std::string> filters, bool many) {
 	applyLayout();
+	clearOverwriteConfirm();
 	m_mode = Mode::Open;
 	m_multi = many;
 	m_open.SetMultipleSelection(many);
@@ -194,9 +195,16 @@ void FileDialogs::openMany(const std::string& title, std::vector<std::string> fi
 	showOpen(title, std::move(filters), true);
 }
 
+void FileDialogs::clearOverwriteConfirm() {
+	m_confirmOverwrite = false;
+	m_overwriteCallback = nullptr;
+	m_overwritePath.clear();
+}
+
 void FileDialogs::save(const std::string& title, std::vector<std::string> filters,
 					   Callback onSelected, const std::string& defaultName) {
 	applyLayout();
+	clearOverwriteConfirm();
 	m_mode = Mode::Save;
 	m_multi = false;
 	m_multiCallback = nullptr;
@@ -215,6 +223,7 @@ void FileDialogs::save(const std::string& title, std::vector<std::string> filter
 void FileDialogs::openFolder(const std::string& title, Callback onSelected,
 							 const std::string& startDir) {
 	applyLayout();
+	clearOverwriteConfirm();
 	m_mode = Mode::Folder;
 	m_multi = false;
 	m_multiCallback = nullptr;
@@ -286,17 +295,57 @@ void FileDialogs::flushPendingSelection() {
 	}
 }
 
+void FileDialogs::renderOverwriteConfirm() {
+	if (!m_confirmOverwrite) {
+		return;
+	}
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
+	if (vp) {
+		ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	}
+	ImGui::OpenPopup("##OverwriteFile");
+	if (!ImGui::BeginPopupModal("##OverwriteFile", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		return;
+	}
+	ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + uiPx(400.f));
+	ImGui::TextUnformatted("Are you sure you want to overwrite this file?");
+	ImGui::Spacing();
+	const std::string name = std::filesystem::path(m_overwritePath).filename().string();
+	ImGui::TextUnformatted(name.empty() ? m_overwritePath.c_str() : name.c_str());
+	ImGui::PopTextWrapPos();
+	ImGui::Separator();
+	const float btnW = uiPx(120.f);
+	if (ImGui::Button("Overwrite", ImVec2(btnW, 0.f))) {
+		m_pendingCallback = std::move(m_overwriteCallback);
+		m_pendingPath = std::move(m_overwritePath);
+		m_pendingMultiCallback = nullptr;
+		m_pendingPaths.clear();
+		clearOverwriteConfirm();
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel", ImVec2(btnW, 0.f))) {
+		clearOverwriteConfirm();
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::EndPopup();
+}
+
 void FileDialogs::tick() {
 	// Flush thumbs doomed last frame after ImGui has already rendered them.
 	std::vector<std::filesystem::path> dropped = takeOsDrops();
 	m_thumbs.tick();
+	renderOverwriteConfirm();
 	if (m_mode == Mode::None) {
 		if (m_window.isVisible()) {
 			m_window.setVisible(false);
 		}
-		// Run open/save after the dialog has torn down so a heavy load cannot
-		// stall the closing frame (looks like a hang after picking a file).
-		flushPendingSelection();
+		// Hold the write until Overwrite is chosen - Cancel drops the path.
+		if (!m_confirmOverwrite) {
+			// Run open/save after the dialog has torn down so a heavy load cannot
+			// stall the closing frame (looks like a hang after picking a file).
+			flushPendingSelection();
+		}
 		if (m_unclaimedDrop && !dropped.empty()) {
 			std::vector<std::string> paths;
 			paths.reserve(dropped.size());
@@ -376,16 +425,32 @@ void FileDialogs::tick() {
 			}
 		}
 		browser.ClearSelected();
-		m_pendingCallback = std::move(m_callback);
-		m_pendingMultiCallback = std::move(m_multiCallback);
-		m_pendingPath = std::move(path);
-		m_pendingPaths = std::move(many);
-		m_callback = nullptr;
-		m_multiCallback = nullptr;
-		m_multi = false;
-		m_mode = Mode::None;
-		m_window.setVisible(false);
-		m_thumbs.clear();
+		const bool saveReplace = m_mode == Mode::Save && [&]() {
+			std::error_code ec;
+			return !path.empty() && std::filesystem::exists(path, ec);
+		}();
+		if (saveReplace) {
+			m_overwriteCallback = std::move(m_callback);
+			m_overwritePath = std::move(path);
+			m_confirmOverwrite = true;
+			m_callback = nullptr;
+			m_multiCallback = nullptr;
+			m_multi = false;
+			m_mode = Mode::None;
+			m_window.setVisible(false);
+			m_thumbs.clear();
+		} else {
+			m_pendingCallback = std::move(m_callback);
+			m_pendingMultiCallback = std::move(m_multiCallback);
+			m_pendingPath = std::move(path);
+			m_pendingPaths = std::move(many);
+			m_callback = nullptr;
+			m_multiCallback = nullptr;
+			m_multi = false;
+			m_mode = Mode::None;
+			m_window.setVisible(false);
+			m_thumbs.clear();
+		}
 	} else if (!m_window.isVisible() || (m_window.drewContents() && !browser.IsOpened())) {
 		m_callback = nullptr;
 		m_multiCallback = nullptr;

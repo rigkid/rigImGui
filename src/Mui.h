@@ -59,6 +59,7 @@ enum class HostPanel {
 	Windows,
 	Debug,
 	Properties,
+	Entities,
 	Scene,
 	Layers,
 	Viewport,
@@ -305,7 +306,8 @@ class Mui : public IMui {
 	void openFilesDialog(const std::string& title, std::vector<std::string> filters,
 						 std::function<void(const std::vector<std::string>&)> onSelected);
 	void saveFileDialog(const std::string& title, std::vector<std::string> filters,
-						FileDialogCallback onSelected) override;
+						FileDialogCallback onSelected,
+						const std::string& defaultName = {}) override;
 	void openFolderDialog(const std::string& title, FileDialogCallback onSelected,
 						  const std::string& startDir = {}) override;
 	/**

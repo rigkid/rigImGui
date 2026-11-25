@@ -78,7 +78,6 @@ void HostMenuBar::render() {
 	renderEditMenu();
 	renderImageMenu();
 	renderViewMenu();
-	renderToolsMenu();
 	renderHelpMenu();
 
 	if (m_ui) {
@@ -430,9 +429,44 @@ void HostMenuBar::renderViewMenu() {
 		if (m_ui && m_ui->getWindowManager()) {
 			auto* wm = m_ui->getWindowManager();
 			auto names = wm->getAllWindowNames();
+			std::vector<std::string> docs;
+			std::vector<std::string> other;
+			docs.reserve(names.size());
+			other.reserve(names.size());
 			for (const auto& name : names) {
+				if (name.find("###pixel.doc.") != std::string::npos) {
+					docs.push_back(name);
+				} else {
+					other.push_back(name);
+				}
+			}
+			auto windowLabel = [](const std::string& name) {
+				const size_t cut = name.find("###");
+				return cut == std::string::npos ? name : name.substr(0, cut);
+			};
+			if (ImGui::BeginMenu("Documents")) {
+				if (docs.empty()) {
+					ImGui::TextDisabled("No documents");
+				} else {
+					for (const auto& name : docs) {
+						const bool visible = wm->getWindowVisibility(name);
+						const std::string label = windowLabel(name) + "###win_" + name;
+						// Always show/focus - X closes the document; this is for
+						// finding a window that is open but hard to see.
+						if (ImGui::MenuItem(label.c_str(), nullptr, visible)) {
+							wm->setWindowVisible(name, true);
+						}
+					}
+				}
+				ImGui::EndMenu();
+			}
+			if (!other.empty()) {
+				ImGui::Separator();
+			}
+			for (const auto& name : other) {
 				bool visible = wm->getWindowVisibility(name);
-				if (ImGui::MenuItem(name.c_str(), nullptr, visible)) {
+				const std::string label = windowLabel(name);
+				if (ImGui::MenuItem(label.c_str(), nullptr, visible)) {
 					wm->setWindowVisible(name, !visible);
 				}
 			}
@@ -485,50 +519,6 @@ void HostMenuBar::renderViewMenu() {
 		}
 	}
 
-	ImGui::EndMenu();
-}
-
-void HostMenuBar::renderToolsMenu() {
-	if (!m_ui) {
-		return;
-	}
-	const auto& toolRows = m_ui->toolActions();
-	if (toolRows.empty() && !m_ui->gizmoChrome()) {
-		return;
-	}
-	if (!ImGui::BeginMenu("Tools")) {
-		return;
-	}
-	if (!toolRows.empty()) {
-		for (const auto& row : toolRows) {
-			const bool active = row.isActive ? row.isActive() : false;
-			const char* chord = row.shortcut.empty() ? nullptr : row.shortcut.c_str();
-			std::string text = row.label;
-			if (!row.icon.empty()) {
-				text = row.icon + "  " + row.label;
-			}
-			if (ImGui::MenuItem(text.c_str(), chord, active)) {
-				if (row.action) {
-					row.action();
-				}
-			}
-		}
-		ImGui::EndMenu();
-		return;
-	}
-	const auto op = m_ui->gizmoOp();
-	if (ImGui::MenuItem("Select", "V", op == IMui::GizmoOp::Select)) {
-		m_ui->setGizmoOp(IMui::GizmoOp::Select);
-	}
-	if (ImGui::MenuItem("Move", "W", op == IMui::GizmoOp::Translate)) {
-		m_ui->setGizmoOp(IMui::GizmoOp::Translate);
-	}
-	if (ImGui::MenuItem("Rotate", "E", op == IMui::GizmoOp::Rotate)) {
-		m_ui->setGizmoOp(IMui::GizmoOp::Rotate);
-	}
-	if (ImGui::MenuItem("Scale", "R", op == IMui::GizmoOp::Scale)) {
-		m_ui->setGizmoOp(IMui::GizmoOp::Scale);
-	}
 	ImGui::EndMenu();
 }
 

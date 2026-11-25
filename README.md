@@ -77,7 +77,8 @@ Built-in host panels are created on demand - ask for the ones you need:
 | `Log` | Scrollable log with filtering |
 | `Windows` | Window visibility manager |
 | `Debug` | Debugging tools |
-| `Properties` | ECS component property editor |
+| `Properties` | Selection inspector (`GetProperties` catalog) |
+| `Entities` | Flat ECS entity list (drives selection) |
 | `Scene` | Entity scene tree |
 | `Layers` | Layer list |
 | `Viewport` | GL viewport panel |

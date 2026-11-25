@@ -226,6 +226,9 @@ class FileDialogs {
 
 	/** @brief Run a queued open/save result after the dialog has closed. */
 	void flushPendingSelection();
+	/** @brief Ask before replacing an existing file on Save. */
+	void renderOverwriteConfirm();
+	void clearOverwriteConfirm();
 
 	ImGui::FileBrowser m_open;
 	ImGui::FileBrowser m_save;
@@ -242,6 +245,10 @@ class FileDialogs {
 	MultiCallback m_pendingMultiCallback;
 	std::string m_pendingPath;
 	std::vector<std::string> m_pendingPaths;
+	/// Save picked an existing path - wait for Overwrite / Cancel before firing.
+	bool m_confirmOverwrite = false;
+	Callback m_overwriteCallback;
+	std::string m_overwritePath;
 	bool m_pinsChanged = false;	  ///< User pinned/unpinned since last consume.
 	bool m_viewChanged = false;	  ///< User toggled Details / Icons since last consume.
 	bool m_hiddenChanged = false; ///< User toggled Hidden files since last consume.

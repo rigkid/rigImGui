@@ -31,6 +31,10 @@ extern "C" __declspec(dllimport) unsigned long __stdcall GetFileAttributesW(cons
 #   error "include imgui.h before this header"
 #endif
 
+// CursorPosPrevLine / IsSetPos - cancel-preview overlay must reseat SameLine
+// layout without a trailing SetCursorScreenPos (ImGui 1.89+ EndChild assert).
+#include "imgui_internal.h"
+
 using ImGuiFileBrowserFlags = std::uint32_t;
 
 enum ImGuiFileBrowserFlags_ : std::uint32_t
@@ -265,6 +269,8 @@ namespace ImGui
         static int CompareRecordNames(const FileRecord &a, const FileRecord &b);
 
         void SortFileRecords(const ImGuiTableSortSpecs *sortSpecs);
+        static void SortFileRecords(std::vector<FileRecord> &records, ImGuiID column = 0,
+                                    bool descending = false);
 
         void SetCurrentDirectoryUncatched(const std::filesystem::path &pwd);
 
@@ -293,6 +299,9 @@ namespace ImGui
         void HandleRecordContext(const FileRecord &rsc);
         void DrawIconTile(unsigned rscIndex, const ImVec2 &tileSize, const ImVec2 &thumbSize,
                           bool &shouldSetNewDir, std::filesystem::path &newDir);
+        // Folder / document / image plate when no thumbnail is ready.
+        static void DrawFallbackGlyph(ImDrawList *dl, ImVec2 thumbMin, ImVec2 thumbMax,
+                                      const FileRecord &rsc);
 
         static void AssignToArrayStyleString(std::vector<char> &arr, std::string_view content);
 
@@ -360,7 +369,8 @@ namespace ImGui
         std::set<std::filesystem::path> selectedFilenames_;
         // File name to select once the listing has finished (OS file drop).
         std::filesystem::path           pendingRevealName_;
-        // fileRecords_ is a finished listing, not cleared while a scan is in flight.
+        // fileRecords_ is a finished listing. Cleared while a scan is in flight
+        // so an old folder is not still on screen under the new path.
         bool                            listingReady_ = false;
         // Next file-list child opens at the top. Set when a scan starts or lands.
         bool                            scrollFileListTop_ = false;
@@ -1163,13 +1173,15 @@ inline void ImGui::FileBrowser::DrawContents()
 
         // NoNav: keyboard nav otherwise scores every row and scrolls the list
         // to follow a moving highlight. That reads as folders flying in.
-        if(scrollFileListTop_)
-        {
-            SetNextWindowScroll(ImVec2(0.0f, 0.0f));
-        }
+        // SetScrollY inside the child - SetNextWindowScroll alone can miss when
+        // the listing height jumps from empty to full in the same frame.
         BeginChild("ch", ImVec2(0, -reserveHeight), ImGuiChildFlags_Borders,
                    ImGuiWindowFlags_NoNav);
         ScopeGuard endChild([] { EndChild(); });
+        if(scrollFileListTop_)
+        {
+            SetScrollY(0.0f);
+        }
 
         if(needSort_ && viewMode_ == ViewMode::Icons)
         {
@@ -1854,6 +1866,126 @@ inline void ImGui::FileBrowser::DisplayDetailsTable(
     }
 }
 
+inline void ImGui::FileBrowser::DrawFallbackGlyph(
+    ImDrawList *dl, ImVec2 thumbMin, ImVec2 thumbMax, const FileRecord &rsc)
+{
+    const float w = thumbMax.x - thumbMin.x;
+    const float h = thumbMax.y - thumbMin.y;
+    const ImVec2 c((thumbMin.x + thumbMax.x) * 0.5f, (thumbMin.y + thumbMax.y) * 0.5f);
+
+    if(rsc.isDir)
+    {
+        const float iw = w * 0.64f;
+        const float bodyH = h * 0.46f;
+        const float tabW = iw * 0.40f;
+        const float tabH = bodyH * 0.14f;
+        const float totalH = tabH + bodyH;
+        // Center the full tab+body silhouette in the plate.
+        const float left = c.x - iw * 0.5f;
+        const float top = c.y - totalH * 0.5f;
+        const ImU32 face = GetColorU32(ImVec4(0.93f, 0.76f, 0.30f, 1.0f));
+        const ImU32 lip = GetColorU32(ImVec4(0.80f, 0.60f, 0.18f, 1.0f));
+        const ImU32 edge = GetColorU32(ImVec4(0.55f, 0.40f, 0.10f, 0.55f));
+        dl->AddRectFilled(ImVec2(left, top), ImVec2(left + tabW, top + tabH + 1.0f), face, 2.0f);
+        dl->AddRectFilled(ImVec2(left, top + tabH), ImVec2(left + iw, top + tabH + bodyH), face,
+                          4.0f);
+        dl->AddRectFilled(ImVec2(left, top + tabH),
+                          ImVec2(left + iw, top + tabH + bodyH * 0.20f), lip, 0.0f);
+        dl->AddRect(ImVec2(left, top + tabH), ImVec2(left + iw, top + tabH + bodyH), edge, 4.0f, 0,
+                    1.0f);
+        return;
+    }
+
+    std::string ext = u8StrToStr(rsc.extension.u8string());
+    if(!ext.empty() && ext.front() == '.')
+    {
+        ext.erase(0, 1);
+    }
+    for(char &ch : ext)
+    {
+        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+    if(ext.size() > 4)
+    {
+        ext.resize(4);
+    }
+
+    const bool imageExt =
+        ext == "JPG" || ext == "JPEG" || ext == "PNG" || ext == "BMP" || ext == "GIF" ||
+        ext == "TGA" || ext == "WEBP";
+
+    const float iw = w * 0.50f;
+    const float ih = h * 0.62f;
+    const float left = c.x - iw * 0.5f;
+    const float top = c.y - ih * 0.55f;
+    const float fold = iw * 0.30f;
+    const ImU32 page = GetColorU32(ImVec4(0.90f, 0.92f, 0.95f, 1.0f));
+    const ImU32 foldCol = GetColorU32(ImVec4(0.68f, 0.72f, 0.78f, 1.0f));
+    const ImU32 ink = GetColorU32(ImVec4(0.42f, 0.46f, 0.52f, 1.0f));
+
+    dl->PathClear();
+    dl->PathLineTo(ImVec2(left, top));
+    dl->PathLineTo(ImVec2(left + iw - fold, top));
+    dl->PathLineTo(ImVec2(left + iw, top + fold));
+    dl->PathLineTo(ImVec2(left + iw, top + ih));
+    dl->PathLineTo(ImVec2(left, top + ih));
+    dl->PathFillConvex(page);
+    dl->AddTriangleFilled(ImVec2(left + iw - fold, top), ImVec2(left + iw - fold, top + fold),
+                          ImVec2(left + iw, top + fold), foldCol);
+    dl->PathClear();
+    dl->PathLineTo(ImVec2(left, top));
+    dl->PathLineTo(ImVec2(left + iw - fold, top));
+    dl->PathLineTo(ImVec2(left + iw, top + fold));
+    dl->PathLineTo(ImVec2(left + iw, top + ih));
+    dl->PathLineTo(ImVec2(left, top + ih));
+    dl->PathStroke(GetColorU32(ImVec4(0.35f, 0.38f, 0.42f, 0.55f)), ImDrawFlags_Closed, 1.0f);
+
+    if(imageExt)
+    {
+        const float padX = iw * 0.16f;
+        const float padY = ih * 0.30f;
+        const ImVec2 frameMin(left + padX, top + padY);
+        const ImVec2 frameMax(left + iw - padX, top + ih - ih * 0.18f);
+        dl->AddRect(frameMin, frameMax, ink, 2.0f, 0, 1.5f);
+        const float sunR = (frameMax.x - frameMin.x) * 0.12f;
+        dl->AddCircleFilled(ImVec2(frameMin.x + sunR * 2.2f, frameMin.y + sunR * 2.0f), sunR, ink,
+                            10);
+        dl->PathClear();
+        dl->PathLineTo(ImVec2(frameMin.x + 1.0f, frameMax.y - 1.0f));
+        dl->PathLineTo(ImVec2(frameMin.x + (frameMax.x - frameMin.x) * 0.38f,
+                              frameMin.y + (frameMax.y - frameMin.y) * 0.45f));
+        dl->PathLineTo(ImVec2(frameMin.x + (frameMax.x - frameMin.x) * 0.58f,
+                              frameMin.y + (frameMax.y - frameMin.y) * 0.70f));
+        dl->PathLineTo(ImVec2(frameMax.x - 1.0f, frameMax.y - 1.0f));
+        dl->PathFillConvex(GetColorU32(ImVec4(0.42f, 0.46f, 0.52f, 0.85f)));
+    }
+    else
+    {
+        const float lx0 = left + iw * 0.18f;
+        const float lx1 = left + iw * 0.82f;
+        for(int i = 0; i < 3; ++i)
+        {
+            const float y = top + ih * (0.40f + static_cast<float>(i) * 0.14f);
+            const float end = (i == 2) ? (lx0 + (lx1 - lx0) * 0.65f) : lx1;
+            dl->AddLine(ImVec2(lx0, y), ImVec2(end, y), ink, 1.5f);
+        }
+    }
+
+    if(!ext.empty())
+    {
+        const ImVec2 ts = CalcTextSize(ext.c_str());
+        const float badgePadX = 4.0f;
+        const float badgePadY = 2.0f;
+        const float bw = ts.x + badgePadX * 2.0f;
+        const float bh = ts.y + badgePadY * 2.0f;
+        const ImVec2 bMin(c.x - bw * 0.5f, thumbMax.y - bh - h * 0.06f);
+        const ImVec2 bMax(bMin.x + bw, bMin.y + bh);
+        dl->AddRectFilled(bMin, bMax, GetColorU32(ImVec4(0.12f, 0.13f, 0.15f, 0.92f)), 3.0f);
+        dl->AddText(ImVec2(bMin.x + badgePadX, bMin.y + badgePadY),
+                    GetColorU32(ImVec4(0.92f, 0.78f, 0.32f, 1.0f)), ext.c_str());
+    }
+}
+
 inline void ImGui::FileBrowser::DrawIconTile(
     unsigned rscIndex, const ImVec2 &tileSize, const ImVec2 &thumbSize,
     bool &shouldSetNewDir, std::filesystem::path &newDir)
@@ -1891,7 +2023,11 @@ inline void ImGui::FileBrowser::DrawIconTile(
         const float hit = (std::max)(thumbSize.x * 0.42f, 18.0f);
         const ImVec2 center((thumbMin.x + thumbMax.x) * 0.5f, (thumbMin.y + thumbMax.y) * 0.5f);
         const ImVec2 hitMin(center.x - hit * 0.5f, center.y - hit * 0.5f);
-        const ImVec2 savedCursor = GetCursorScreenPos();
+        // Selectable already owns the cell. Overlay the stop-hit, then put
+        // SameLine metrics back. Do not SetCursorScreenPos(GetCursorScreenPos())
+        // to restore: after ItemSize, CursorPos sits ItemSpacing past
+        // CursorMaxPos, and ImGui 1.89+ asserts at EndChild when that is the
+        // last call in the file-list child.
         SetCursorScreenPos(hitMin);
         if(InvisibleButton("##preview", ImVec2(hit, hit)))
         {
@@ -1901,7 +2037,14 @@ inline void ImGui::FileBrowser::DrawIconTile(
         {
             ToolTip("Stop this preview");
         }
-        SetCursorScreenPos(savedCursor);
+        ImGuiWindow *window = GetCurrentWindow();
+        window->DC.CursorPosPrevLine = ImVec2(p0.x + tileSize.x, p0.y);
+        window->DC.PrevLineSize = ImVec2(tileSize.x, tileSize.y);
+        window->DC.CurrLineSize = window->DC.PrevLineSize;
+        window->DC.CursorPos =
+            ImVec2(window->Pos.x + window->DC.Indent.x + window->DC.ColumnsOffset.x,
+                   p0.y + tileSize.y + GetStyle().ItemSpacing.y);
+        window->DC.IsSetPos = false;
     }
     if(typeAheadScroll_ && static_cast<int>(rscIndex) == typeAheadIndex_)
     {
@@ -1919,10 +2062,7 @@ inline void ImGui::FileBrowser::DrawIconTile(
     }
 
     ImDrawList *dl = GetWindowDrawList();
-    const ImU32 plate = rsc.isDir
-        ? GetColorU32(ImVec4(0.82f, 0.70f, 0.32f, 0.85f))
-        : GetColorU32(ImVec4(0.35f, 0.38f, 0.42f, 0.85f));
-    dl->AddRectFilled(thumbMin, thumbMax, plate, 4.0f);
+    dl->AddRectFilled(thumbMin, thumbMax, GetColorU32(ImVec4(0.20f, 0.21f, 0.24f, 0.95f)), 6.0f);
 
     if(thumb.id != ImTextureID_Invalid && thumb.w > 0 && thumb.h > 0)
     {
@@ -1966,14 +2106,7 @@ inline void ImGui::FileBrowser::DrawIconTile(
     }
     else
     {
-        const char *label = rsc.isDir ? "DIR" : (rsc.typeText.empty() ? "FILE" : rsc.typeText.c_str());
-        const ImVec2 ts = CalcTextSize(label);
-        const ImVec2 tp(
-            thumbMin.x + (thumbSize.x - ts.x) * 0.5f,
-            thumbMin.y + (thumbSize.y - ts.y) * 0.5f);
-        dl->PushClipRect(thumbMin, thumbMax, true);
-        dl->AddText(tp, GetColorU32(ImGuiCol_Text), label);
-        dl->PopClipRect();
+        DrawFallbackGlyph(dl, thumbMin, thumbMax, rsc);
     }
 
     const ImVec2 nameMin(p0.x + pad, thumbMax.y + GetStyle().ItemInnerSpacing.y);
@@ -2339,11 +2472,6 @@ inline int ImGui::FileBrowser::CompareRecordNames(const FileRecord &a, const Fil
 
 inline void ImGui::FileBrowser::SortFileRecords(const ImGuiTableSortSpecs *sortSpecs)
 {
-    if(fileRecords_.size() <= 2)
-    {
-        return;
-    }
-
     ImGuiID column = 0;
     bool descending = false;
     if(sortSpecs && sortSpecs->SpecsCount > 0)
@@ -2351,8 +2479,18 @@ inline void ImGui::FileBrowser::SortFileRecords(const ImGuiTableSortSpecs *sortS
         column = sortSpecs->Specs[0].ColumnUserID;
         descending = sortSpecs->Specs[0].SortDirection == ImGuiSortDirection_Descending;
     }
+    SortFileRecords(fileRecords_, column, descending);
+}
 
-    std::sort(fileRecords_.begin() + 1, fileRecords_.end(),
+inline void ImGui::FileBrowser::SortFileRecords(
+    std::vector<FileRecord> &records, ImGuiID column, bool descending)
+{
+    if(records.size() <= 2)
+    {
+        return;
+    }
+
+    std::sort(records.begin() + 1, records.end(),
         [&](const FileRecord &a, const FileRecord &b)
         {
             if(a.isDir != b.isDir)
@@ -2591,6 +2729,11 @@ inline void ImGui::FileBrowser::RequestListing()
                 r.error = std::move(listError);
                 r.records.clear();
             }
+            else
+            {
+                // Sort on the worker so PumpListing only swaps pointers on the UI thread.
+                SortFileRecords(r.records);
+            }
         }
         catch(const std::exception &err)
         {
@@ -2627,9 +2770,8 @@ inline void ImGui::FileBrowser::PumpListing()
         {
             currentDirectory_ = std::move(pending.directory);
             fileRecords_ = std::move(pending.records);
-            needSort_ = true;
+            needSort_ = false;
             scrollFileListTop_ = true;
-            SortFileRecords(nullptr);
             ClearRangeSelectionState();
             listingReady_ = true;
             statusStr_.clear();

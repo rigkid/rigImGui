@@ -10,6 +10,19 @@
 #include <limits>
 #include <system_error>
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#ifndef FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS
+#define FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS 0x00400000
+#endif
+#ifndef FILE_ATTRIBUTE_RECALL_ON_OPEN
+#define FILE_ATTRIBUTE_RECALL_ON_OPEN 0x00040000
+#endif
+#endif
+
 #define STBI_ONLY_PNG
 #define STBI_ONLY_JPEG
 #define STBI_ONLY_BMP
@@ -210,6 +223,23 @@ bool readExact(std::ifstream& in, unsigned char* dst, std::uint64_t n) {
 	return static_cast<std::uint64_t>(in.gcount()) == n;
 }
 
+// Online-only / defer-hydrate files. Opening them for a preview can stall the
+// whole process while the provider fetches bytes - skip and keep the type plate.
+bool isDeferredHydrate(const std::filesystem::path& path) {
+#ifdef _WIN32
+	const DWORD attrs = GetFileAttributesW(path.c_str());
+	if (attrs == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+	constexpr DWORD kDefer = FILE_ATTRIBUTE_OFFLINE | FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS |
+							 FILE_ATTRIBUTE_RECALL_ON_OPEN;
+	return (attrs & kDefer) != 0;
+#else
+	(void)path;
+	return false;
+#endif
+}
+
 } // namespace
 
 ThumbnailCache::ThumbnailCache() = default;
@@ -341,6 +371,10 @@ bool ThumbnailCache::decodeMemory(const unsigned char* data, int len, Raster& ou
 }
 
 bool ThumbnailCache::decodeFile(const std::filesystem::path& path, Raster& out) {
+	if (isDeferredHydrate(path)) {
+		return false;
+	}
+
 	if (auto decoder = decoderFor(normalizeExt(path))) {
 		IMui::FileThumbnailPixels pix;
 		if (!decoder(pathUtf8(path), kMaxEdge, pix) || pix.w < 1 || pix.h < 1 ||
@@ -424,7 +458,8 @@ void ThumbnailCache::workerLoop() {
 		{
 			std::unique_lock<std::mutex> lock(m_mutex);
 			m_cv.wait(lock, [this]() {
-				return m_stop.load(std::memory_order_acquire) || (!m_paused && !m_queue.empty());
+				return m_stop.load(std::memory_order_acquire) ||
+					   (!m_paused.load(std::memory_order_acquire) && !m_queue.empty());
 			});
 			if (m_stop.load(std::memory_order_acquire)) {
 				return;
@@ -506,6 +541,10 @@ ImTextureID ThumbnailCache::get(const std::filesystem::path& fullPath, int* outW
 	if (m_shutdown || fullPath.empty() || !canDecode(fullPath)) {
 		return ImTextureID_Invalid;
 	}
+	// Do not queue a hydrate. pending stays false so the tile keeps the type plate.
+	if (isDeferredHydrate(fullPath)) {
+		return ImTextureID_Invalid;
+	}
 
 	const std::string key = pathKey(fullPath);
 	m_seen.insert(key);
@@ -542,15 +581,19 @@ ImTextureID ThumbnailCache::get(const std::filesystem::path& fullPath, int* outW
 		// Keep the failed entry so attempts survive; tick replaces it on success/fail.
 	}
 
+	bool startWorker = false;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		const bool busy = m_inflight == key || m_queued.find(key) != m_queued.end();
 		if (!busy) {
 			m_queue.push_back(fullPath);
 			m_queued.insert(key);
-			ensureWorker();
+			startWorker = !m_worker.joinable();
 			m_cv.notify_one();
 		}
+	}
+	if (startWorker) {
+		ensureWorker();
 	}
 	if (pending) {
 		*pending = true;
@@ -559,17 +602,11 @@ ImTextureID ThumbnailCache::get(const std::filesystem::path& fullPath, int* outW
 }
 
 void ThumbnailCache::setPaused(bool paused) {
-	{
-		std::lock_guard<std::mutex> lock(m_mutex);
-		m_paused = paused;
-	}
+	m_paused.store(paused, std::memory_order_release);
 	m_cv.notify_all();
 }
 
-bool ThumbnailCache::paused() const {
-	std::lock_guard<std::mutex> lock(m_mutex);
-	return m_paused;
-}
+bool ThumbnailCache::paused() const { return m_paused.load(std::memory_order_acquire); }
 
 void ThumbnailCache::cancel(const std::filesystem::path& fullPath) {
 	if (fullPath.empty()) {
@@ -651,8 +688,8 @@ void ThumbnailCache::tick() {
 			GLuint tex = 0;
 			glGenTextures(1, &tex);
 			glBindTexture(GL_TEXTURE_2D, tex);
-			GLint unpack = 4;
-			glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpack);
+			// Default unpack alignment is 4. Do not glGetIntegerv here - that
+			// syncs the GL pipeline and hitch the frame while spinners run.
 			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -660,7 +697,7 @@ void ThumbnailCache::tick() {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, raster.w, raster.h, 0, GL_RGBA,
 						 GL_UNSIGNED_BYTE, raster.rgba.data());
-			glPixelStorei(GL_UNPACK_ALIGNMENT, unpack);
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 			glBindTexture(GL_TEXTURE_2D, 0);
 			entry.tex = tex;
 			entry.attempts = 0;

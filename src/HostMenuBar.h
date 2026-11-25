@@ -7,7 +7,8 @@ namespace rigkit {
 class Mui;
 class RigKitEngine;
 
-/// Host menu - App / File / Edit / View / Help. Image and Tools when the app has some.
+/// Host menu - App / File / Edit / View / Help. Image when the app has some.
+/// Tool picks live on the Toolbar rail (View > Toolbar), not a top-level menu.
 class HostMenuBar {
   public:
 	explicit HostMenuBar(Mui* ui);
@@ -26,7 +27,6 @@ class HostMenuBar {
 	void renderEditMenu();
 	void renderImageMenu();
 	void renderViewMenu();
-	void renderToolsMenu();
 	void renderHelpMenu();
 	void renderWorkspaceMenu();
 	void renderWorkspaceSavePopup();

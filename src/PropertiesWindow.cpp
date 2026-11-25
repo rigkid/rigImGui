@@ -11,13 +11,11 @@
 #include "CDriveHint.h"
 #include "CSelection.h"
 #include "CTransform.h"
-#include "EntityPick.h"
 #include "PropEditors.h"
 #include "UiDpi.h"
 
 #include <imgui.h>
 #include <algorithm>
-#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -25,10 +23,6 @@
 namespace rigkit {
 
 namespace {
-constexpr float kEntityListMinHeight = 40.0f;
-constexpr float kEntityListGrip = 6.0f;
-constexpr const char* kEntityListHeightKey = "properties.entityListHeight";
-constexpr const char* kEntityListOpenKey = "properties.entityListOpen";
 constexpr const char* kCodeEditHeightKey = "properties.codeEditHeight";
 constexpr float kCodeEditMinHeight = 80.f;
 constexpr float kCodeEditDefaultHeight = 220.f;
@@ -164,114 +158,15 @@ void PropertiesWindow::renderContents() {
 			}
 		}
 	}
-	renderEntityList();
-	if (m_selectedEntity != kNoEntity && getEngine()) {
-		renderAllComponentProperties();
-	}
-}
-
-void PropertiesWindow::renderEntityList() {
-	if (!getEngine())
-		return;
-
-	auto* ecs = getEngine()->getECSManager();
-	if (!ecs)
-		return;
-
-	loadEntityListState();
-
-	ImGui::SetNextItemOpen(m_entityListOpen, ImGuiCond_Once);
-	const bool open = ImGui::CollapsingHeader("Entities");
-	if (open != m_entityListOpen) {
-		m_entityListOpen = open;
-		saveEntityListState();
-	}
-	if (!open) {
+	if (m_selectedEntity == kNoEntity || !getEngine()) {
+		ImGui::TextDisabled("No selection");
 		return;
 	}
-
-	// Leave room for the grip plus a few property rows.
-	const float maxHeight =
-		std::max(kEntityListMinHeight, ImGui::GetContentRegionAvail().y - kEntityListGrip - 60.0f);
-	m_entityListHeight = std::clamp(m_entityListHeight, kEntityListMinHeight, maxHeight);
-
-	ImGui::BeginChild("EntityList", ImVec2(0, m_entityListHeight), true);
-	for (auto entity : ecs->getAllEntities()) {
-		const std::string name = ecs->entityName(entity);
-		char label[256];
-		snprintf(label, sizeof(label), "%s###ent_%u", name.empty() ? "(unnamed)" : name.c_str(),
-				 static_cast<unsigned>(entt::to_integral(entity)));
-		bool isSelected = (entt::to_integral(entity) == m_selectedEntity);
-		if (ImGui::Selectable(label, isSelected)) {
-			selectEntityOnly(*ecs, entity);
-			setSelectedEntity(entt::to_integral(entity));
-		}
-	}
-	ImGui::EndChild();
-
-	renderEntityListGrip();
-}
-
-void PropertiesWindow::renderEntityListGrip() {
-	ImGui::InvisibleButton("EntityListGrip",
-						   uiHitSize(ImVec2(ImGui::GetContentRegionAvail().x, kEntityListGrip)));
-	const bool active = ImGui::IsItemActive();
-	const bool hovered = ImGui::IsItemHovered();
-	if (active) {
-		m_entityListHeight += ImGui::GetIO().MouseDelta.y;
-	}
-	if (active || hovered) {
-		ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-	}
-	if (ImGui::IsItemDeactivated()) {
-		saveEntityListState();
-	}
-
-	ImGuiCol style = ImGuiCol_Separator;
-	if (active) {
-		style = ImGuiCol_SeparatorActive;
-	} else if (hovered) {
-		style = ImGuiCol_SeparatorHovered;
-	}
-
-	const ImVec2 gripMin = ImGui::GetItemRectMin();
-	const ImVec2 gripMax = ImGui::GetItemRectMax();
-	const float y = (gripMin.y + gripMax.y) * 0.5f;
-	ImGui::GetWindowDrawList()->AddLine(ImVec2(gripMin.x, y), ImVec2(gripMax.x, y),
-										ImGui::GetColorU32(style));
+	renderAllComponentProperties();
 }
 
 MSettings* PropertiesWindow::settings() const {
 	return getEngine() ? getEngine()->getSettingsManager() : nullptr;
-}
-
-void PropertiesWindow::loadEntityListState() {
-	if (m_entityListStateLoaded) {
-		return;
-	}
-	m_entityListStateLoaded = true;
-
-	MSettings* store = settings();
-	if (!store) {
-		return;
-	}
-	const json height = store->getValue(kEntityListHeightKey);
-	if (height.is_number()) {
-		m_entityListHeight = height.get<float>();
-	}
-	const json openState = store->getValue(kEntityListOpenKey);
-	if (openState.is_boolean()) {
-		m_entityListOpen = openState.get<bool>();
-	}
-}
-
-void PropertiesWindow::saveEntityListState() {
-	if (MSettings* store = settings()) {
-		store->setValue(kEntityListHeightKey, m_entityListHeight);
-		store->setValue(kEntityListOpenKey, m_entityListOpen);
-		// Only on drag release / header toggle, so the write stays off the hot path.
-		store->saveToDisk();
-	}
 }
 
 void PropertiesWindow::loadCodeEditHeight() {

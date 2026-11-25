@@ -15,6 +15,7 @@
 #include "COrbitDrive.h"
 #include "CTransform.h"
 #include "DebugPanel.h"
+#include "EntitiesWindow.h"
 #include "ExportPng.h"
 #include "Handle2D.h"
 #include "ImGuiStyleKit.h"
@@ -535,8 +536,10 @@ void Mui::renderToolRail() {
 						m_toolHoldFired = true;
 					}
 				}
-				if (ImGui::BeginPopupContextItem("##toolFlyout",
-												 ImGuiPopupFlags_MouseButtonRight)) {
+				if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+					ImGui::OpenPopup("##toolFlyout");
+				}
+				if (ImGui::BeginPopup("##toolFlyout")) {
 					for (size_t k = i; k < j; ++k) {
 						const auto& member = rows[k];
 						std::string text = member.label;
@@ -1600,6 +1603,8 @@ const char* Mui::hostPanelTitle(HostPanel panel) {
 		return "Debug";
 	case HostPanel::Properties:
 		return "Properties";
+	case HostPanel::Entities:
+		return "Entities";
 	case HostPanel::Scene:
 		return "Scene";
 	case HostPanel::Layers:
@@ -1645,6 +1650,9 @@ std::shared_ptr<ImGuiPanel> Mui::ensureHostPanel(HostPanel panel) {
 		break;
 	case HostPanel::Properties:
 		window = m_windowManager->createWindow<PropertiesWindow>(title);
+		break;
+	case HostPanel::Entities:
+		window = m_windowManager->createWindow<EntitiesWindow>(title);
 		break;
 	case HostPanel::Scene:
 		window = m_windowManager->createWindow<SceneWindow>(title);
@@ -1697,15 +1705,17 @@ void Mui::addAllHostPanels() {
 		return;
 	}
 
-	// Sketch defaults: visible Log / Windows / Properties / Scene / Layers;
-	// others created but hidden (opt-in via View to Windows).
+	// Sketch defaults: visible Log / Windows / Properties / Entities / Scene /
+	// Layers; others created but hidden (opt-in via View to Windows).
 	const struct {
 		HostPanel panel;
 		bool visible;
 	} defaults[] = {
-		{HostPanel::Log, true},			 {HostPanel::Windows, true},	{HostPanel::Debug, false},
-		{HostPanel::Properties, true},	 {HostPanel::Scene, true},		{HostPanel::Layers, true},
-		{HostPanel::Viewport, false},	 {HostPanel::Shortcuts, false}, {HostPanel::Theme, false},
+		{HostPanel::Log, true},			 {HostPanel::Windows, true},
+		{HostPanel::Debug, false},		 {HostPanel::Properties, true},
+		{HostPanel::Entities, true},	 {HostPanel::Scene, true},
+		{HostPanel::Layers, true},		 {HostPanel::Viewport, false},
+		{HostPanel::Shortcuts, false},	 {HostPanel::Theme, false},
 		{HostPanel::Preferences, false}, {HostPanel::MidiMap, false},
 	};
 	for (const auto& row : defaults) {
@@ -1718,7 +1728,7 @@ void Mui::addAllHostPanels() {
 		setFirstRunHostDockLayout();
 	}
 	spdlog::info("[rigImGui] Host panels ready (Log, Windows, Debug, Properties, "
-				 "Scene, Layers, Viewport, Shortcuts, Theme, Preferences, MIDI Map)");
+				 "Entities, Scene, Layers, Viewport, Shortcuts, Theme, Preferences, MIDI Map)");
 }
 
 void Mui::setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows) {
@@ -1745,6 +1755,7 @@ void Mui::setFirstRunHostDockLayout(std::vector<std::string> extraRightWindows) 
 		ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.28f, &bottom, &center);
 
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Scene), left);
+		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Entities), left);
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Layers), left);
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Windows), left);
 		ImGui::DockBuilderDockWindow(hostPanelTitle(HostPanel::Properties), right);
@@ -1803,8 +1814,8 @@ void Mui::openFilesDialog(const std::string& title, std::vector<std::string> fil
 }
 
 void Mui::saveFileDialog(const std::string& title, std::vector<std::string> filters,
-						 FileDialogCallback onSelected) {
-	m_fileDialogs.save(title, std::move(filters), std::move(onSelected));
+						 FileDialogCallback onSelected, const std::string& defaultName) {
+	m_fileDialogs.save(title, std::move(filters), std::move(onSelected), defaultName);
 }
 
 void Mui::openFolderDialog(const std::string& title, FileDialogCallback onSelected,

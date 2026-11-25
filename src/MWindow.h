@@ -49,6 +49,11 @@ class MWindow {
 	void hideAllWindows();
 	void renderAllWindows();
 	void removeWindow(const std::string& title);
+	/**
+	 * @brief Move a window to a new title key (display rename with stable ### id).
+	 * @details No-op when @p oldTitle is missing or equals @p newTitle.
+	 */
+	void retitleWindow(const std::string& oldTitle, const std::string& newTitle);
 	void clear();
 	size_t getWindowCount() const;
 	std::vector<std::string> getAllWindowNames() const;

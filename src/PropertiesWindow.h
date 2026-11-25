@@ -56,9 +56,6 @@ class PropertiesWindow : public ImGuiPanel {
 
   private:
 	uint32_t m_selectedEntity = kNoEntity;
-	float m_entityListHeight = 100.0f;
-	bool m_entityListOpen = true;
-	bool m_entityListStateLoaded = false;
 	float m_codeEditHeight = 220.0f;
 	bool m_codeEditHeightLoaded = false;
 	std::vector<ExtraDrawer> m_extraDrawers;
@@ -70,12 +67,7 @@ class PropertiesWindow : public ImGuiPanel {
 	CodeLightEditDrawFn m_codeLightEditDraw;
 
 	void renderContents() override;
-	void renderEntityList();
-	void renderEntityListGrip();
 	void renderCodeEditHeightGrip();
-	/// Entity list height + open state live in the settings blob, not imgui.ini.
-	void loadEntityListState();
-	void saveEntityListState();
 	void loadCodeEditHeight();
 	void saveCodeEditHeight();
 	MSettings* settings() const;

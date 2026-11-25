@@ -144,6 +144,7 @@ void HostShellApp::setup() {
 		mui->setDockPassthroughCentral(true);
 
 		mui->addHostPanel(rigkit::HostPanel::Scene);
+		mui->addHostPanel(rigkit::HostPanel::Entities);
 		mui->addHostPanel(rigkit::HostPanel::Layers);
 		mui->addHostPanel(rigkit::HostPanel::Windows);
 		mui->addHostPanel(rigkit::HostPanel::Properties);
@@ -178,6 +179,7 @@ void HostShellApp::setup() {
 			ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.26f, &bottom, &center);
 
 			ImGui::DockBuilderDockWindow("Scene", left);
+			ImGui::DockBuilderDockWindow("Entities", left);
 			ImGui::DockBuilderDockWindow("Layers", left);
 			ImGui::DockBuilderDockWindow("Windows", left);
 			ImGui::DockBuilderDockWindow("Widgets", left);
@@ -189,6 +191,7 @@ void HostShellApp::setup() {
 
 		if (auto* wm = mui->getWindowManager()) {
 			wm->showWindow("Scene");
+			wm->showWindow("Entities");
 			wm->showWindow("Layers");
 			wm->showWindow("Windows");
 			wm->showWindow("Widgets");
