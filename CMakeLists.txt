@@ -14,13 +14,25 @@ set(_rigComponent_src "${_rigComponent_dir}/src")
 if(NOT EXISTS "${_rigComponent_src}/CRelationship.h")
 	message(FATAL_ERROR "rigImGui host shell requires packs/rigComponent next to rigImGui")
 endif()
-# OrthoViewWindow presents through SMeshPresent3D. Optional sibling — 2D apps
-# omit it; only TUs that call openOrthoView need the window at link.
+# OrthoViewWindow / CameraViewWindow present through SMeshPresent3D. Optional
+# sibling — 2D apps omit it; only TUs that open those panels need the link.
 set(_rigRender3D_src "")
 if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../rigRender3D/src/SMeshPresent3D.h")
 	set(_rigRender3D_src "${CMAKE_CURRENT_LIST_DIR}/../rigRender3D/src")
 elseif(DEFINED RIGKIT_ROOT AND EXISTS "${RIGKIT_ROOT}/packs/rigRender3D/src/SMeshPresent3D.h")
 	set(_rigRender3D_src "${RIGKIT_ROOT}/packs/rigRender3D/src")
+endif()
+set(_rigSystems_src "")
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../rigSystems/src/OrbitNav.h")
+	set(_rigSystems_src "${CMAKE_CURRENT_LIST_DIR}/../rigSystems/src")
+elseif(DEFINED RIGKIT_ROOT AND EXISTS "${RIGKIT_ROOT}/packs/rigSystems/src/OrbitNav.h")
+	set(_rigSystems_src "${RIGKIT_ROOT}/packs/rigSystems/src")
+endif()
+set(_rigSystems_dir "")
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../rigSystems/CMakeLists.txt")
+	set(_rigSystems_dir "${CMAKE_CURRENT_LIST_DIR}/../rigSystems")
+elseif(DEFINED RIGKIT_ROOT AND EXISTS "${RIGKIT_ROOT}/packs/rigSystems/CMakeLists.txt")
+	set(_rigSystems_dir "${RIGKIT_ROOT}/packs/rigSystems")
 endif()
 if(NOT TARGET rigComponent)
 	add_subdirectory("${_rigComponent_dir}" "${CMAKE_BINARY_DIR}/packs/rigComponent")
@@ -100,6 +112,7 @@ set(PACK_SOURCES
     src/PresetBar.h
     src/ExportPng.cpp
     src/ExportPng.h
+    src/PresentImage.h
     src/Rulers.cpp
     src/Rulers.h
     src/Handle2D.cpp
@@ -144,6 +157,18 @@ target_include_directories(${PACK_NAME} PUBLIC
 if(_rigRender3D_src)
 	target_sources(${PACK_NAME} PRIVATE src/OrthoViewWindow.cpp src/OrthoViewWindow.h)
 	target_include_directories(${PACK_NAME} PUBLIC "${_rigRender3D_src}")
+	# orbitTruckDelta is header-only; OrthoView pan needs the include even when
+	# CameraViewWindow (full OrbitNav link) is omitted.
+	if(_rigSystems_src)
+		target_include_directories(${PACK_NAME} PUBLIC "${_rigSystems_src}")
+		if(_rigSystems_dir AND NOT TARGET rigSystems)
+			add_subdirectory("${_rigSystems_dir}" "${CMAKE_BINARY_DIR}/packs/rigSystems")
+		endif()
+		target_sources(${PACK_NAME} PRIVATE src/CameraViewWindow.cpp src/CameraViewWindow.h)
+		if(TARGET rigSystems)
+			target_link_libraries(${PACK_NAME} PUBLIC rigSystems)
+		endif()
+	endif()
 endif()
 
 file(GLOB DEP_SOURCES

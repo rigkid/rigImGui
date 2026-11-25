@@ -8,6 +8,8 @@
 #include "CSelection.h"
 #include "CTransform.h"
 #include "Mui.h"
+#include "OrbitNav.h"
+#include "PresentImage.h"
 #include "UiDpi.h"
 #include "rig/create.h"
 #include "rigImGui.h"
@@ -171,9 +173,7 @@ void OrthoViewWindow::renderContents() {
 	const ImVec2 a = ImGui::GetCursorScreenPos();
 	const ImVec2 b(a.x + avail.x, a.y + avail.y);
 	ImGui::InvisibleButton("##ortho_view", uiHitSize(avail));
-	ImGui::GetWindowDrawList()->AddImage(
-		static_cast<ImTextureID>(static_cast<intptr_t>(m_target.texture())), a, b, ImVec2(0.f, 1.f),
-		ImVec2(1.f, 0.f));
+	addImagePresent(ImGui::GetWindowDrawList(), m_target.texture(), a, b, m_target.colorYOrigin());
 
 	const bool hovered = ImGui::IsItemHovered();
 	const ImGuiIO& io = ImGui::GetIO();
@@ -190,8 +190,9 @@ void OrthoViewWindow::renderContents() {
 			const float s = optics.orthoHeight / std::max(1.f, avail.y);
 			const glm::vec3 right{xf.world[0].x, xf.world[0].y, xf.world[0].z};
 			const glm::vec3 up{xf.world[1].x, xf.world[1].y, xf.world[1].z};
-			view.target -= right * (io.MouseDelta.x * s);
-			view.target += up * (io.MouseDelta.y * s);
+			// Same truck table as orbitNavigate (no private sign fork).
+			view.target += rig::orbitTruckDelta(m_target.colorYOrigin(), right, up, io.MouseDelta.x,
+												io.MouseDelta.y, s);
 		} else {
 			m_panning = false;
 		}

@@ -205,6 +205,7 @@ void PreferencesPanel::renderContents() {
 					float* fontWeight = nullptr;
 					std::string* themeFile = nullptr;
 					float* hueShift = nullptr;
+					float* toolIconSize = nullptr;
 					for (auto& p : props) {
 						if (p.name == "Font File" && p.type == EPT_STRING) {
 							fontFile = static_cast<std::string*>(p.data);
@@ -216,6 +217,8 @@ void PreferencesPanel::renderContents() {
 							themeFile = static_cast<std::string*>(p.data);
 						} else if (p.name == "Hue Shift" && p.type == EPT_FLOAT) {
 							hueShift = static_cast<float*>(p.data);
+						} else if (p.name == "Tool Icon Size" && p.type == EPT_FLOAT) {
+							toolIconSize = static_cast<float*>(p.data);
 						} else {
 							rest.push_back(p);
 						}
@@ -233,6 +236,11 @@ void PreferencesPanel::renderContents() {
 					if (fontFile) {
 						changed |= FontPicker::draw("uiFont", *fontFile, fontSize, mui, nullptr,
 													fontWeight);
+					}
+					if (toolIconSize && ImGui::SliderFloat("Toolbar Icon Size", toolIconSize, 12.f,
+														   40.f, "%.0f px")) {
+						*toolIconSize = std::clamp(*toolIconSize, 12.f, 40.f);
+						changed = true;
 					}
 					if (RenderProps(nullptr, rest)) {
 						changed = true;

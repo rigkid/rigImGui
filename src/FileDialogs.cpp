@@ -67,19 +67,20 @@ bool endsWithIgnoreCase(const std::string& s, const std::string& suffix) {
 
 ImGuiFileBrowserFlags openFlags() {
 	return ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter |
-		   ImGuiFileBrowserFlags_SkipItemsCausingError;
+		   ImGuiFileBrowserFlags_SkipItemsCausingError | ImGuiFileBrowserFlags_EditPathString;
 }
 
 ImGuiFileBrowserFlags saveFlags() {
 	return ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir |
 		   ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter |
-		   ImGuiFileBrowserFlags_SkipItemsCausingError;
+		   ImGuiFileBrowserFlags_SkipItemsCausingError | ImGuiFileBrowserFlags_EditPathString;
 }
 
 ImGuiFileBrowserFlags folderFlags() {
 	return ImGuiFileBrowserFlags_SelectDirectory | ImGuiFileBrowserFlags_HideRegularFiles |
 		   ImGuiFileBrowserFlags_CreateNewDir | ImGuiFileBrowserFlags_CloseOnEsc |
-		   ImGuiFileBrowserFlags_ConfirmOnEnter | ImGuiFileBrowserFlags_SkipItemsCausingError;
+		   ImGuiFileBrowserFlags_ConfirmOnEnter | ImGuiFileBrowserFlags_SkipItemsCausingError |
+		   ImGuiFileBrowserFlags_EditPathString;
 }
 
 } // namespace
@@ -134,9 +135,23 @@ FileDialogs::FileDialogs() : m_open(openFlags()), m_save(saveFlags()), m_folder(
 	installFileBrowserQuickAccess(m_open);
 	installFileBrowserQuickAccess(m_save);
 	installFileBrowserQuickAccess(m_folder);
-	const auto thumbs = [this](const std::filesystem::path& path) { return m_thumbs.get(path); };
+	const auto thumbs = [this](const std::filesystem::path& path) {
+		ImGui::FileBrowser::FileThumbnail out;
+		bool pending = false;
+		out.id = m_thumbs.get(path, &out.w, &out.h, &pending);
+		out.pending = pending;
+		out.paused = m_thumbs.paused();
+		return out;
+	};
+	const auto cancelThumb = [this](const std::filesystem::path& path) { m_thumbs.cancel(path); };
+	const auto thumbPaused = [this]() { return m_thumbs.paused(); };
+	const auto toggleThumbPause = [this]() { m_thumbs.setPaused(!m_thumbs.paused()); };
 	m_open.SetThumbnailProvider(thumbs);
 	m_save.SetThumbnailProvider(thumbs);
+	m_open.SetThumbnailCancel(cancelThumb);
+	m_save.SetThumbnailCancel(cancelThumb);
+	m_open.SetThumbnailPause(thumbPaused, toggleThumbPause);
+	m_save.SetThumbnailPause(thumbPaused, toggleThumbPause);
 	m_open.SetWindowHosted(true);
 	m_save.SetWindowHosted(true);
 	m_folder.SetWindowHosted(true);
@@ -254,6 +269,23 @@ void FileDialogs::setUnclaimedFileDropHandler(DropHandler handler) {
 	m_unclaimedDrop = std::move(handler);
 }
 
+void FileDialogs::flushPendingSelection() {
+	if (m_pendingMultiCallback) {
+		auto cb = std::move(m_pendingMultiCallback);
+		auto paths = std::move(m_pendingPaths);
+		m_pendingCallback = nullptr;
+		m_pendingPath.clear();
+		cb(paths);
+		return;
+	}
+	if (m_pendingCallback) {
+		auto cb = std::move(m_pendingCallback);
+		auto path = std::move(m_pendingPath);
+		m_pendingPaths.clear();
+		cb(path);
+	}
+}
+
 void FileDialogs::tick() {
 	// Flush thumbs doomed last frame after ImGui has already rendered them.
 	std::vector<std::filesystem::path> dropped = takeOsDrops();
@@ -262,6 +294,9 @@ void FileDialogs::tick() {
 		if (m_window.isVisible()) {
 			m_window.setVisible(false);
 		}
+		// Run open/save after the dialog has torn down so a heavy load cannot
+		// stall the closing frame (looks like a hang after picking a file).
+		flushPendingSelection();
 		if (m_unclaimedDrop && !dropped.empty()) {
 			std::vector<std::string> paths;
 			paths.reserve(dropped.size());
@@ -270,6 +305,7 @@ void FileDialogs::tick() {
 			}
 			m_unclaimedDrop(paths);
 		}
+		m_thumbs.finishFrame();
 		return;
 	}
 
@@ -281,6 +317,10 @@ void FileDialogs::tick() {
 		m_window.offerDroppedPath(std::move(dropped.front()));
 	}
 	m_window.render();
+
+	if (browser.ConsumeListingReload()) {
+		m_thumbs.clear();
+	}
 
 	if (browser.ConsumePinnedQuickAccessChanged()) {
 		const auto pins = browser.GetPinnedQuickAccess();
@@ -336,19 +376,16 @@ void FileDialogs::tick() {
 			}
 		}
 		browser.ClearSelected();
-		auto cb = std::move(m_callback);
-		auto multi = std::move(m_multiCallback);
+		m_pendingCallback = std::move(m_callback);
+		m_pendingMultiCallback = std::move(m_multiCallback);
+		m_pendingPath = std::move(path);
+		m_pendingPaths = std::move(many);
 		m_callback = nullptr;
 		m_multiCallback = nullptr;
 		m_multi = false;
 		m_mode = Mode::None;
 		m_window.setVisible(false);
 		m_thumbs.clear();
-		if (multi) {
-			multi(many);
-		} else if (cb) {
-			cb(path);
-		}
 	} else if (!m_window.isVisible() || (m_window.drewContents() && !browser.IsOpened())) {
 		m_callback = nullptr;
 		m_multiCallback = nullptr;
@@ -357,6 +394,7 @@ void FileDialogs::tick() {
 		m_window.setVisible(false);
 		m_thumbs.clear();
 	}
+	m_thumbs.finishFrame();
 }
 
 void FileDialogs::setPinnedFolders(const std::vector<std::string>& paths) {

@@ -186,8 +186,26 @@ namespace ImGui
         // true once after the user toggled Hidden files; host mirrors + persists.
         bool ConsumeShowHiddenChanged();
 
-        // Host supplies image thumbs. Empty / returning 0 draws a file glyph.
-        void SetThumbnailProvider(std::function<ImTextureID(const std::filesystem::path &)> fn);
+        // Host supplies image thumbs (id + pixel size for letterboxing).
+        // Invalid id draws a file glyph. pending draws a loader on that glyph.
+        // Clicking the loader calls the cancel callback for that path.
+        struct FileThumbnail
+        {
+            ImTextureID id      = ImTextureID_Invalid;
+            int         w       = 0;
+            int         h       = 0;
+            bool        pending = false;
+            bool        paused  = false;
+        };
+        void SetThumbnailProvider(
+            std::function<FileThumbnail(const std::filesystem::path &)> fn);
+        // Click the loader to drop one path. Host keeps it dropped until Refresh.
+        void SetThumbnailCancel(std::function<void(const std::filesystem::path &)> fn);
+        // Icons toolbar Pause / Resume. paused() is read while drawing; toggle flips it.
+        void SetThumbnailPause(std::function<bool()> paused, std::function<void()> toggle);
+
+        // true once after the user pressed Refresh (host may clear thumb failures).
+        bool ConsumeListingReload();
 
     private:
         struct QuickAccessEntry
@@ -226,6 +244,9 @@ namespace ImGui
         static std::string ToLower(const std::string &s);
 
         void ToolTip(const std::string_view &s);
+
+        /** @brief Button with equal FramePadding.y (avoid ImGui::SmallButton's y=0). */
+        static bool ChromeButton(const char *label);
 
         void UpdateFileRecords();
 
@@ -339,8 +360,10 @@ namespace ImGui
         std::set<std::filesystem::path> selectedFilenames_;
         // File name to select once the listing has finished (OS file drop).
         std::filesystem::path           pendingRevealName_;
-        // fileRecords_ is a finished listing, not the parent-only placeholder.
+        // fileRecords_ is a finished listing, not cleared while a scan is in flight.
         bool                            listingReady_ = false;
+        // Next file-list child opens at the top. Set when a scan starts or lands.
+        bool                            scrollFileListTop_ = false;
 
         std::string       openNewDirLabel_;
         std::vector<char> newDirNameBuffer_;
@@ -349,11 +372,11 @@ namespace ImGui
 
         bool              editDir_;
         bool              setFocusToEditDir_;
+        // Frames to keep the path field open until InputText can take focus.
+        int               editDirFocusFrames_ = 0;
         std::vector<char> currDirBuffer_;
-        // Crumb click waits out the double-click window so a double-click can
-        // edit the path instead of navigating.
-        int               pendingCrumbSec_ = -1;
-        double            pendingCrumbTime_ = -1.0;
+        // Set when the user presses Refresh; host may clear thumbnail failures.
+        bool              listingReload_ = false;
 
 #ifdef _WIN32
         std::uint32_t                 drives_ = 0;
@@ -372,7 +395,10 @@ namespace ImGui
         bool     viewModeChanged_ = false;
         bool     showHidden_ = false;
         bool     showHiddenChanged_ = false;
-        std::function<ImTextureID(const std::filesystem::path &)> thumbnailProvider_;
+        std::function<FileThumbnail(const std::filesystem::path &)> thumbnailProvider_;
+        std::function<void(const std::filesystem::path &)>          thumbnailCancel_;
+        std::function<bool()>                                       thumbnailPaused_;
+        std::function<void()>                                       thumbnailPauseToggle_;
         std::vector<unsigned int> visibleRecords_;
 
         // Type-to-jump: typed letters select the next matching row.
@@ -477,9 +503,10 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     customizedInputName_ = copyFrom.customizedInputName_;
 
     editDir_ = copyFrom.editDir_;
+    setFocusToEditDir_ = copyFrom.setFocusToEditDir_;
+    editDirFocusFrames_ = 0;
     currDirBuffer_ = copyFrom.currDirBuffer_;
-    pendingCrumbSec_ = -1;
-    pendingCrumbTime_ = -1.0;
+    listingReload_ = false;
 
 #ifdef _WIN32
     ReapDriveScan();
@@ -501,7 +528,10 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     viewModeChanged_     = copyFrom.viewModeChanged_;
     showHidden_          = copyFrom.showHidden_;
     showHiddenChanged_   = copyFrom.showHiddenChanged_;
-    thumbnailProvider_   = copyFrom.thumbnailProvider_;
+    thumbnailProvider_    = copyFrom.thumbnailProvider_;
+    thumbnailCancel_      = copyFrom.thumbnailCancel_;
+    thumbnailPaused_      = copyFrom.thumbnailPaused_;
+    thumbnailPauseToggle_ = copyFrom.thumbnailPauseToggle_;
     visibleRecords_.clear();
 
     typeAheadBuffer_.clear();
@@ -510,6 +540,7 @@ inline ImGui::FileBrowser &ImGui::FileBrowser::operator=(
     typeAheadScroll_ = false;
     pendingRevealName_.clear();
     listingReady_ = copyFrom.listingReady_;
+    scrollFileListTop_ = false;
 
     return *this;
 }
@@ -690,8 +721,10 @@ inline void ImGui::FileBrowser::DrawContents()
         currDirBuffer_.back() = '\0';
         editDir_ = true;
         setFocusToEditDir_ = true;
-        pendingCrumbSec_ = -1;
+        editDirFocusFrames_ = 2;
     };
+
+    const bool canEditPath = (flags_ & ImGuiFileBrowserFlags_EditPathString) != 0;
 
     if(editDir_)
     {
@@ -701,13 +734,23 @@ inline void ImGui::FileBrowser::DrawContents()
         }
 
         const ImGuiStyle &style = GetStyle();
+        // Match ChromeButton: width uses vertical pad on both axes.
+        const float chromePad = style.FramePadding.y;
         auto buttonW = [&](const char *label)
         {
-            return CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+            return CalcTextSize(label).x + chromePad * 2.0f;
         };
         float reserve = style.ItemSpacing.x * 4.0f + 1.0f;
+        if(canEditPath)
+        {
+            reserve += buttonW("#") + style.ItemSpacing.x;
+        }
         reserve += buttonW("Refresh") + style.ItemSpacing.x;
         reserve += buttonW(viewMode_ == ViewMode::Details ? "Icons" : "Details") + style.ItemSpacing.x;
+        if(thumbnailPauseToggle_ && viewMode_ == ViewMode::Icons)
+        {
+            reserve += buttonW("Resume") + style.ItemSpacing.x;
+        }
         if(flags_ & ImGuiFileBrowserFlags_CreateNewDir)
         {
             reserve += buttonW("+") + style.ItemSpacing.x;
@@ -727,22 +770,42 @@ inline void ImGui::FileBrowser::DrawContents()
             newDir = std::move(enteredDir);
             shouldSetNewDir = true;
             editDir_ = false;
+            editDirFocusFrames_ = 0;
             enteredDirOnEnter = true;
         }
         else if(IsKeyPressed(ImGuiKey_Escape))
         {
             editDir_ = false;
+            editDirFocusFrames_ = 0;
             escapeCancelsPathEdit = true;
         }
-        else if(!IsItemActive() && !setFocusToEditDir_)
+        else if(!IsItemActive() && editDirFocusFrames_ <= 0)
         {
             editDir_ = false;
         }
+        if(editDirFocusFrames_ > 0)
+        {
+            --editDirFocusFrames_;
+        }
         setFocusToEditDir_ = false;
+
+        if(canEditPath && editDir_)
+        {
+            SameLine();
+            if(ChromeButton("#"))
+            {
+                editDir_ = false;
+                editDirFocusFrames_ = 0;
+            }
+            else
+            {
+                ToolTip("Show crumbs");
+            }
+        }
     }
     else
     {
-        // display elements in pwd
+        // Crumb path view: single-click a segment to navigate there.
 
 #ifdef _WIN32
         const char currentDrive = static_cast<char>(currentDirectory_.c_str()[0]);
@@ -796,34 +859,19 @@ inline void ImGui::FileBrowser::DrawContents()
             {
                 SameLine();
             }
-            if(SmallButton(u8StrToStr(sec.u8string()).c_str()))
+            if(ChromeButton(u8StrToStr(sec.u8string()).c_str()))
             {
-                if(IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                {
-                    beginPathEdit();
-                }
-                else
-                {
-                    pendingCrumbSec_ = secIdx;
-                    pendingCrumbTime_ = GetTime();
-                }
+                newDirLastSecIdx = secIdx;
             }
             else
             {
-                ToolTip("Double-click to edit the path");
+                ToolTip("Go to this folder");
             }
             PopID();
 
             ++secIdx;
         }
         PopStyleColor(3);
-
-        if(pendingCrumbSec_ >= 0 &&
-           GetTime() - pendingCrumbTime_ >= GetIO().MouseDoubleClickTime)
-        {
-            newDirLastSecIdx = pendingCrumbSec_;
-            pendingCrumbSec_ = -1;
-        }
 
         if(newDirLastSecIdx >= 0)
         {
@@ -848,23 +896,22 @@ inline void ImGui::FileBrowser::DrawContents()
             SetDirectory(dstDir);
         }
 
-        if(flags_ & ImGuiFileBrowserFlags_EditPathString)
+        if(canEditPath)
         {
             SameLine();
-
-            if(SmallButton("#"))
+            if(ChromeButton("#"))
             {
                 beginPathEdit();
             }
             else
             {
-                ToolTip("Edit the current path");
+                ToolTip("Edit path");
             }
         }
     }
 
-    // Path crumbs and the action buttons are both SmallButton. A gap and a
-    // vertical rule keep Refresh from reading as another path segment.
+    // Path crumbs and the action buttons share ChromeButton (equal pad). A gap
+    // and a vertical rule keep Refresh from reading as another path segment.
     SameLine(0.0f, GetStyle().ItemSpacing.x * 3.0f);
     {
         const ImVec2 p = GetCursorScreenPos();
@@ -875,7 +922,7 @@ inline void ImGui::FileBrowser::DrawContents()
         Dummy(ImVec2(1.0f, h));
     }
     SameLine();
-    if(SmallButton("Refresh"))
+    if(ChromeButton("Refresh"))
     {
 #ifdef _WIN32
         RequestDriveScan(true);
@@ -883,6 +930,7 @@ inline void ImGui::FileBrowser::DrawContents()
 
         listingPath_ = currentDirectory_;
         RequestListing();
+        listingReload_ = true;
 
         std::set<std::filesystem::path> newSelectedFilenames;
         for(auto &name : selectedFilenames_)
@@ -911,7 +959,7 @@ inline void ImGui::FileBrowser::DrawContents()
     SameLine();
     if(viewMode_ == ViewMode::Details)
     {
-        if(SmallButton("Icons"))
+        if(ChromeButton("Icons"))
         {
             viewMode_ = ViewMode::Icons;
             viewModeChanged_ = true;
@@ -921,7 +969,7 @@ inline void ImGui::FileBrowser::DrawContents()
             ToolTip("Icon view with image previews");
         }
     }
-    else if(SmallButton("Details"))
+    else if(ChromeButton("Details"))
     {
         viewMode_ = ViewMode::Details;
         viewModeChanged_ = true;
@@ -931,11 +979,25 @@ inline void ImGui::FileBrowser::DrawContents()
         ToolTip("Details view");
     }
 
+    if(thumbnailPauseToggle_ && viewMode_ == ViewMode::Icons)
+    {
+        SameLine();
+        const bool paused = thumbnailPaused_ && thumbnailPaused_();
+        if(ChromeButton(paused ? "Resume" : "Pause"))
+        {
+            thumbnailPauseToggle_();
+        }
+        else
+        {
+            ToolTip(paused ? "Resume image previews" : "Pause image previews");
+        }
+    }
+
     bool focusOnInputText = false;
     if(flags_ & ImGuiFileBrowserFlags_CreateNewDir)
     {
         SameLine();
-        if(SmallButton("+"))
+        if(ChromeButton("+"))
         {
             OpenPopup(openNewDirLabel_.c_str());
             newDirNameBuffer_[0] = '\0';
@@ -1099,7 +1161,14 @@ inline void ImGui::FileBrowser::DrawContents()
             SameLine(0.0f, 0.0f);
         }
 
-        BeginChild("ch", ImVec2(0, -reserveHeight), true);
+        // NoNav: keyboard nav otherwise scores every row and scrolls the list
+        // to follow a moving highlight. That reads as folders flying in.
+        if(scrollFileListTop_)
+        {
+            SetNextWindowScroll(ImVec2(0.0f, 0.0f));
+        }
+        BeginChild("ch", ImVec2(0, -reserveHeight), ImGuiChildFlags_Borders,
+                   ImGuiWindowFlags_NoNav);
         ScopeGuard endChild([] { EndChild(); });
 
         if(needSort_ && viewMode_ == ViewMode::Icons)
@@ -1136,6 +1205,7 @@ inline void ImGui::FileBrowser::DrawContents()
         {
             DisplayDetailsTable(shouldSetNewDir, newDir);
         }
+        scrollFileListTop_ = false;
     }
 
     if(shouldSetNewDir)
@@ -1518,9 +1588,29 @@ inline bool ImGui::FileBrowser::ConsumeShowHiddenChanged()
 }
 
 inline void ImGui::FileBrowser::SetThumbnailProvider(
-    std::function<ImTextureID(const std::filesystem::path &)> fn)
+    std::function<FileThumbnail(const std::filesystem::path &)> fn)
 {
     thumbnailProvider_ = std::move(fn);
+}
+
+inline void ImGui::FileBrowser::SetThumbnailCancel(
+    std::function<void(const std::filesystem::path &)> fn)
+{
+    thumbnailCancel_ = std::move(fn);
+}
+
+inline void ImGui::FileBrowser::SetThumbnailPause(std::function<bool()> paused,
+                                                  std::function<void()> toggle)
+{
+    thumbnailPaused_      = std::move(paused);
+    thumbnailPauseToggle_ = std::move(toggle);
+}
+
+inline bool ImGui::FileBrowser::ConsumeListingReload()
+{
+    const bool changed = listingReload_;
+    listingReload_ = false;
+    return changed;
 }
 
 inline void ImGui::FileBrowser::RebuildVisibleRecords()
@@ -1671,6 +1761,12 @@ inline void ImGui::FileBrowser::DisplayDetailsTable(
         return;
     }
     ScopeGuard endTable([] { EndTable(); });
+    if(scrollFileListTop_)
+    {
+        // ScrollY tables keep their own child. The outer list reset does not
+        // reach it, so a new folder would open wherever the last one sat.
+        SetScrollY(0.0f);
+    }
     TableSetupScrollFreeze(0, 1);
     TableSetupColumn("Name",
                      ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort |
@@ -1767,10 +1863,21 @@ inline void ImGui::FileBrowser::DrawIconTile(
     const ImVec2 p0 = GetCursorScreenPos();
 
 #if IMGUI_VERSION_NUM >= 19100
-    const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_NoAutoClosePopups;
+    const ImGuiSelectableFlags selectableFlag =
+        ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_AllowOverlap;
 #else
-    const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_DontClosePopups;
+    const ImGuiSelectableFlags selectableFlag =
+        ImGuiSelectableFlags_DontClosePopups | ImGuiSelectableFlags_AllowItemOverlap;
 #endif
+
+    const float pad = GetStyle().ItemInnerSpacing.x;
+    const ImVec2 thumbMin(p0.x + pad, p0.y + pad);
+    const ImVec2 thumbMax(thumbMin.x + thumbSize.x, thumbMin.y + thumbSize.y);
+    FileThumbnail thumb;
+    if(!rsc.isDir && thumbnailProvider_)
+    {
+        thumb = thumbnailProvider_(currentDirectory_ / rsc.name);
+    }
 
     PushID(static_cast<int>(rscIndex));
     if(Selectable("##icon", selected, selectableFlag, tileSize))
@@ -1779,6 +1886,23 @@ inline void ImGui::FileBrowser::DrawIconTile(
     }
     HandleRecordActivate(rsc, shouldSetNewDir, newDir);
     HandleRecordContext(rsc);
+    if(thumb.pending && thumbnailCancel_)
+    {
+        const float hit = (std::max)(thumbSize.x * 0.42f, 18.0f);
+        const ImVec2 center((thumbMin.x + thumbMax.x) * 0.5f, (thumbMin.y + thumbMax.y) * 0.5f);
+        const ImVec2 hitMin(center.x - hit * 0.5f, center.y - hit * 0.5f);
+        const ImVec2 savedCursor = GetCursorScreenPos();
+        SetCursorScreenPos(hitMin);
+        if(InvisibleButton("##preview", ImVec2(hit, hit)))
+        {
+            thumbnailCancel_(currentDirectory_ / rsc.name);
+        }
+        else
+        {
+            ToolTip("Stop this preview");
+        }
+        SetCursorScreenPos(savedCursor);
+    }
     if(typeAheadScroll_ && static_cast<int>(rscIndex) == typeAheadIndex_)
     {
         SetScrollHereY(0.35f);
@@ -1794,26 +1918,54 @@ inline void ImGui::FileBrowser::DrawIconTile(
             GetColorU32(ImGuiCol_HeaderHovered, 0.35f));
     }
 
-    const float pad = GetStyle().ItemInnerSpacing.x;
-    const ImVec2 thumbMin(p0.x + pad, p0.y + pad);
-    const ImVec2 thumbMax(thumbMin.x + thumbSize.x, thumbMin.y + thumbSize.y);
-    ImTextureID tex = ImTextureID_Invalid;
-    if(!rsc.isDir && thumbnailProvider_)
-    {
-        tex = thumbnailProvider_(currentDirectory_ / rsc.name);
-    }
-
     ImDrawList *dl = GetWindowDrawList();
-    if(tex != ImTextureID_Invalid)
+    const ImU32 plate = rsc.isDir
+        ? GetColorU32(ImVec4(0.82f, 0.70f, 0.32f, 0.85f))
+        : GetColorU32(ImVec4(0.35f, 0.38f, 0.42f, 0.85f));
+    dl->AddRectFilled(thumbMin, thumbMax, plate, 4.0f);
+
+    if(thumb.id != ImTextureID_Invalid && thumb.w > 0 && thumb.h > 0)
     {
-        dl->AddImage(ImTextureRef(tex), thumbMin, thumbMax);
+        const float boxW = thumbSize.x;
+        const float boxH = thumbSize.y;
+        const float scale = (std::min)(boxW / static_cast<float>(thumb.w),
+                                       boxH / static_cast<float>(thumb.h));
+        const float drawW = static_cast<float>(thumb.w) * scale;
+        const float drawH = static_cast<float>(thumb.h) * scale;
+        const ImVec2 imgMin(
+            thumbMin.x + (boxW - drawW) * 0.5f,
+            thumbMin.y + (boxH - drawH) * 0.5f);
+        const ImVec2 imgMax(imgMin.x + drawW, imgMin.y + drawH);
+        dl->AddImage(ImTextureRef(thumb.id), imgMin, imgMax);
+    }
+    else if(thumb.pending)
+    {
+        const ImVec2 center((thumbMin.x + thumbMax.x) * 0.5f, (thumbMin.y + thumbMax.y) * 0.5f);
+        const float radius = (std::max)(thumbSize.y * 0.16f, 6.0f);
+        const ImU32 ink = GetColorU32(ImGuiCol_Text);
+        if(thumb.paused)
+        {
+            const float barW = radius * 0.28f;
+            const float gap = radius * 0.28f;
+            const float h = radius * 1.15f;
+            dl->AddRectFilled(ImVec2(center.x - gap - barW, center.y - h * 0.5f),
+                              ImVec2(center.x - gap, center.y + h * 0.5f), ink, 1.0f);
+            dl->AddRectFilled(ImVec2(center.x + gap, center.y - h * 0.5f),
+                              ImVec2(center.x + gap + barW, center.y + h * 0.5f), ink, 1.0f);
+        }
+        else
+        {
+            const double spins = GetTime() * 1.5;
+            const double turns = spins - static_cast<double>(static_cast<long long>(spins));
+            const float a0 = static_cast<float>(turns * 6.28318530718);
+            dl->AddCircle(center, radius, GetColorU32(ImGuiCol_Text, 0.35f), 20, 1.5f);
+            dl->PathClear();
+            dl->PathArcTo(center, radius, a0, a0 + 4.2f, 16);
+            dl->PathStroke(ink, 0, 2.0f);
+        }
     }
     else
     {
-        const ImU32 fill = rsc.isDir
-            ? GetColorU32(ImVec4(0.82f, 0.70f, 0.32f, 0.85f))
-            : GetColorU32(ImVec4(0.35f, 0.38f, 0.42f, 0.85f));
-        dl->AddRectFilled(thumbMin, thumbMax, fill, 4.0f);
         const char *label = rsc.isDir ? "DIR" : (rsc.typeText.empty() ? "FILE" : rsc.typeText.c_str());
         const ImVec2 ts = CalcTextSize(label);
         const ImVec2 tp(
@@ -1847,7 +1999,19 @@ inline void ImGui::FileBrowser::DisplayIconsGrid(
     const float thumb = tileW - GetStyle().ItemInnerSpacing.x * 2.0f;
     const float nameH = font * 2.0f;
     const float tileH = GetStyle().ItemInnerSpacing.y * 3.0f + thumb + nameH;
-    const float avail = GetContentRegionAvail().x;
+    const float stride = tileH + gap;
+
+    // Always leave room for the scrollbar. Counting columns from the full
+    // width, then again once the bar appears, reflows every tile.
+    float avail = GetContentRegionAvail().x;
+    if(GetScrollMaxY() <= 0.0f)
+    {
+        avail -= GetStyle().ScrollbarSize;
+    }
+    if(avail < tileW)
+    {
+        avail = GetContentRegionAvail().x;
+    }
     int cols = static_cast<int>((avail + gap) / (tileW + gap));
     if(cols < 1)
     {
@@ -1856,41 +2020,69 @@ inline void ImGui::FileBrowser::DisplayIconsGrid(
     const int count = static_cast<int>(visibleRecords_.size());
     const int rows = (count + cols - 1) / cols;
 
-    // One clipper item per row. SameLine places columns so we never SetCursorPos
-    // past the last submitted tile (ImGui 1.89+ rejects that without Dummy).
-    PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
-    ImGuiListClipper clipper;
-    clipper.Begin(rows, tileH + gap);
+    const float gridTop = GetCursorPosY();
+    const float scrollY = GetScrollY();
+    int rowBegin = static_cast<int>((scrollY - gridTop) / stride) - 1;
+    if(rowBegin < 0)
+    {
+        rowBegin = 0;
+    }
+    int rowEnd = static_cast<int>((scrollY + GetWindowSize().y - gridTop) / stride) + 2;
+    if(rowEnd > rows)
+    {
+        rowEnd = rows;
+    }
     if(typeAheadScroll_ && typeAheadIndex_ >= 0)
     {
         for(int i = 0; i < count; ++i)
         {
             if(static_cast<int>(visibleRecords_[static_cast<size_t>(i)]) == typeAheadIndex_)
             {
-                clipper.IncludeItemByIndex(i / cols);
+                const int row = i / cols;
+                if(row < rowBegin)
+                {
+                    rowBegin = row;
+                }
+                if(row + 1 > rowEnd)
+                {
+                    rowEnd = row + 1;
+                }
                 break;
             }
         }
     }
-    while(clipper.Step())
+
+    // Dummy spacers stand in for off-screen rows. A list clipper seek was
+    // moving the cursor between frames, which showed up as tiles sliding in.
+    PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
+    if(rowBegin > 0)
     {
-        for(int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+        Dummy(ImVec2(0.0f, rowBegin * stride - gap));
+    }
+    for(int row = rowBegin; row < rowEnd; ++row)
+    {
+        for(int col = 0; col < cols; ++col)
         {
-            for(int col = 0; col < cols; ++col)
+            const int vis = row * cols + col;
+            if(vis >= count)
             {
-                const int vis = row * cols + col;
-                if(vis >= count)
-                {
-                    break;
-                }
-                if(col > 0)
-                {
-                    SameLine();
-                }
-                DrawIconTile(visibleRecords_[static_cast<size_t>(vis)],
-                             ImVec2(tileW, tileH), ImVec2(thumb, thumb),
-                             shouldSetNewDir, newDir);
+                break;
             }
+            if(col > 0)
+            {
+                SameLine();
+            }
+            DrawIconTile(visibleRecords_[static_cast<size_t>(vis)],
+                         ImVec2(tileW, tileH), ImVec2(thumb, thumb),
+                         shouldSetNewDir, newDir);
+        }
+    }
+    if(rowEnd < rows)
+    {
+        const float remain = (rows - rowEnd) * stride - gap;
+        if(remain > 0.0f)
+        {
+            Dummy(ImVec2(0.0f, remain));
         }
     }
     PopStyleVar();
@@ -2059,6 +2251,17 @@ inline void ImGui::FileBrowser::ToolTip(const std::string_view &s)
         return;
     }
     ImGui::SetTooltip("%s", s.data());
+}
+
+inline bool ImGui::FileBrowser::ChromeButton(const char *label)
+{
+    // ImGui::SmallButton zeros FramePadding.y - crumbs and toolbar look
+    // top-heavy. Equal pad from FramePadding.y keeps vertical margins.
+    const float pad = GetStyle().FramePadding.y;
+    PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(pad, pad));
+    const bool hit = Button(label);
+    PopStyleVar();
+    return hit;
 }
 
 inline std::string ImGui::FileBrowser::FormatByteSize(std::uint64_t bytes)
@@ -2300,14 +2503,12 @@ inline std::vector<ImGui::FileBrowser::FileRecord> ImGui::FileBrowser::CollectFi
 
 inline void ImGui::FileBrowser::ShowListingPlaceholder()
 {
+    // Empty until the scan lands. A stand-in ".." row made the real folders
+    // appear to fly in underneath it a frame later.
     listingReady_ = false;
-    FileRecord parent;
-    parent.isDir = true;
-    parent.name = "..";
-    parent.showName = "..";
-    parent.typeText = "Folder";
-    fileRecords_ = { std::move(parent) };
+    fileRecords_.clear();
     needSort_ = true;
+    scrollFileListTop_ = true;
 }
 
 inline void ImGui::FileBrowser::ReapListing()
@@ -2427,6 +2628,7 @@ inline void ImGui::FileBrowser::PumpListing()
             currentDirectory_ = std::move(pending.directory);
             fileRecords_ = std::move(pending.records);
             needSort_ = true;
+            scrollFileListTop_ = true;
             SortFileRecords(nullptr);
             ClearRangeSelectionState();
             listingReady_ = true;

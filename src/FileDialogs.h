@@ -224,6 +224,9 @@ class FileDialogs {
 
 	enum class Mode { None, Open, Save, Folder };
 
+	/** @brief Run a queued open/save result after the dialog has closed. */
+	void flushPendingSelection();
+
 	ImGui::FileBrowser m_open;
 	ImGui::FileBrowser m_save;
 	ImGui::FileBrowser m_folder;
@@ -234,6 +237,11 @@ class FileDialogs {
 	Callback m_callback;
 	MultiCallback m_multiCallback;
 	DropHandler m_unclaimedDrop;
+	/// Chosen path(s) fire on the next tick so load work is not mid-dialog draw.
+	Callback m_pendingCallback;
+	MultiCallback m_pendingMultiCallback;
+	std::string m_pendingPath;
+	std::vector<std::string> m_pendingPaths;
 	bool m_pinsChanged = false;	  ///< User pinned/unpinned since last consume.
 	bool m_viewChanged = false;	  ///< User toggled Details / Icons since last consume.
 	bool m_hiddenChanged = false; ///< User toggled Hidden files since last consume.

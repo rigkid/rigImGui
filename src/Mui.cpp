@@ -2534,7 +2534,7 @@ void Mui::drawProgressInStatusBar(bool sameLine) {
 
 	if (snap.cancelable && snap.active) {
 		ImGui::SameLine(0, 10.f);
-		if (ImGui::SmallButton("Cancel##rigProgressStatus")) {
+		if (uiChromeButton("Cancel##rigProgressStatus")) {
 			m_progress.requestCancel();
 		}
 	}

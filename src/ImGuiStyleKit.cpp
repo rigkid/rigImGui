@@ -808,6 +808,9 @@ bool loadFonts(ImGuiIO& io, const std::string& fontsSearchDir, const std::string
 		icons.MergeMode = true;
 		icons.PixelSnapH = true;
 		icons.GlyphMinAdvanceX = uiSize;
+		// FA solid sits high in the em box next to Roboto; nudge so icon
+		// buttons with equal FramePadding look optically centred.
+		icons.GlyphOffset.y = uiSize * 0.08f;
 		static const ImWchar ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
 		io.Fonts->AddFontFromFileTTF(faPath.string().c_str(), uiSize, &icons, ranges);
 		spdlog::info("[rigImGui] Merged Font Awesome from {}", faPath.string());

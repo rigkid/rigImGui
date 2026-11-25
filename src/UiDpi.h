@@ -95,6 +95,35 @@ inline float uiTextButtonWidth(const char* label) {
 }
 
 /**
+ * @brief Panel / toolbar text button with real vertical padding.
+ * @details Never call `ImGui::SmallButton` for chrome: it sets
+ * `FramePadding.y = 0`, so top/bottom margins disappear while left/right stay.
+ * That is why icon and path-crumb buttons look shoved up and tight under tabs.
+ * Uses equal pad from `FramePadding.y` so the glyph sits in the frame.
+ */
+inline bool uiChromeButton(const char* label, const ImVec2& size = ImVec2(0.f, 0.f)) {
+	const float pad = ImGui::GetStyle().FramePadding.y;
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(pad, pad));
+	const bool hit = ImGui::Button(label, size);
+	ImGui::PopStyleVar();
+	return hit;
+}
+
+/**
+ * @brief Square icon chrome button (Font Awesome, etc.).
+ * @details Side matches `GetFrameHeight()` under equal pad so the control lines
+ * up with Checkbox / InputText on the same row.
+ */
+inline bool uiIconButton(const char* label) {
+	const float pad = ImGui::GetStyle().FramePadding.y;
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(pad, pad));
+	const float side = ImGui::GetFrameHeight();
+	const bool hit = ImGui::Button(label, ImVec2(side, side));
+	ImGui::PopStyleVar();
+	return hit;
+}
+
+/**
  * @brief SameLine only when the rest of the row can hold @p nextWidth.
  * @details Narrow docks clip SameLine buttons; stack them instead.
  */
