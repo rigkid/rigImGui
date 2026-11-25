@@ -4,6 +4,7 @@
 #include "CName.h"
 #include "CUiPanel.h"
 #include "EntityProperty.h"
+#include "ImGuiExpr.h"
 #include "PropEditors.h"
 
 #include <imgui.h>
@@ -87,7 +88,7 @@ bool drawOneControl(MEcs& ecs, entt::entity e, ecs::CUiControl& c, const UiContr
 			const int mn = static_cast<int>(c.min);
 			const int mx = static_cast<int>(c.max);
 			const float step = c.step > 0.f ? c.step : 1.f;
-			if (ImGui::DragInt(id, &v, step, mn, mx)) {
+			if (DragIntExpr(id, &v, step, mn, mx)) {
 				ecs::writeEntityProperty(ecs, target, c.propertyKey, static_cast<float>(v));
 				changed = true;
 			}
@@ -117,7 +118,7 @@ bool drawOneControl(MEcs& ecs, entt::entity e, ecs::CUiControl& c, const UiContr
 					ecs::writeEntityProperty(ecs, target, c.propertyKey, v);
 					changed = true;
 				}
-			} else if (ImGui::DragFloat(id, &v, step, c.min, c.max)) {
+			} else if (DragFloatExpr(id, &v, step, c.min, c.max)) {
 				ecs::writeEntityProperty(ecs, target, c.propertyKey, v);
 				changed = true;
 			}

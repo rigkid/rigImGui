@@ -1,10 +1,15 @@
 #include "InputSpin.h"
 
+#include "ImGuiExpr.h"
+
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 
 namespace rigkit {
 namespace {
@@ -61,6 +66,13 @@ bool spinHalf(const char* id, ImVec2 size, bool plus, ImDrawFlags corners) {
 	return pressed;
 }
 
+struct SpinExprEdit {
+	ImGuiID id = 0;
+	double current = 0.0;
+	char buf[64]{};
+};
+SpinExprEdit g_spinExpr;
+
 } // namespace
 
 bool InputSpinInt(const char* label, int* v, int step, int stepFast) {
@@ -81,7 +93,39 @@ bool InputSpinInt(const char* label, int* v, int step, int stepFast) {
 	ImGui::BeginGroup();
 	ImGui::PushID(label);
 	ImGui::SetNextItemWidth(std::max(1.f, ImGui::CalcItemWidth() - bw - gap));
-	bool changed = ImGui::InputInt("##v", v, 0, 0);
+
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	const ImGuiID fieldId = window ? window->GetID("##v") : 0;
+	bool changed = false;
+	const ImGuiInputTextFlags textFlags =
+		ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll;
+	if (g_spinExpr.id == fieldId) {
+		ImGui::InputText("##v", g_spinExpr.buf, sizeof(g_spinExpr.buf), textFlags);
+		if (ImGui::IsItemDeactivated()) {
+			double out = 0.0;
+			if (ImGui::IsItemDeactivatedAfterEdit() &&
+				evalNumericExpr(g_spinExpr.buf, g_spinExpr.current, out)) {
+				*v = static_cast<int>(std::llround(out));
+				changed = true;
+			}
+			g_spinExpr.id = 0;
+		}
+	} else {
+		char seed[64];
+		std::snprintf(seed, sizeof(seed), "%d", *v);
+		ImGui::InputText("##v", seed, sizeof(seed), textFlags);
+		if (ImGui::IsItemActivated()) {
+			g_spinExpr.id = fieldId;
+			g_spinExpr.current = static_cast<double>(*v);
+			std::snprintf(g_spinExpr.buf, sizeof(g_spinExpr.buf), "%s", seed);
+		} else if (ImGui::IsItemDeactivatedAfterEdit()) {
+			double out = 0.0;
+			if (evalNumericExpr(seed, static_cast<double>(*v), out)) {
+				*v = static_cast<int>(std::llround(out));
+				changed = true;
+			}
+		}
+	}
 
 	ImGui::SameLine(0.f, gap);
 	ImGui::BeginGroup();

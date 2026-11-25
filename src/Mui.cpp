@@ -317,14 +317,23 @@ void Mui::renderToolRail() {
 		ImGui::End();
 		return;
 	}
+	// Icon-only glyphs match the labelled icons (the interface font). Toolbar
+	// Icon Size can only raise that glyph. The square is the glyph plus the
+	// text button's vertical padding. Extra dock space does not grow it; a
+	// thinner strip scales the whole button down. PushFont takes 1x pixels
+	// and multiplies by FontScaleDpi, so the glyph size stays unscaled here.
+	const float fontBase = (std::max)(1.f, ImGui::GetStyle().FontSizeBase);
+	const float glyphDesign = (std::max)(fontBase, std::clamp(m_uiPrefs.toolIconSize, 12.f, 40.f));
+	const float glyphMul = glyphDesign / fontBase;
+	const float naturalBtn = ImGui::GetFrameHeight() * glyphMul;
+	const float labelAcross = (std::max)(uiPx(64.f), naturalBtn + uiPx(20.f));
 	if (ImGuiWindow* toolWindow = ImGui::GetCurrentWindow()) {
 		ImGuiDockNode* node = toolWindow->DockNode;
 		ImGuiDockNode* parent = node ? node->ParentNode : nullptr;
 		if (node && parent && parent->SplitAxis == ImGuiAxis_Y && node->Windows.Size == 1 &&
 			!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-			const float iconDesign = std::clamp(m_uiPrefs.toolIconSize, 12.f, 40.f);
-			const float hug = uiPx(iconDesign + 10.f);
-			if (node->Size.y > hug + uiPx(4.f) && node->Size.y < uiPx(64.f)) {
+			const float hug = naturalBtn + ImGui::GetStyle().WindowPadding.y * 2.f + uiPx(4.f);
+			if (node->Size.y > hug + uiPx(4.f) && node->Size.y < labelAcross) {
 				ImGuiDockNode* other =
 					parent->ChildNodes[0] == node ? parent->ChildNodes[1] : parent->ChildNodes[0];
 				const float total = other ? node->Size.y + other->Size.y : 0.f;
@@ -343,16 +352,13 @@ void Mui::renderToolRail() {
 	// click arms it, hold or right-click opens the flyout.
 	const ImVec2 winSize = ImGui::GetWindowSize();
 	const bool horizontal = winSize.x > winSize.y;
-	const bool labelled = horizontal ? winSize.y > uiPx(64.f) : winSize.x > uiPx(120.f);
-	const float availH = ImGui::GetContentRegionAvail().y;
-	// Never larger than the strip. A tall dock stops at the design size.
-	const float iconDesign = std::clamp(m_uiPrefs.toolIconSize, 12.f, 40.f);
-	const float designBtn = uiPx(iconDesign);
-	const float btn = (availH > 1.f) ? (std::min)(designBtn, availH) : designBtn;
-	// fitted is 1x pixels. PushFont multiplies by FontScaleDpi, so a uiPx size
-	// draws twice as large and clips flush to the button.
-	const float fitted = (designBtn > 1.f) ? iconDesign * (btn / designBtn) : iconDesign;
-	const float padDesign = std::min(std::max(2.f, std::round(fitted * 0.2f)), fitted * 0.3f);
+	const bool labelled = horizontal ? winSize.y > labelAcross : winSize.x > uiPx(120.f);
+	const float room =
+		horizontal ? ImGui::GetContentRegionAvail().y : ImGui::GetContentRegionAvail().x;
+	const float side = (room > 1.f && room < naturalBtn) ? room : naturalBtn;
+	const float fit = (naturalBtn > 1.f) ? side / naturalBtn : 1.f;
+	const float pad = ImGui::GetStyle().FramePadding.y * glyphMul * fit;
+	const float btn = side;
 	if (horizontal) {
 		ImGuiDockNode* node = ImGui::GetCurrentWindow()->DockNode;
 		if (node && node->IsHiddenTabBar()) {
@@ -368,13 +374,14 @@ void Mui::renderToolRail() {
 		}
 	}
 	if (labelled) {
-		// Wide rail draws the icon and its label. Height has to follow that
-		// font plus style padding; a square of toolIconSize clips both.
-		ImGui::PushFont(nullptr, fitted);
+		// Icon and name share the interface font. Extra dock space does not
+		// enlarge the type.
+		ImGui::PushFont(nullptr, fontBase);
 	} else {
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(uiPx(padDesign), uiPx(padDesign)));
-		const float glyph = std::max(1.f, fitted - padDesign * 2.f);
-		ImGui::PushFont(nullptr, glyph);
+		// Same glyph as the labelled icon, until the strip is thinner than
+		// that button. Padding scales with the glyph so the icon is not clipped.
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(pad, pad));
+		ImGui::PushFont(nullptr, (std::max)(1.f, glyphDesign * fit));
 	}
 
 	// A labelled column only a little wider than the icons still clips the

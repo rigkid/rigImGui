@@ -3,6 +3,7 @@
 #include "rendering/U_gladGlfw.h"
 #include "core/IMui.h"
 #include "core/util/AppPaths.h"
+#include "ImGuiExpr.h"
 
 #include <imgui.h>
 #include <algorithm>
@@ -126,7 +127,7 @@ bool draw(const char* strId, std::string& path, float* sizePx, IMui* ui,
 	}
 
 	if (sizePx) {
-		if (ImGui::DragFloat("Font size", sizePx, 0.5f, 8.f, 128.f, "%.0f")) {
+		if (DragFloatExpr("Font size", sizePx, 0.5f, 8.f, 128.f, "%.0f")) {
 			*sizePx = std::clamp(*sizePx, 8.f, 128.f);
 			changed = true;
 		}

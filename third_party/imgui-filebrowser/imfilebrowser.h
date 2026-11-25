@@ -1878,7 +1878,7 @@ inline void ImGui::FileBrowser::DrawFallbackGlyph(
         const float iw = w * 0.64f;
         const float bodyH = h * 0.46f;
         const float tabW = iw * 0.40f;
-        const float tabH = bodyH * 0.14f;
+        const float tabH = bodyH * 0.10f;
         const float totalH = tabH + bodyH;
         // Center the full tab+body silhouette in the plate.
         const float left = c.x - iw * 0.5f;
@@ -1919,9 +1919,10 @@ inline void ImGui::FileBrowser::DrawFallbackGlyph(
     const float left = c.x - iw * 0.5f;
     const float top = c.y - ih * 0.55f;
     const float fold = iw * 0.30f;
-    const ImU32 page = GetColorU32(ImVec4(0.90f, 0.92f, 0.95f, 1.0f));
-    const ImU32 foldCol = GetColorU32(ImVec4(0.68f, 0.72f, 0.78f, 1.0f));
-    const ImU32 ink = GetColorU32(ImVec4(0.42f, 0.46f, 0.52f, 1.0f));
+    const ImU32 page = GetColorU32(ImGuiCol_ChildBg);
+    const ImU32 foldCol = GetColorU32(ImGuiCol_Border);
+    const ImU32 ink = GetColorU32(ImGuiCol_Text, 0.55f);
+    const ImU32 stroke = GetColorU32(ImGuiCol_Border);
 
     dl->PathClear();
     dl->PathLineTo(ImVec2(left, top));
@@ -1938,7 +1939,7 @@ inline void ImGui::FileBrowser::DrawFallbackGlyph(
     dl->PathLineTo(ImVec2(left + iw, top + fold));
     dl->PathLineTo(ImVec2(left + iw, top + ih));
     dl->PathLineTo(ImVec2(left, top + ih));
-    dl->PathStroke(GetColorU32(ImVec4(0.35f, 0.38f, 0.42f, 0.55f)), ImDrawFlags_Closed, 1.0f);
+    dl->PathStroke(stroke, ImDrawFlags_Closed, 1.0f);
 
     if(imageExt)
     {
@@ -1957,7 +1958,7 @@ inline void ImGui::FileBrowser::DrawFallbackGlyph(
         dl->PathLineTo(ImVec2(frameMin.x + (frameMax.x - frameMin.x) * 0.58f,
                               frameMin.y + (frameMax.y - frameMin.y) * 0.70f));
         dl->PathLineTo(ImVec2(frameMax.x - 1.0f, frameMax.y - 1.0f));
-        dl->PathFillConvex(GetColorU32(ImVec4(0.42f, 0.46f, 0.52f, 0.85f)));
+        dl->PathFillConvex(GetColorU32(ImGuiCol_Text, 0.40f));
     }
     else
     {
@@ -1980,9 +1981,9 @@ inline void ImGui::FileBrowser::DrawFallbackGlyph(
         const float bh = ts.y + badgePadY * 2.0f;
         const ImVec2 bMin(c.x - bw * 0.5f, thumbMax.y - bh - h * 0.06f);
         const ImVec2 bMax(bMin.x + bw, bMin.y + bh);
-        dl->AddRectFilled(bMin, bMax, GetColorU32(ImVec4(0.12f, 0.13f, 0.15f, 0.92f)), 3.0f);
-        dl->AddText(ImVec2(bMin.x + badgePadX, bMin.y + badgePadY),
-                    GetColorU32(ImVec4(0.92f, 0.78f, 0.32f, 1.0f)), ext.c_str());
+        dl->AddRectFilled(bMin, bMax, GetColorU32(ImGuiCol_FrameBg), 3.0f);
+        dl->AddText(ImVec2(bMin.x + badgePadX, bMin.y + badgePadY), GetColorU32(ImGuiCol_Text),
+                    ext.c_str());
     }
 }
 
@@ -2062,9 +2063,14 @@ inline void ImGui::FileBrowser::DrawIconTile(
     }
 
     ImDrawList *dl = GetWindowDrawList();
-    dl->AddRectFilled(thumbMin, thumbMax, GetColorU32(ImVec4(0.20f, 0.21f, 0.24f, 0.95f)), 6.0f);
+    const bool showThumb = thumb.id != ImTextureID_Invalid && thumb.w > 0 && thumb.h > 0;
+    // Glyphs float on the window. Only thumbs / loaders need a themed well.
+    if(showThumb || thumb.pending)
+    {
+        dl->AddRectFilled(thumbMin, thumbMax, GetColorU32(ImGuiCol_FrameBg), 6.0f);
+    }
 
-    if(thumb.id != ImTextureID_Invalid && thumb.w > 0 && thumb.h > 0)
+    if(showThumb)
     {
         const float boxW = thumbSize.x;
         const float boxH = thumbSize.y;

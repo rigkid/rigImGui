@@ -5,7 +5,6 @@
 
 #include <glm/glm.hpp>
 #include <imgui.h>
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <imgui_internal.h>
@@ -36,155 +35,6 @@ struct ActivePropEdit {
 };
 ActivePropEdit g_activeEdit;
 std::vector<uint32_t> g_propDragStack;
-
-/// Click-to-type buffer for one Properties number. Drag stays stock ImGui;
-/// we take over the text path so `*2` / `x*2` never needs a third_party hook.
-struct ExprEdit {
-	ImGuiID id = 0;
-	bool focus = false;
-	double current = 0.0;
-	char buf[64]{};
-};
-ExprEdit g_exprEdit;
-
-void openExprEdit(ImGuiID id, double current, const char* seed) {
-	g_exprEdit.id = id;
-	g_exprEdit.focus = true;
-	g_exprEdit.current = current;
-	std::snprintf(g_exprEdit.buf, sizeof(g_exprEdit.buf), "%s", seed ? seed : "");
-	ImGui::ClearActiveID();
-}
-
-void tryOpenExprFromLastItem(double current, const char* seed) {
-	if (g_exprEdit.id != 0) {
-		return;
-	}
-	const ImGuiID id = ImGui::GetItemID();
-	if (id == 0) {
-		return;
-	}
-	ImGuiIO& io = ImGui::GetIO();
-	const bool hover = ImGui::IsItemHovered();
-	if (hover && (ImGui::IsMouseDoubleClicked(0) || (ImGui::IsMouseClicked(0) && io.KeyCtrl))) {
-		openExprEdit(id, current, seed);
-		return;
-	}
-	if (ImGui::IsItemDeactivated() && !ImGui::IsItemDeactivatedAfterEdit() && io.MouseReleased[0] &&
-		hover) {
-		openExprEdit(id, current, seed);
-	}
-}
-
-bool tickExprEdit(ImGuiID id, const char* label, double& out) {
-	if (g_exprEdit.focus) {
-		ImGui::SetKeyboardFocusHere();
-		g_exprEdit.focus = false;
-	}
-	ImGui::InputText(label, g_exprEdit.buf, sizeof(g_exprEdit.buf),
-					 ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-	if (!ImGui::IsItemDeactivated()) {
-		return false;
-	}
-	const bool ok = ImGui::IsItemDeactivatedAfterEdit() &&
-					evalNumericExpr(g_exprEdit.buf, g_exprEdit.current, out);
-	if (g_exprEdit.id == id) {
-		g_exprEdit.id = 0;
-	}
-	return ok;
-}
-
-bool dragExprFloat(const char* label, float* v, float speed) {
-	ImGuiWindow* window = ImGui::GetCurrentWindow();
-	if (!window) {
-		return false;
-	}
-	const ImGuiID id = window->GetID(label);
-	if (g_exprEdit.id == id) {
-		double out = 0.0;
-		if (!tickExprEdit(id, label, out)) {
-			return false;
-		}
-		*v = static_cast<float>(out);
-		return true;
-	}
-	const bool changed =
-		ImGui::DragFloat(label, v, speed, 0.f, 0.f, "%.3f", ImGuiSliderFlags_NoInput);
-	char seed[64];
-	std::snprintf(seed, sizeof(seed), "%.3f", *v);
-	tryOpenExprFromLastItem(static_cast<double>(*v), seed);
-	return changed;
-}
-
-bool dragExprInt(const char* label, int* v) {
-	ImGuiWindow* window = ImGui::GetCurrentWindow();
-	if (!window) {
-		return false;
-	}
-	const ImGuiID id = window->GetID(label);
-	if (g_exprEdit.id == id) {
-		double out = 0.0;
-		if (!tickExprEdit(id, label, out)) {
-			return false;
-		}
-		*v = static_cast<int>(std::llround(out));
-		return true;
-	}
-	const bool changed = ImGui::DragInt(label, v, 1.f, 0, 0, "%d", ImGuiSliderFlags_NoInput);
-	char seed[64];
-	std::snprintf(seed, sizeof(seed), "%d", *v);
-	tryOpenExprFromLastItem(static_cast<double>(*v), seed);
-	return changed;
-}
-
-bool dragExprDouble(const char* label, double* v) {
-	ImGuiWindow* window = ImGui::GetCurrentWindow();
-	if (!window) {
-		return false;
-	}
-	const ImGuiID id = window->GetID(label);
-	if (g_exprEdit.id == id) {
-		double out = 0.0;
-		if (!tickExprEdit(id, label, out)) {
-			return false;
-		}
-		*v = out;
-		return true;
-	}
-	const bool changed = ImGui::DragScalar(label, ImGuiDataType_Double, v, 0.1f, nullptr, nullptr,
-										   "%g", ImGuiSliderFlags_NoInput);
-	char seed[64];
-	std::snprintf(seed, sizeof(seed), "%g", *v);
-	tryOpenExprFromLastItem(*v, seed);
-	return changed;
-}
-
-bool dragExprFloatN(const char* label, float* v, int n, float speed) {
-	ImGuiWindow* window = ImGui::GetCurrentWindow();
-	if (!window || n <= 0) {
-		return false;
-	}
-	ImGui::BeginGroup();
-	ImGui::PushID(label);
-	ImGui::PushMultiItemsWidths(n, ImGui::CalcItemWidth());
-	bool changed = false;
-	for (int i = 0; i < n; ++i) {
-		ImGui::PushID(i);
-		if (i > 0) {
-			ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
-		}
-		changed |= dragExprFloat("##v", &v[i], speed);
-		ImGui::PopID();
-		ImGui::PopItemWidth();
-	}
-	ImGui::PopID();
-	const char* labelEnd = ImGui::FindRenderedTextEnd(label);
-	if (label != labelEnd) {
-		ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
-		ImGui::TextEx(label, labelEnd);
-	}
-	ImGui::EndGroup();
-	return changed;
-}
 
 bool canPatchPropType(int propType) {
 	switch (propType) {
@@ -635,7 +485,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 			anyChanged |= ImGui::Checkbox(prop.name.c_str(), static_cast<bool*>(prop.data));
 			break;
 		case EPT_INT:
-			anyChanged |= dragExprInt(prop.name.c_str(), static_cast<int*>(prop.data));
+			anyChanged |= DragIntExpr(prop.name.c_str(), static_cast<int*>(prop.data));
 			break;
 		case EPT_ENUM: {
 			if (!prop.enumNames || prop.enumCount <= 0) {
@@ -656,13 +506,13 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 			break;
 		}
 		case EPT_UINT:
-			anyChanged |= dragExprInt(prop.name.c_str(), static_cast<int*>(prop.data));
+			anyChanged |= DragIntExpr(prop.name.c_str(), static_cast<int*>(prop.data));
 			break;
 		case EPT_FLOAT:
-			anyChanged |= dragExprFloat(prop.name.c_str(), static_cast<float*>(prop.data), 0.1f);
+			anyChanged |= DragFloatExpr(prop.name.c_str(), static_cast<float*>(prop.data), 0.1f);
 			break;
 		case EPT_DOUBLE:
-			anyChanged |= dragExprDouble(prop.name.c_str(), static_cast<double*>(prop.data));
+			anyChanged |= DragDoubleExpr(prop.name.c_str(), static_cast<double*>(prop.data));
 			break;
 		case EPT_STRING: {
 			auto* value = static_cast<std::string*>(prop.data);
@@ -688,7 +538,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 		case EPT_VEC2: {
 			auto* vec = static_cast<glm::vec2*>(prop.data);
 			float arr[2] = {vec->x, vec->y};
-			if (dragExprFloatN(prop.name.c_str(), arr, 2, 0.1f)) {
+			if (DragFloatNExpr(prop.name.c_str(), arr, 2, 0.1f)) {
 				vec->x = arr[0];
 				vec->y = arr[1];
 				anyChanged = true;
@@ -698,7 +548,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 		case EPT_VEC3: {
 			auto* vec = static_cast<glm::vec3*>(prop.data);
 			float arr[3] = {vec->x, vec->y, vec->z};
-			if (dragExprFloatN(prop.name.c_str(), arr, 3, 0.1f)) {
+			if (DragFloatNExpr(prop.name.c_str(), arr, 3, 0.1f)) {
 				vec->x = arr[0];
 				vec->y = arr[1];
 				vec->z = arr[2];
@@ -709,7 +559,7 @@ bool RenderProps(const char* headerName, std::vector<sProp>& props, uint32_t ent
 		case EPT_VEC4: {
 			auto* vec = static_cast<glm::vec4*>(prop.data);
 			float arr[4] = {vec->x, vec->y, vec->z, vec->w};
-			if (dragExprFloatN(prop.name.c_str(), arr, 4, 0.1f)) {
+			if (DragFloatNExpr(prop.name.c_str(), arr, 4, 0.1f)) {
 				vec->x = arr[0];
 				vec->y = arr[1];
 				vec->z = arr[2];

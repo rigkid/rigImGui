@@ -4,6 +4,7 @@
 #include "ecs/systems/SEvent.h"
 #include "CUiPanel.h"
 #include "EntityProperty.h"
+#include "ImGuiExpr.h"
 #include "PropEditors.h"
 
 #include <imgui.h>
@@ -112,13 +113,14 @@ void drawControl(MEcs& ecs, entt::entity entity, const ecs::CUiControl& ctrl) {
 		ImGui::Checkbox(label.c_str(), static_cast<bool*>(prop.data));
 	} else if (ctrl.widget == ecs::CUiControl::Widget::Field &&
 			   (prop.type == EPT_FLOAT || prop.type == EPT_DOUBLE)) {
-		ImGui::InputFloat(label.c_str(), static_cast<float*>(prop.data));
+		DragFloatExpr(label.c_str(), static_cast<float*>(prop.data),
+					  ctrl.step > 0.f ? ctrl.step : 0.1f);
 	} else if (ctrl.widget == ecs::CUiControl::Widget::Color &&
 			   (prop.type == EPT_COLOR || prop.type == EPT_VEC4)) {
 		ImGui::ColorEdit4(label.c_str(), static_cast<float*>(prop.data));
 	} else if (ctrl.widget == ecs::CUiControl::Widget::Xy && prop.type == EPT_VEC2) {
-		ImGui::DragFloat2(label.c_str(), static_cast<float*>(prop.data),
-						  ctrl.step > 0.f ? ctrl.step : 0.01f);
+		DragFloat2Expr(label.c_str(), static_cast<float*>(prop.data),
+					   ctrl.step > 0.f ? ctrl.step : 0.01f);
 	} else {
 		std::vector<sProp> one{prop};
 		RenderProps(nullptr, one, ctrl.target);

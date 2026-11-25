@@ -95,7 +95,8 @@ struct UiPrefs {
 	bool detachableWindows = true;
 	/// Corner drags keep the starting aspect. Shift still does this for one gesture.
 	bool keepProportion = false;
-	/// Toolbar icon side, in 1x pixels. The strip clamps this to the space it has.
+	/// Icon-only glyph in 1x pixels. Buttons match the interface font first;
+	/// this only raises them. A thinner strip scales that button down.
 	float toolIconSize = 16.f;
 
 	std::vector<sProp> GetProperties() {

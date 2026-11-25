@@ -8,7 +8,8 @@ namespace rigkit {
  * height as the field and one button wide. Hold to repeat. Ctrl applies
  * @p stepFast. Does not clamp; the caller keeps the range. The label is
  * drawn to the right of the buttons, same place as ImGui::InputInt.
- * Does not draw the side-by-side full-height pair.
+ * Does not draw the side-by-side full-height pair. Text commit runs
+ * `evalNumericExpr` (`*2`, `297*2`, `x+10`).
  * @param step Added on +, subtracted on -. Zero is treated as 1.
  * @param stepFast Used instead of @p step while Ctrl is held. Zero skips that.
  * @return true when the value changes.

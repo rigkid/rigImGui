@@ -291,6 +291,10 @@ Host chrome (dock layout, notifications, prefs-driven spacing) stays inside the 
 - Chrome preferences live on `UiPrefs` (section `rigImGui.ui`) and must be read where they apply.
 - No emoji in UI text; IconFont glyphs are fine.
 
+## Author number fields (`ImGuiExpr`)
+
+For authored numeric values (Properties, tool panels, machine mm fields), use `DragFloatExpr` / `DragIntExpr` / `DragDoubleExpr` / `DragFloat2Expr` from [`ImGuiExpr.h`](src/ImGuiExpr.h) instead of `ImGui::DragFloat`. Ctrl+click, double-click, or click without drag opens a text field. Tab to a field, then Enter / Space or type a digit to edit; Enter commits an expression (`297*2`, `*2`, `x+10`, `(100+50)/2`). `RenderProps` already uses this path. Raw Dear ImGui is fine for chrome/preview sliders. Do not hook ImGui widgets and do not invent a separate expression pack - the helpers live here.
+
 ## Notification System
 
 ### Notifications
